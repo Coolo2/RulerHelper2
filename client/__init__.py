@@ -31,6 +31,16 @@ class Client():
     async def init_db(self):
         await self.database.connect()
 
+        self.global_table = await self.database.create_or_get_table(
+            db.CreationTable(
+                "global",
+                [
+                    db.CreationAttribute("name", db.types.String),
+                    db.CreationAttribute("value", db.types.Any)
+                ]
+            )
+        )
+
         self.towns_table = await self.database.create_or_get_table(
             db.CreationTable(
                 "towns",
@@ -65,6 +75,21 @@ class Client():
                     db.CreationAttribute("armor", db.types.Int),
                     db.CreationAttribute("health", db.types.Int),
                     db.CreationAttribute("duration", db.types.Int),
+                    db.CreationAttribute("last", db.types.Datetime)
+                ]
+            )
+        )
+
+        self.objects_table = await self.database.create_or_get_table(
+            db.CreationTable(
+                "objects",
+                [
+                    db.CreationAttribute("type", db.types.String),
+                    db.CreationAttribute("name", db.types.String),
+                    db.CreationAttribute("towns", db.types.Int),
+                    db.CreationAttribute("town_balance", db.types.Float),
+                    db.CreationAttribute("residents", db.types.Int),
+                    db.CreationAttribute("area", db.types.Int),
                     db.CreationAttribute("last", db.types.Datetime)
                 ]
             )
@@ -114,6 +139,37 @@ class Client():
             )
         )
 
+        self.nation_history_table = await self.database.create_or_get_table(
+            db.CreationTable(
+                "nation_history",
+                [
+                    db.CreationAttribute("nation", db.types.String),
+                    db.CreationAttribute("date", db.types.Date),
+                    db.CreationAttribute("towns", db.types.Int),
+                    db.CreationAttribute("town_balance", db.types.Float),
+                    db.CreationAttribute("residents", db.types.Int),
+                    db.CreationAttribute("capital", db.types.String),
+                    db.CreationAttribute("leader", db.types.String),
+                    db.CreationAttribute("area", db.types.Int)
+                ]
+            )
+        )
+
+        self.global_history_table = await self.database.create_or_get_table(
+            db.CreationTable(
+                "global_history",
+                [
+                    db.CreationAttribute("date", db.types.Date),
+                    db.CreationAttribute("towns", db.types.Int),
+                    db.CreationAttribute("residents", db.types.Int),
+                    db.CreationAttribute("nations", db.types.Int),
+                    db.CreationAttribute("town_value", db.types.Float),
+                    db.CreationAttribute("area", db.types.Int),
+                    db.CreationAttribute("known_players", db.types.Int)
+                ]
+            )
+        )
+
     async def create_session(self):
         if not self.session:
             self.session = aiohttp.ClientSession()
@@ -133,6 +189,9 @@ class Client():
 
         await self.town_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
         await self.player_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
+        await self.global_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
+        await self.nation_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
 
         await self.players_table.delete_records([db.CreationCondition("last", datetime.datetime.now()-s.cull_players_from, "<")])
-        await self.towns_table.delete_records([db.CreationCondition("last_seen", datetime.datetime.now()-s.cull_towns_after, "<")])
+        await self.towns_table.delete_records([db.CreationCondition("last_seen", datetime.datetime.now()-s.cull_objects_after, "<")])
+        await self.objects_table.delete_records([db.CreationCondition("last", datetime.datetime.now()-s.cull_objects_after, "<")])

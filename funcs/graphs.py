@@ -14,12 +14,13 @@ import setup as s
 
 from matplotlib.ticker import MaxNLocator
 import matplotlib.dates as mdates
-from matplotlib.collections import PolyCollection
 
 import datetime
 
+import client
+
 def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight : int = None):
-        
+    
     color = "silver"
 
     matplotlib.rcParams['text.color'] = color
@@ -33,14 +34,17 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
 
     if chartType == plt.pie:
-        barlist, labels, pct_texts = plt.pie(data.values(), labels=data.keys(), autopct='%1.1f%%', textprops={'fontsize': 7, "color":"white"}, rotatelabels=True, radius=1, startangle=160)
+        def my_autopct(pct):
+            return ('%.1f' % pct) + "%" if pct > 3 else ''
+
+        barlist, labels, pct_texts = plt.pie(data.values(), labels=data.keys(), autopct=my_autopct, textprops={'fontsize': 7, "color":"white"}, rotatelabels=True, radius=1, startangle=160)
         
         for label, pct_text in zip(labels, pct_texts):
             pct_text.set_rotation(label.get_rotation())
     else:
-        barlist = chartType(data.keys(), data.values())
+        barlist = chartType(data.keys(), data.values(), color=s.bar_color)
 
-    plt.title(title)
+    plt.title(title, y=1.2 if chartType == plt.pie else 1)
     plt.xlabel(x)
     plt.ylabel(y)
 
@@ -50,7 +54,7 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
         barlist[highlight].set_color('r')
 
     buf = io.BytesIO()
-    plt.savefig(buf, dpi=(s.IMAGE_DPI/5)*3, transparent=True, bbox_inches="tight")
+    plt.savefig(buf, dpi=s.IMAGE_DPI_GRAPH, transparent=True, bbox_inches="tight")
     buf.seek(0)
 
     plt.close()
@@ -123,13 +127,82 @@ def save_timeline(data : dict, title : str):
         gnt.broken_barh(ranges[item], (start_y+i, 1), facecolors =(f'tab:{s.timeline_colors[i%len(s.timeline_colors)]}'))
 
     buf = io.BytesIO()
-    plt.savefig(buf, dpi=(s.IMAGE_DPI/5)*3, transparent=True, bbox_inches="tight")
+    plt.savefig(buf, dpi=s.IMAGE_DPI_GRAPH, transparent=True, bbox_inches="tight")
     buf.seek(0)
 
     plt.close()
 
     return buf
         
+def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto", plot_spawn=True, dot_size=None, whole=True, players : list[client.object.Player] = None):
+
+    xw = 36865
+    yw = 18432
+
+    fig = plt.figure()
+    fig.patch.set_facecolor('#2F3136')
+
+    for town in towns:
+        
+        for i, polygon in enumerate(town.locations.geoms):
+            if not outposts and i > 0:
+                continue
+
+            plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.5)
+
+    ax = plt.gca()
+    ax.set_aspect('equal', adjustable='box')
+
+    x_lim = ax.get_xlim()
+    y_lim = ax.get_ylim()
+
+    
+    if show_earth == "auto" and x_lim[1]-x_lim[0] > 2000 or y_lim[1]-y_lim[0] > 2000:
+        show_earth = True
+
+    if plot_spawn:
+        
+        for town in towns:
+        
+            plt.scatter([town.spawn.x], [town.spawn.z], color=town.border_color, zorder=3, s=dot_size or 10)
+
+    if show_earth == True:
+        img = plt.imread("earth.png")
+        plt.imshow(img, extent=[0-xw, xw, 0-yw, yw], origin='lower')
+    
+    if players:
+        x_online = []
+        z_online = []
+
+        x_offline = []
+        z_offline = []
+
+        for player in players:
+            if player.online:
+                x_online.append(player.location.x)
+                z_online.append(player.location.z)
+            else:
+                x_offline.append(player.location.x)
+                z_offline.append(player.location.z)
+
+        plt.scatter(x_online, z_online, color="white", s=dot_size or 10, zorder=5)
+        plt.scatter(x_offline, z_offline, color="#707070", s=dot_size or 1, zorder=4)
+    
+    if not whole:
+        ax.set_xlim(x_lim)
+        ax.set_ylim(y_lim)
+
+    ax.invert_yaxis()
+
+    plt.axis('off')
+
+    buf = io.BytesIO()
+    plt.savefig(buf, dpi=s.IMAGE_DPI_DRAWING, transparent=True, bbox_inches="tight", pad_inches = 0)
+    buf.seek(0)
+
+    plt.close()
+
+    return buf
 
 
 

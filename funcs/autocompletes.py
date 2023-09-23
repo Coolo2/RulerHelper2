@@ -14,3 +14,8 @@ async def town_autocomplete(interaction : discord.Interaction, current : str):
 
     return [app_commands.Choice(name=t.name_formatted, value=t.name) for t in c.world.search_town(current)]
 
+async def nation_autocomplete(interaction : discord.Interaction, current : str):
+
+    c : client.Client = interaction.client.client
+
+    return [app_commands.Choice(name=n.name_formatted, value=n.name) for n in c.world.search_nation(current)]

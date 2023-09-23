@@ -36,10 +36,13 @@ async def on_ready():
 async def _refresh():
     
     print("Refreshing")
-    await c.fetch_world()
-    await c.cull_db()
+    try:
+        await c.fetch_world()
+        await c.cull_db()
 
-    await c.database.commit()
+        await c.database.commit()
+    except Exception as e:
+        print(e)
     print("Refreshed")
 
     await bot.change_presence(activity=discord.CustomActivity(name=f"{c.world.player_count} online"))

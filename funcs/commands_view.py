@@ -13,6 +13,9 @@ class Command():
         self.row = row
         self.emoji = emoji
     
+    def as_select_option(self):
+        return discord.SelectOption(label=self.label, emoji=self.emoji, value=f"{self.command}{self.label}")
+
     def get_command_callback(self, tree : app_commands.CommandTree) -> typing.Coroutine:
         if type(self.command) != str:
             return self.command 
@@ -28,7 +31,23 @@ class Command():
     
     
     async def execute(self, cog, interaction : discord.Interaction):
-        await (self.get_command_callback(interaction.client.tree))(cog, interaction, *self.parameters)
+        try:
+            await (self.get_command_callback(interaction.client.tree))(cog, interaction, *self.parameters)
+        except TypeError:
+            await (self.get_command_callback(interaction.client.tree))(interaction, *self.parameters)
+
+class CommandSelect(discord.ui.Select):
+    def __init__(self, cog, commands : list[Command], placeholder : str = "Select an option...", row : int = 1):
+        self.cog = cog
+        self.commands = commands 
+
+        super().__init__(options=[c.as_select_option() for c in commands], placeholder=placeholder, row=row)
+    
+    async def callback(self, interaction : discord.Interaction):
+        for command in self.commands:
+            if self.values[0] == f"{command.command}{command.label}":
+                await command.execute(self.cog, interaction)
+
 
 class CommandsView(discord.ui.View):
 
