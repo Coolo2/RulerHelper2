@@ -4,13 +4,20 @@ from datetime import timedelta
 refresh_commands = False
 PRODUCTION_MODE = False
 
-DEFAULT_TOWNS = ["RulerSpawn"] # Ignore these towns in certain commands. Will still be tracked and can still be seen with /get
+commands = True
+
+alert_channel = 1155439092423733359 # Channel ID to send heavy error messages to
+
+DEFAULT_TOWNS = ["RulerSpawn", "Sea", "Unclaimed"] # Ignore these towns in certain commands. Will still be tracked and can still be seen with /get
 DONT_TRACK_TOWNS = ["Sea", "RulerSpawn", "Unclaimed"] # Ignore these towns while tracking.
 
 IMAGE_DPI_GRAPH = 100 # DPI (image quality) for graphs (bar charts, pie charts, line graphs)
 IMAGE_DPI_DRAWING = 300 # DPI (image quality) for drawings (maps)
 timeline_colors = ["red", "green", "brown", "orange", "purple", "yellow"] # Colours for timelines 
 bar_color = "#1F1F1F" # Colour of bars in images in commands such as /top
+line_color = "silver"
+
+earth_bg_path = "earth.png"
 
 map_url = "https://map.rulercraft.com" # Base map URL
 refresh_period = 30 # Duration in seconds to refresh
@@ -21,7 +28,7 @@ cull_players_from = timedelta(days=45) # Duration of time to remove players from
 cull_objects_after = timedelta(hours=2) # Duration of time to remove deleted towns/nations from the database after
 
 top_graph_object_count = 25 # Number of towns/players/nations to display in "/top" bar charts
-history_skip_if_object_unknown = False # If True and an object (town/player) is not known, ignore it completely in history commands. If False will display "UNKOWN"
+history_skip_if_object_unknown = False # If True and an object (town/player) is not known, ignore it completely in history commands. If False will still display but with diff. format
 see_more_footer = True # Show a footer saying "see more with /command..." under certain commands. useful when bot is new for button calls
 
 embed = 0x2F3136
@@ -40,5 +47,4 @@ Residents:</span> (.*)<br /></p> <p><span style="font-size:90%;font-weight:600">
 ⏳ Founded:</span> (.*)<br /></p> <p><span style="font-size:90%;font-weight:600">
 % Resident Tax:</span> (.*)<br /></p> <p><span style="font-size:90%"><span style="font-weight:600">
 &#x1f4b0; Bank:</span> (.*) Dollars</span></p> <p><span style="font-size:90%"><span style="font-weight:600">
-&#x1f6a5; Public:</span> (.*)</span></p> <p><span style="font-size:90%"><span style="font-weight:600">
-&#x1f308; Peaceful:</span> (.*)</span></p></div></div>""".replace("\n", "")
+&#x1f6a5; Public:</span> (.*)</span></p> </div></div>""".replace("\n", "")

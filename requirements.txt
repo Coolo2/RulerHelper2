@@ -1,2 +1,4 @@
 aiosqlite
 python-dotenv
+matplotlib
+shapely

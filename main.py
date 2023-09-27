@@ -8,9 +8,7 @@ import dotenv
 
 dotenv.load_dotenv()
 
-from discord import app_commands
 from discord.ext import tasks, commands
-
 
 intents = discord.Intents()
 intents.members = True
@@ -20,7 +18,7 @@ bot = commands.Bot(".", intents=intents)
 c = client.Client()
 
 bot.client = c 
-client.bot = bot
+c.bot = bot
 
 @bot.event 
 async def on_ready():
@@ -28,9 +26,8 @@ async def on_ready():
 
     await c.init_db()
     await c.world.initialise_player_list()
-    _refresh.start()
-
     
+    _refresh.start()
 
 @tasks.loop(seconds=c.refresh_period)
 async def _refresh():
@@ -38,11 +35,13 @@ async def _refresh():
     print("Refreshing")
     try:
         await c.fetch_world()
+        
         await c.cull_db()
-
         await c.database.commit()
     except Exception as e:
         print(e)
+        await (await bot.fetch_channel(s.alert_channel)).send(f"Refresh error: \n```{e}```")
+
     print("Refreshed")
 
     await bot.change_presence(activity=discord.CustomActivity(name=f"{c.world.player_count} online"))
@@ -50,8 +49,9 @@ async def _refresh():
 extensions = [file.replace(".py", "") for file in os.listdir('./cmds') if file.endswith(".py")]
 
 async def setup_hook():
-    for extension in extensions:
-        await bot.load_extension(f"cmds.{extension}")
+    if s.commands:
+        for extension in extensions:
+            await bot.load_extension(f"cmds.{extension}")
     
     if s.PRODUCTION_MODE:
         await bot.load_extension("cogs.errors")

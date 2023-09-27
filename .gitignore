@@ -2,6 +2,7 @@ discord/
 sql/
 *.db
 *.db-journal
+cache/*.png
 
 test.py
 

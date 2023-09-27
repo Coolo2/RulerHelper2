@@ -32,13 +32,14 @@ def generate_command(c : client.Client, attribute : str, formatter = str, parser
 
         log = ""
         values = {}
-        for record in reversed(rs) if reverse else rs:
+        for i, record in enumerate(reversed(rs) if reverse else rs):
             if is_town and record.attribute('name') in s.DEFAULT_TOWNS:
                 continue
+            
             parsed = parser(record.attribute(attribute)) if parser else record.attribute(attribute)
             val = formatter(parsed)
 
-            log =  f"**{record.attribute('name')}**: {val}\n" + log
+            log =  f"{len(rs)-i}. **{record.attribute('name')}**: {val}\n" + log
 
             values[str(record.attribute('name'))] = int(parsed)
         
@@ -48,6 +49,9 @@ def generate_command(c : client.Client, attribute : str, formatter = str, parser
 
         embed = discord.Embed(title=f"Top {o_type}s by {attnameformat}", color=s.embed)
         embed.set_image(url="attachment://graph.png")
+
+        if attribute == "duration":
+            embed.set_footer(text=f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
 
         view = paginator.PaginatorView(embed, log)
         

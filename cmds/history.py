@@ -62,7 +62,9 @@ def generate_command(c : client.Client, attribute : str, qualitative=False, form
         embed.set_image(url="attachment://graph.png")
 
         if s.see_more_footer:
-            embed.set_footer(text=f"See more with /history {'town' if town else 'nation' if nation else 'player' if player else ''} ... !")
+            embed.set_footer(text=f"See more with /history {'town' if town else 'nation' if nation else 'player' if player else ''} ... !" + (f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}" if attribute == "duration" else ""))
+        elif attribute == "duration":
+            embed.set_footer(text=f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
 
         view = paginator.PaginatorView(embed, log)
         
@@ -98,13 +100,16 @@ def generate_visited_command(c : client.Client, is_town=False, is_player=False):
         log = ""
         values = {}
         for obj in reversed(objects):
-            n = obj.town.name_formatted if obj.town and not obj.player else obj.player.name if obj.player else "UNKNOWN" 
-            if n == "UNKNOWN" and s.history_skip_if_object_unknown:
+            is_known = True if type(obj.town) != str and type(obj.player) != str else False
+            name = str(obj.town or obj.player)
+            format = "**" if is_known else "`"
+            
+            if not is_known and s.history_skip_if_object_unknown:
                 continue
             
-            log = f"**{n}**: {str(obj)}\n" + log
+            log = f"{format}{name}{format}: {str(obj)}\n" + log
 
-            values[n] = obj.total/60
+            values[name] = obj.total/60
 
         opp = "player" if town else "pown"
         file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"{str(o)}'s visited {opp} history ({len(objects)})", opp.title(), "Time (minutes)", bar)
@@ -113,6 +118,7 @@ def generate_visited_command(c : client.Client, is_town=False, is_player=False):
         embed = discord.Embed(title=f"{str(o)} visited history", color=s.embed)
         embed.set_image(url="attachment://graph.png")
         
+        embed.set_footer(text=f"Bot has been tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
 
         view = paginator.PaginatorView(embed, log)
         
@@ -150,7 +156,7 @@ class History(commands.Cog):
             {"attribute":"resident_tax", "qualitative":False, "formatter":lambda x: f"{x:,.1f}%", "name":"tax", "parser":None, "y":"Tax (%)"},
             {"attribute":"bank", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "parser":None, "y":"Bank ($)"},
             {"attribute":"public", "qualitative":True, "formatter":None, "name":None, "parser":bool},
-            {"attribute":"peaceful", "qualitative":True, "formatter":None, "name":None, "parser":bool},
+            #{"attribute":"peaceful", "qualitative":True, "formatter":None, "name":None, "parser":bool},
             {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots", "name":None, "parser":None, "y":"plots"},
             {"attribute":"duration", "qualitative":False, "formatter":lambda x: generate_time(x*60), "name":"activity", "parser":lambda x: x/60, "y":"Time (minutes)"}
         ]

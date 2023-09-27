@@ -279,7 +279,7 @@ class Table():
 
         for condition in conditions:
             if type(condition) == creation.CreationCondition:
-                params.append(condition.value)
+                params.append(str(condition.value))
 
         conditions_str += " AND ".join(str(c) for c in conditions)
 
@@ -399,7 +399,8 @@ class Table():
         if await self.record_exists(*conditions):
             return None 
         
-        return await self.add_record(*fields)
+        await self.add_record(*fields)
+        return True
 
     async def clear(self):
         await self.db.connection.execute(f"DELETE FROM {self.name}")

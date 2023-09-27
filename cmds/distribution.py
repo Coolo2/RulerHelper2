@@ -31,17 +31,20 @@ def generate_command(c : client.Client, attribute : str, formatter = str, parser
 
             log = f"**{record.attribute('name')}**: {val}\n" + log
 
-            values[str(record.attribute('name'))] = int(parsed)
+            if int(parsed) > 0:
+                values[str(record.attribute('name'))] = int(parsed)
         
 
-        file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"{o.name_formatted}'s distribution of town {attnameformat}", "", "", pie)
+        file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"{o.name_formatted}'s distribution of {attnameformat}", "", "", pie)
         graph = discord.File(file, filename="graph.png")
 
-        embed = discord.Embed(title=f"{o.name_formatted}'s distribution of town {attnameformat}", color=s.embed)
+        embed = discord.Embed(title=f"{o.name_formatted}'s distribution of {attnameformat}", color=s.embed)
         embed.set_image(url="attachment://graph.png")
 
         if s.see_more_footer:
-            embed.set_footer(text="View more with /distribution nation!")
+            embed.set_footer(text="View more with /distribution nation!" + (f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}" if attribute =="duration" else ""))
+        elif attribute == "duration":
+            embed.set_footer(text=f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
 
         view = paginator.PaginatorView(embed, log)
         

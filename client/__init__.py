@@ -170,6 +170,18 @@ class Client():
             )
         )
 
+        self.flags_table = await self.database.create_or_get_table(
+            db.CreationTable(
+                "flags",
+                [
+                    db.CreationAttribute("object_type", db.types.String),
+                    db.CreationAttribute("object_name", db.types.String),
+                    db.CreationAttribute("name", db.types.String),
+                    db.CreationAttribute("value", db.types.Any)
+                ]
+            )
+        )
+
     async def create_session(self):
         if not self.session:
             self.session = aiohttp.ClientSession()
@@ -191,7 +203,21 @@ class Client():
         await self.player_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
         await self.global_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
         await self.nation_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
+        await self.visited_towns_table.delete_records([db.CreationCondition("last", datetime.date.today()-s.cull_history_from, "<")])
 
         await self.players_table.delete_records([db.CreationCondition("last", datetime.datetime.now()-s.cull_players_from, "<")])
         await self.towns_table.delete_records([db.CreationCondition("last_seen", datetime.datetime.now()-s.cull_objects_after, "<")])
         await self.objects_table.delete_records([db.CreationCondition("last", datetime.datetime.now()-s.cull_objects_after, "<")])
+
+        await self.flags_table.delete_records([db.CreationCondition("object_type", "nation"), db.CreationField.external_query(self.objects_table, "object_name", db.CreationCondition("type", "nation"), operator="NOT IN")])
+
+        for player in self.world.players.copy():
+            if not await player.exists_in_db:
+                self.world._remove_player(player.name)
+        for town in self.world.towns.copy():
+            if not await town.exists_in_db:
+                self.world._remove_town(town.name)
+        for nation in self.world.nations.copy():
+            if not await nation.exists_in_db:
+                self.world._remove_nation(nation.name)
+        

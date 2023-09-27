@@ -43,7 +43,7 @@ class Money(float):
         return f"${self.value:,.2f}"
 
 class Activity():
-    def __init__(self, total : int = 0, last : datetime.datetime = datetime.datetime.now(), town : client_pre.object.Town = None, player : client_pre.object.Player = None):
+    def __init__(self, total : int = 0, last : datetime.datetime = datetime.datetime.now(), town : client_pre.object.Town|str = None, player : client_pre.object.Player|str = None):
         self.total = total 
         self.last = last
 
@@ -57,6 +57,9 @@ class Activity():
         a.town = town
 
         return a
+    
+    def str_no_timestamp(self):
+        return generate_time(self.total)
 
     def __radd__(self, other):
         return Activity(self.total + other.total, max(self.last, other.last), self.town)
@@ -72,8 +75,6 @@ class Object():
 
         if self.name not in world._objects[self.object_type + "s"]:
             world._objects[self.object_type + "s"].append(self)
-    
-    
     
     @property 
     def name_formatted(self):
@@ -94,6 +95,25 @@ class Object():
     def total_area(self) -> int: return self.__total(self.towns, "area")
     @property 
     def total_value(self) -> float: return self.__total(self.towns, "bank")
+
+    async def set_flag(self, flag_name : str, flag_value):
+        cond = [db.CreationCondition("object_type", self.object_type), db.CreationCondition("object_name", self.name)]
+        val = [self.object_type, self.name, flag_name, flag_value]
+        a = await self.world.client.flags_table.add_record_if_not_exists(val, cond)
+        if not a:
+            await self.world.client.flags_table.update_record(cond, *val)
+    
+    @property
+    async def flags(self) -> dict:
+        rs = await self.world.client.flags_table.get_records([db.CreationCondition("object_type", self.object_type), db.CreationCondition("object_name", self.name)], ["name", "value"])
+        d = {}
+        for r in rs:
+            d[r.attribute("name")] = r.attribute("value")
+        return d
+
+    @property 
+    async def exists_in_db(self):
+        return await self.world.client.objects_table.record_exists([db.CreationCondition("type", self.object_type), db.CreationCondition("name", self.name)])
 
     def __str__(self):
         return self.name
@@ -156,7 +176,7 @@ class Town():
         self.resident_tax : float = None 
         self.bank : float = None 
         self.public : bool = None 
-        self.peaceful : bool = None
+        self.peaceful : bool = False # Currently not on map. Defaults to false
 
         self.border_color : str = None 
         self.fill_color : str = None
@@ -206,7 +226,11 @@ class Town():
             [db.CreationCondition("town", self.name)], 
             ["player", "duration", "last"], group=["player"], order=db.CreationOrder("duration", db.types.OrderDescending)
         )
-        return [Activity(r.attribute("duration"), r.attribute("last"), player=self.__world.get_player(r.attribute("player"))) for r in rs]
+        return [Activity(r.attribute("duration"), r.attribute("last"), player=self.__world.get_player(r.attribute("player")) or r.attribute("player")) for r in rs]
+
+    @property 
+    async def exists_in_db(self):
+        return await self.__world.client.towns_table.record_exists([db.CreationCondition("name", self.name)])
 
     def to_record(self) -> list:
 
@@ -257,12 +281,15 @@ class Town():
             db.CreationField.external_query(self.__world.client.towns_table, "duration", db.CreationCondition("name", self.name))
         ]
     
-    def parse_desc(self, desc : str):
+    async def parse_desc(self, desc : str):
         if not desc:
             return
         
         if desc != self.__desc and "Siege" not in desc:
             r = re.match(setup.template, desc)
+            if not r:
+                await (await self.__world.client.bot.fetch_channel(setup.alert_channel)).send(f"Could not extract from desc.\n\n```{desc}```")
+                raise
             groups = r.groups()
             self.flag_url = groups[0]
             self.nation = Nation(self.__world, groups[2]) if groups[2].strip() != "" else None
@@ -279,11 +306,11 @@ class Town():
             self.resident_tax = float(groups[9][:-1])
             self.bank = float(groups[10].replace(",", ""))
             self.public = True if "true" in groups[11] else False
-            self.peaceful = True if "true" in groups[12] else False
+            #self.peaceful = True if "true" in groups[12] else False
 
         self.__desc = desc
 
-    def add_update(self, data : dict):
+    async def add_update(self, data : dict):
         
 
         if not self.__built:
@@ -291,7 +318,7 @@ class Town():
         
             self.__built = True
 
-            self.parse_desc(data["desc"])
+            await self.parse_desc(data["desc"])
         
         if "__home" in data["id"]:
             self.spawn = Point(data["x"], data["y"], data["z"])
@@ -313,7 +340,7 @@ class Town():
         return self.name == (other.name if hasattr(other, "name") else other)
 
     def __str__(self):
-        return str(self.name)
+        return str(self.name_formatted)
 
 class Player():
     def __init__(self, world : client_pre.object.World):
@@ -332,6 +359,14 @@ class Player():
             await self.__world.client.visited_towns_table.get_record([db.CreationCondition("player", self.name), db.CreationCondition("town", town.name)], ["duration", "last"])
         )
     
+    @property 
+    def discord(self):
+        for guild in self.__world.client.bot.guilds:
+            for member in guild.members:
+                if self.name.lower().replace("_", " ") in member.name.lower().replace("_", " ") + member.global_name.lower().replace("_", " ") + member.display_name.lower().replace("_", " "):
+                    return member 
+         
+
     @property 
     def name_formatted(self):
         """Helper"""
@@ -362,7 +397,7 @@ class Player():
             [db.CreationCondition("player", self.name)], 
             ["town", "duration", "last"], group=["town"], order=db.CreationOrder("duration", db.types.OrderDescending)
         )
-        return [Activity(r.attribute("duration"), r.attribute("last"), self.__world.get_town(r.attribute("town"))) for r in rs]
+        return [Activity(r.attribute("duration"), r.attribute("last"), self.__world.get_town(r.attribute("town")) or r.attribute("town")) for r in rs]
         
     
     @property 
@@ -378,7 +413,13 @@ class Player():
                 return town 
         
         if len(visited_towns) > 0:
-            return visited_towns[0].town
+            for activity in visited_towns:
+                if type(activity.town) != str and activity.town :
+                    return activity.town
+    
+    @property 
+    async def exists_in_db(self):
+        return await self.__world.client.players_table.record_exists([db.CreationCondition("name", self.name)])
     
     
     async def get_activity_today(self, activity : Activity = None):
@@ -541,6 +582,17 @@ class World():
     @property 
     def total_value(self) -> float: return self.__total(self.towns, "bank")
 
+    @property 
+    async def total_tracked(self):
+        return Activity((await self.client.global_table.get_record([db.CreationCondition("name", "total_tracked")], ["value"])).attribute("value"))
+
+    def _remove_player(self, player_name : str):
+        del self.__players[player_name]
+    def _remove_town(self, town_name : str):
+        del self.__towns[town_name]
+    def _remove_nation(self, nation_name : str):
+        self._objects["nations"].remove(nation_name)
+
     async def refresh(self, r : StreamReader):
 
         objects = ijson.kvitems_async(r, "", use_float=True)
@@ -583,10 +635,14 @@ class World():
         for nation in self.nations:
             cond2 = [db.CreationCondition("nation", nation.name), db.CreationCondition("date", datetime.date.today())]
             exists = await self.client.nation_history_table.record_exists(cond2)
-            if not exists:
-                add_nation_history.append(nation.to_record_history())
-            else:
-                await self.client.nation_history_table.update_record(cond2, *nation.to_record_history())
+            try:
+                if not exists:
+                    add_nation_history.append(nation.to_record_history())
+                else:
+                    await self.client.nation_history_table.update_record(cond2, *nation.to_record_history())
+            except Exception as e:
+                # Nation needs to be removed! Should be removed on next pass from Client.cull_db()
+                await (await self.client.bot.fetch_channel(setup.alert_channel)).send(f"{nation.name} Nation Tracking Update Error! `{e}`")
 
         if len(add_nation_history) > 0:
             await self.client.nation_history_table.add_record(add_nation_history)
@@ -614,10 +670,10 @@ class World():
                     t = Town(self)
                     self.__towns[update["label"]] = t
                     
-                    t.add_update(update)
+                    await t.add_update(update)
                 else:
                     t = self.get_town(update["label"])
-                    t.add_update(update)
+                    await t.add_update(update)
                 await asyncio.sleep(0.0001) # Allow "parallel" processing
 
         new_records = []

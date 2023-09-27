@@ -86,6 +86,7 @@ class CreationField():
         self.attribute_name = attribute_name
         self.field_value = field_value
         self.no_quotations = False
+        self.operator = "="
 
         self._seperate_values = [self.field_value]
     
@@ -102,13 +103,16 @@ class CreationField():
         return s
     
     @classmethod
-    def external_query(self, table : wrapper.Table, attribute : CreationAttribute|str, condition : CreationCondition):
+    def external_query(self, table : wrapper.Table, attribute : CreationAttribute|str, condition : CreationCondition, operator : str = "="):
         attribute_name = self.attribute_name_calc(self, str(attribute))
-        condition.no_bindings = True
+        if condition:
+            condition.no_bindings = True
 
-        s = self(attribute_name, f"(SELECT {attribute_name} FROM {table.name} WHERE {str(condition)})")
+        where = f"WHERE {str(condition)}" if condition else ""
+        s = self(attribute_name, f"(SELECT {attribute_name} FROM {table.name} {where})")
         s._seperate_values = []
         s.no_quotations = True
+        s.operator = operator
 
         return s
     
@@ -117,16 +121,16 @@ class CreationField():
         attribute_name = self.attribute_name_calc(self.attribute_name)
 
         if len(self._seperate_values) == 0:
-            return f"{attribute_name} = {self.field_value}"
+            return f"{attribute_name} {self.operator} {self.field_value}"
         else:
-            return f"{attribute_name} = ?"
+            return f"{attribute_name} {self.operator} ?"
 
     def __str__(self):
         attribute_name = self.attribute_name_calc(self.attribute_name)
         if len(self._seperate_values) == 0:
-            return f"{attribute_name} = {self.field_value}"
+            return f"{attribute_name} {self.operator} {self.field_value}"
         else:
-            return f"{attribute_name} = ?"
+            return f"{attribute_name} {self.operator} ?"
 
 class CreationTable():
     def __init__(self, name : str, attributes : typing.List[CreationAttribute]):
