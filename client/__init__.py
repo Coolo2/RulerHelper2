@@ -170,6 +170,21 @@ class Client():
             )
         )
 
+        self.object_history_table = await self.database.create_or_get_table(
+            db.CreationTable(
+                "object_history",
+                [
+                    db.CreationAttribute("date", db.types.Date),
+                    db.CreationAttribute("type", db.types.String),
+                    db.CreationAttribute("object", db.types.String),
+                    db.CreationAttribute("towns", db.types.Int),
+                    db.CreationAttribute("town_balance", db.types.Float),
+                    db.CreationAttribute("residents", db.types.Int),
+                    db.CreationAttribute("area", db.types.Int)
+                ]
+            )
+        )
+
         self.flags_table = await self.database.create_or_get_table(
             db.CreationTable(
                 "flags",

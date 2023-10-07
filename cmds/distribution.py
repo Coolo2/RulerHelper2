@@ -14,12 +14,23 @@ from client.object import generate_time
 
 from matplotlib.pyplot import pie
 
-def generate_command(c : client.Client, attribute : str, formatter = str, parser = None, is_nation=False, attname : str = None):
-    async def cmd_uni(interaction : discord.Interaction, nation : str ):
+def generate_command(c : client.Client, attribute : str, formatter = str, parser = None, is_nation=False, is_culture=False, is_religion=False,attname : str = None):
+    async def cmd_uni(interaction : discord.Interaction, nation : str=None, culture : str=None, religion : str=None):
 
-        o = c.world.get_nation(nation, True)
-        if not o: raise client.errors.MildError("Nothing found!")
-        rs = await c.towns_table.get_records(conditions=[db.CreationCondition("nation", o.name)], attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+        if nation:
+            o = c.world.get_nation(nation, True)
+            if not o: raise client.errors.MildError("Nothing found!")
+            rs = await c.towns_table.get_records(conditions=[db.CreationCondition("nation", o.name)], attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+        elif culture:
+            o = c.world.get_culture(culture, True)
+            if not o: raise client.errors.MildError("Nothing found!")
+            rs = await c.towns_table.get_records(conditions=[db.CreationCondition("culture", o.name)], attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+        else: # is religion
+            o = c.world.get_religion(religion, True)
+            if not o: raise client.errors.MildError("Nothing found!")
+            rs = await c.towns_table.get_records(conditions=[db.CreationCondition("religion", o.name)], attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+
+        
 
         attnameformat = attname.replace('_', ' ')
 
@@ -51,8 +62,15 @@ def generate_command(c : client.Client, attribute : str, formatter = str, parser
         return await interaction.response.send_message(embed=embed, view=view, file=graph)
 
 
-    async def cmd(interaction : discord.Interaction, nation : str):
-        await cmd_uni(interaction, nation)
+    if is_nation:
+        async def cmd(interaction : discord.Interaction, nation : str):
+            await cmd_uni(interaction, nation)
+    elif is_culture:
+        async def cmd(interaction : discord.Interaction, culture : str):
+            await cmd_uni(interaction, culture=culture)
+    elif is_religion:
+        async def cmd(interaction : discord.Interaction, religion : str):
+            await cmd_uni(interaction, religion=religion)
     return cmd
 
 class Distribution(commands.Cog):
@@ -65,20 +83,32 @@ class Distribution(commands.Cog):
     
         distribution = app_commands.Group(name="distribution", description="View the distribution of attributes within an object")
         nation = app_commands.Group(name="nation", description="Get nation attribute distributions", parent=distribution)
+        culture = app_commands.Group(name="culture", description="Get culture attribute distributions", parent=distribution)
+        religion = app_commands.Group(name="religion", description="Get religion attribute distributions", parent=distribution)
 
-
-        allowed_attributes_nation = [
+        allowed_attributes = [
             {"attribute":"bank", "formatter":lambda x: f"${x:,.2f}", "name":"town_bank", "parser":None},
             {"attribute":"resident_count", "formatter":None, "name":"residents", "parser":None},
             {"attribute":"area", "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None},
             {"attribute":"duration", "formatter":lambda x: generate_time(x*60), "name":"activity", "parser":lambda x: x/60}
         ]
         
-        for attribute in allowed_attributes_nation:
+        for attribute in allowed_attributes:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"History for nation {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_nation=True, attname=name))
             command.autocomplete("nation")(autocompletes.nation_autocomplete)
             nation.add_command(command)
+
+            name = attribute.get("name") or attribute.get("attribute")
+            command = app_commands.command(name=name, description=f"History for culture {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_culture=True, attname=name))
+            command.autocomplete("culture")(autocompletes.culture_autocomplete)
+            culture.add_command(command)
+
+            name = attribute.get("name") or attribute.get("attribute")
+            name = "followers" if name == "residents" else name
+            command = app_commands.command(name=name, description=f"History for religion {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_religion=True, attname=name))
+            command.autocomplete("religion")(autocompletes.religion_autocomplete)
+            religion.add_command(command)
 
         self.bot.tree.add_command(distribution)
 

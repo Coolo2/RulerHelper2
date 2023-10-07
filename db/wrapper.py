@@ -237,9 +237,10 @@ class Table():
             self,
             conditions: typing.List[typing.Union[creation.CreationCondition,str]],
             attributes: typing.List[typing.Union[str, Attribute]] = None,
-            group: typing.List[typing.Union[str, Attribute]] = None
+            group: typing.List[typing.Union[str, Attribute]] = None,
+            order : creation.CreationOrder = None,
     ) -> typing.Optional[Record]:
-        records = await self.get_records(conditions=conditions, attributes=attributes, limit=1, group=group)
+        records = await self.get_records(conditions=conditions, attributes=attributes, limit=1, group=group, order=order)
         return records[0] if len(records) > 0 else None
 
     async def total_column(
@@ -331,7 +332,7 @@ class Table():
         if old_records:
             if type(old_records) == Record:
                 old_records = [old_records]
-            elif type(old_records) == creation.CreationCondition:
+            if type(old_records) == creation.CreationCondition:
                 conditions = [[old_records.str_no_table]]
                 params = [old_records.value]
             else:
@@ -341,7 +342,7 @@ class Table():
                         record_conditions = []
                         for field in condition.fields:
                             c = creation.CreationCondition(field.attribute, field.value)
-                            params.append(str(c))
+                            params.append(field.value)
                             record_conditions.append(c.str_no_table)
                         conditions.append(record_conditions)
 
@@ -349,9 +350,11 @@ class Table():
 
                         creationconditions.append(condition.str_no_table)
                         params.append(condition.value)
-                conditions.append(creationconditions)
+                if len(creationconditions) > 0:
+                    conditions.append(creationconditions)
         
-        condition_str = ("WHERE (" + ") OR (".join(" AND ".join(str(condition) for condition in c) for c in conditions) + ")") if len(conditions) > 0 else ""
+        
+        condition_str = "WHERE (" + (") OR (".join(" AND ".join(str(condition) for condition in c) for c in conditions) + ")") if len(conditions) > 0 else ""
         command = f"UPDATE {self.name} SET {set_command} {condition_str} "
         
         cursor = await self.db.connection.execute(command, params)
@@ -399,7 +402,7 @@ class Table():
         if await self.record_exists(*conditions):
             return None 
         
-        await self.add_record(*fields)
+        await self.add_record(fields)
         return True
 
     async def clear(self):

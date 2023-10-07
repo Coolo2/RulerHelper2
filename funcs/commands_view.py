@@ -27,6 +27,7 @@ class Command():
                 command = tree.get_command(item)
             else:
                 command = command.get_command(item)
+                
         return command.callback
     
     

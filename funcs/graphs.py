@@ -21,7 +21,7 @@ import os
 
 from shapely import Point
 
-def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight : int = None):
+def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight : int = None, y_formatter = None):
     
     color = "silver"
 
@@ -75,6 +75,12 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
 
         gnt.axes.yaxis.set_major_locator(MaxNLocator(integer=True))
 
+        if y_formatter:
+            y_ticks = []
+            for tick in gnt.get_yticks():
+                y_ticks.append(y_formatter(tick))
+            gnt.set_yticklabels(y_ticks)
+
     plt.title(title, y=1.2 if chartType == plt.pie else 1)
     plt.xlabel(x)
     plt.ylabel(y)
@@ -92,7 +98,7 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
 
     return buf
 
-def save_timeline(data : dict, title : str):
+def save_timeline(data : dict, title : str, booly=False):
 
     # Convert to date ranges
     ranges : dict[str, list[datetime.date, datetime.date]] = {}
@@ -153,9 +159,13 @@ def save_timeline(data : dict, title : str):
     gnt.set_xticks(list(xticks.values()))
     gnt.set_xticklabels(list(xticks.keys()))
 
+    colors = s.timeline_colors
+    if booly:
+        colors = s.timeline_colors_bool if list(ranges.keys())[0] == "True" else list(reversed(s.timeline_colors_bool))
+ 
     for i, item in enumerate(ranges):
         
-        gnt.broken_barh(ranges[item], (start_y+i, 1), facecolors =(f'tab:{s.timeline_colors[i%len(s.timeline_colors)]}'))
+        gnt.broken_barh(ranges[item], (start_y+i, 1), facecolors =(f'tab:{colors[i%len(s.timeline_colors)]}'))
 
     buf = io.BytesIO()
     plt.savefig(buf, dpi=s.IMAGE_DPI_GRAPH, transparent=True, bbox_inches="tight")
@@ -178,7 +188,7 @@ def check_cache(cache_name : str, cache_id : str):
     
     return n
 
-def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto", plot_spawn=True, dot_size=None, whole=False, players : list[client.object.Player] = None, cache_name : str = None, cache_id : int = None, cache_checked=False):
+def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto", plot_spawn=True, dot_size=None, whole=False, players : list[client.object.Player] = None, cache_name : str = None, cache_id : int = None, cache_checked=False, dimmed_towns : list[client.object.Town]=[]):
 
     # Cache_checked can be False if not checked, None if doesn't exists, str if does exist
 
@@ -214,6 +224,12 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
 
     x_lim = ax.get_xlim()
     y_lim = ax.get_ylim()
+
+    if dimmed_towns:
+        for town in dimmed_towns:
+            for i, polygon in enumerate(town.locations.geoms):
+
+                plt.fill(*polygon.exterior.xy, fc=s.map_bordering_town_fill_colour + f"{s.map_bordering_town_opacity:02}", ec=town.border_color + f"{s.map_bordering_town_opacity//2:02}", zorder=2, rasterized=True, lw=0.5)
 
     if whole or (show_earth == "auto" and (x_lim[1]-x_lim[0] > 2000 or y_lim[1]-y_lim[0] > 2000)):
         show_earth = True

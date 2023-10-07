@@ -16,6 +16,8 @@ from io import BytesIO
 from aiohttp import StreamReader
 import ijson.backends.python as ijson
 
+import discord
+
 def generate_time(time):
     timeSeconds = time
     day = timeSeconds // (24 * 3600)
@@ -99,6 +101,10 @@ class Object():
     async def set_flag(self, flag_name : str, flag_value):
         cond = [db.CreationCondition("object_type", self.object_type), db.CreationCondition("object_name", self.name)]
         val = [self.object_type, self.name, flag_name, flag_value]
+
+        if setup.flags[self.object_type][flag_name].get("unique"):
+            await self.world.client.flags_table.delete_records([db.CreationCondition("object_type", self.object_type), db.CreationCondition("name", flag_name), db.CreationCondition("value", flag_value)])
+
         a = await self.world.client.flags_table.add_record_if_not_exists(val, cond)
         if not a:
             await self.world.client.flags_table.update_record(cond, *val)
@@ -108,12 +114,25 @@ class Object():
         rs = await self.world.client.flags_table.get_records([db.CreationCondition("object_type", self.object_type), db.CreationCondition("object_name", self.name)], ["name", "value"])
         d = {}
         for r in rs:
-            d[r.attribute("name")] = r.attribute("value")
+            if r.attribute("value"):
+                d[r.attribute("name")] = r.attribute("value")
         return d
+    
 
     @property 
     async def exists_in_db(self):
         return await self.world.client.objects_table.record_exists([db.CreationCondition("type", self.object_type), db.CreationCondition("name", self.name)])
+    
+    def to_record_history(self) -> list:
+        return [
+            datetime.date.today(), 
+            self.object_type,
+            self.name, 
+            len(self.towns),
+            self.total_value,
+            self.total_residents,
+            self.total_area
+        ]
 
     def __str__(self):
         return self.name
@@ -134,6 +153,27 @@ class Nation(Object):
         for town in self.towns:
             if town.icon == "king":
                 return town 
+    @property 
+    def borders(self) -> tuple[list[client_pre.object.Nation]|list[client_pre.object.Town]]:
+        borders_towns = []
+        borders_nations = []
+
+        multi = MultiPolygon()
+        for nation_town in self.towns:
+            multi = multi.union(nation_town.locations)
+        
+        for town in self.world.towns:
+            nation = town.nation 
+
+            if nation and nation != self and town not in borders_towns:
+                if multi.intersects(town.locations):
+                    borders_towns.append(town)
+        
+        for town in borders_towns:
+            if town.nation not in borders_nations:
+                borders_nations.append(town.nation)
+        
+        return [borders_nations, borders_towns]
 
     def to_record_history(self):
         return [self.name, datetime.date.today(), len(self.towns), self.total_value, self.total_residents, str(self.capital), str(self.capital.mayor), self.total_area]
@@ -231,6 +271,37 @@ class Town():
     @property 
     async def exists_in_db(self):
         return await self.__world.client.towns_table.record_exists([db.CreationCondition("name", self.name)])
+    
+    @property 
+    def borders(self) -> list[client_pre.object.Town]:
+        borders = []
+
+        for town in self.__world.towns:
+            if town != self and town.name not in setup.DEFAULT_TOWNS:
+                if self.locations.intersects(town.locations):
+                    borders.append(town)
+        
+        return borders
+    
+    async def set_flag(self, flag_name : str, flag_value):
+        cond = [db.CreationCondition("object_type", "town"), db.CreationCondition("object_name", self.name)]
+        val = ["town", self.name, flag_name, flag_value]
+
+        if setup.flags["town"][flag_name].get("unique"):
+            await self.__world.client.flags_table.delete_records([db.CreationCondition("object_type", "town"), db.CreationCondition("name", flag_name), db.CreationCondition("value", flag_value)])
+
+        a = await self.__world.client.flags_table.add_record_if_not_exists(val, cond)
+        if not a:
+            await self.__world.client.flags_table.update_record(cond, *val)
+    
+    @property
+    async def flags(self) -> dict:
+        rs = await self.__world.client.flags_table.get_records([db.CreationCondition("object_type", "town"), db.CreationCondition("object_name", self.name)], ["name", "value"])
+        d = {}
+        for r in rs:
+            if r.attribute("value"):
+                d[r.attribute("name")] = r.attribute("value")
+        return d
 
     def to_record(self) -> list:
 
@@ -285,10 +356,10 @@ class Town():
         if not desc:
             return
         
-        if desc != self.__desc and "Siege" not in desc:
+        if "Siege" not in desc:
             r = re.match(setup.template, desc)
             if not r:
-                await (await self.__world.client.bot.fetch_channel(setup.alert_channel)).send(f"Could not extract from desc.\n\n```{desc}```")
+                await self.__world.client.bot.get_channel(setup.alert_channel).send(f"Could not extract from desc.\n\n```{desc}```")
                 raise
             groups = r.groups()
             self.flag_url = groups[0]
@@ -325,8 +396,8 @@ class Town():
             self.icon = data["icon"]
             
         else:
-            self.border_color = data["color"]
-            self.fill_color = data["fillcolor"]
+            self.border_color = data.get("color") or "#000000"
+            self.fill_color = data.get("fillcolor") or "#000000"
 
             locs = []
             
@@ -359,11 +430,16 @@ class Player():
             await self.__world.client.visited_towns_table.get_record([db.CreationCondition("player", self.name), db.CreationCondition("town", town.name)], ["duration", "last"])
         )
     
-    @property 
-    def discord(self):
+    @property
+    async def discord(self) -> discord.User:
+        flags = await self.flags
+        
+        if "discord" in flags:
+            return self.__world.client.bot.get_user(int(flags["discord"]))
+
         for guild in self.__world.client.bot.guilds:
             for member in guild.members:
-                if self.name.lower().replace("_", " ") in member.name.lower().replace("_", " ") + member.global_name.lower().replace("_", " ") + member.display_name.lower().replace("_", " "):
+                if self.name.lower().replace("_", " ") in member.display_name.lower().replace("_", " "):
                     return member 
          
 
@@ -433,7 +509,25 @@ class Player():
         yesterday = twodays[1]
         return Activity(a.total - yesterday.attribute("duration"), last=a.last)
         
+    async def set_flag(self, flag_name : str, flag_value):
+        cond = [db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", self.name)]
+        val = ["player", self.name, flag_name, flag_value]
 
+        if setup.flags["player"][flag_name].get("unique"):
+            await self.__world.client.flags_table.delete_records([db.CreationCondition("object_type", "player"), db.CreationCondition("name", flag_name), db.CreationCondition("value", flag_value)])
+       
+        a = await self.__world.client.flags_table.add_record_if_not_exists(val, cond)
+        if not a:
+            await self.__world.client.flags_table.update_record(cond, *val)
+    
+    @property
+    async def flags(self) -> dict:
+        rs = await self.__world.client.flags_table.get_records([db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", self.name)], ["name", "value"])
+        d = {}
+        for r in rs:
+            if r.attribute("value"):
+                d[r.attribute("name")] = r.attribute("value")
+        return d
 
     def update(self, data : dict):
 
@@ -481,13 +575,14 @@ class World():
     def get_object(self, array : list, name : str, search=False, multiple=False, max=25):
         multi = []
 
-        for i, o in enumerate(array):
+        i=0
+        for o in array:
             if (not search and str(o) == name) or (search and name.replace(" ", "_").lower() in str(o).replace(" ", "_").lower() ):
                 if not multiple:
                     return o 
-                
+                i += 1
                 multi.append(o)
-                if i >= max-1:
+                if i >= max:
                     break
         if multiple:
             return multi
@@ -497,13 +592,15 @@ class World():
             return self.__towns.get(town_name)
         
         multi = []
-    
-        for i, town in enumerate(self.__towns):
+
+        i=0
+        for town in self.__towns:
             if town_name.replace(" ", "_").lower() in str(town).replace(" ", "_").lower():
                 if not multiple:
                     return self.__towns[town]
+                i+=1
                 multi.append(self.__towns[town])
-                if i >= max-1:
+                if i >= max:
                     break
         
         if multiple:
@@ -514,13 +611,14 @@ class World():
             return self.__players.get(player_name)
         
         multi = []
-
-        for i, player in enumerate(self.__players):
+        i=0
+        for player in self.__players:
             if player_name.replace(" ", "_").lower() in str(player).replace(" ", "_").lower():
                 if not multiple:
                     return self.__players[player]
+                i += 1
                 multi.append(self.__players[player])
-                if i >= max-1:
+                if i >= max:
                     break
 
         if multiple:
@@ -541,6 +639,8 @@ class World():
     def search_player(self, player_name : str, max : int = 25) -> list[Player]: return self.search(self.get_player, player_name, max)
     def search_town(self, town_name : str, max : int = 25) -> list[Town]: return self.search(self.get_town, town_name, max)
     def search_nation(self, nation_name : str, max : int = 25) -> list[Nation]: return self.search(self.get_nation, nation_name, max)
+    def search_culture(self, nation_name : str, max : int = 25) -> list[Nation]: return self.search(self.get_culture, nation_name, max)
+    def search_religion(self, nation_name : str, max : int = 25) -> list[Nation]: return self.search(self.get_religion, nation_name, max)
 
     def to_record_history(self) -> list:
         return [datetime.date.today(), len(self.towns), self.total_residents, len(self.nations), self.total_value, self.total_area, len(self.players)]
@@ -568,6 +668,14 @@ class World():
             if p.online:
                 ps.append(p)
         return ps
+
+    @property 
+    def offline_players(self) -> list[Player]:
+        ps = []
+        for p in self.players:
+            if not p.online:
+                ps.append(p)
+        return ps
     
     def __total(self, arr : list, attr : str):
         t = 0
@@ -591,7 +699,13 @@ class World():
     def _remove_town(self, town_name : str):
         del self.__towns[town_name]
     def _remove_nation(self, nation_name : str):
-        self._objects["nations"].remove(nation_name)
+        rm = []
+        for nation in self._objects["nations"]:
+            if nation.name == nation_name:
+                rm.append(nation)
+        for r in rm:
+            self._objects["nations"].remove(r)
+        
 
     async def refresh(self, r : StreamReader):
 
@@ -614,6 +728,7 @@ class World():
 
     async def __update_objects(self):
         new_records = []
+        add_object_history = []
 
         for object_type, objects in self._objects.items():
             for object in objects:
@@ -627,6 +742,23 @@ class World():
         
         if len(new_records) > 0:
             await self.client.objects_table.add_record(new_records)
+        
+        # Culture / religion history
+        for obj_type in ["culture", "religion"]:
+            for object in self._objects[obj_type + "s"]:
+                cond2 = [db.CreationCondition("object", object.name), db.CreationCondition("date", datetime.date.today())]
+                exists = await self.client.object_history_table.record_exists(cond2)
+                try:
+                    if not exists:
+                        add_object_history.append(object.to_record_history())
+                    else:
+                        await self.client.object_history_table.update_record(cond2, *object.to_record_history())
+                except Exception as e:
+                    # Nation needs to be removed! Should be removed on next pass from Client.cull_db()
+                    await self.client.bot.get_channel(setup.alert_channel).send(f"{object.name} Object Tracking Update Error! `{e}`")
+
+        if len(add_object_history) > 0:
+            await self.client.object_history_table.add_record(add_object_history)
 
     async def __update_nations(self):
         add_nation_history = []
@@ -642,7 +774,7 @@ class World():
                     await self.client.nation_history_table.update_record(cond2, *nation.to_record_history())
             except Exception as e:
                 # Nation needs to be removed! Should be removed on next pass from Client.cull_db()
-                await (await self.client.bot.fetch_channel(setup.alert_channel)).send(f"{nation.name} Nation Tracking Update Error! `{e}`")
+                await self.client.bot.get_channel(setup.alert_channel).send(f"{nation.name} Nation Tracking Update Error! `{e}`")
 
         if len(add_nation_history) > 0:
             await self.client.nation_history_table.add_record(add_nation_history)
@@ -661,48 +793,58 @@ class World():
             await self.client.global_history_table.update_record(cond, *self.to_record_history())
 
     async def __update_town_list(self, updates : list[dict], towns_with_players : dict[str, list[Player]]):
+        
         for update in updates:
-            if update["type"] == "component" and update["set"] != "offline_players" and update.get("icon") != "fire":
-                if update["label"] in setup.DONT_TRACK_TOWNS:
-                    continue 
+            if update["type"] == "component" and update["set"] != "offline_players" and update.get("set") != "siegewar.markerset":
+                try:
+                    if update["label"] in setup.DONT_TRACK_TOWNS:
+                        continue 
 
-                if update["label"] not in self.__towns:
-                    t = Town(self)
-                    self.__towns[update["label"]] = t
-                    
-                    await t.add_update(update)
-                else:
-                    t = self.get_town(update["label"])
-                    await t.add_update(update)
-                await asyncio.sleep(0.0001) # Allow "parallel" processing
+                    if update["label"] not in self.__towns:
+                        t = Town(self)
+                        self.__towns[update["label"]] = t
+                        
+                        await t.add_update(update)
+                    else:
+                        t = self.get_town(update["label"])
+                        await t.add_update(update)
+                    await asyncio.sleep(0.0001) # Allow "parallel" processing
+                except Exception as e:
+                    # Error with town add. Town may need to be removed!
+                    await self.client.bot.get_channel(setup.alert_channel).send(f"{update.get('label')} Town Update Error! `{e}`")
 
         new_records = []
         add_town_history = []
         for town in self.towns:
-            cond = db.CreationCondition(self.client.towns_table.primary_key, town.name)
-            exists = await self.client.towns_table.record_exists(cond)
+            try:
+                cond = db.CreationCondition(self.client.towns_table.primary_key, town.name)
+                exists = await self.client.towns_table.record_exists(cond)
 
-            if not exists:
-                new_records.append(town.to_record())
-            else:
-                if town.name in towns_with_players:
-                    up = town.to_record_update_player(towns_with_players[town.name])
+                if not exists:
+                    new_records.append(town.to_record())
                 else:
-                    up = town.to_record_update_last()
-                await self.client.towns_table.update_record([cond], *up)
-            
-            # Add town history
-            cond2 = [db.CreationCondition("town", town.name), db.CreationCondition("date", datetime.date.today())]
-            exists = await self.client.town_history_table.record_exists(cond2)
-            if not exists:
-                add_town_history.append(town.to_record_history())
-            else:
-                await self.client.town_history_table.update_record(cond2, *town.to_record_history())
+                    if town.name in towns_with_players:
+                        up = town.to_record_update_player(towns_with_players[town.name])
+                    else:
+                        up = town.to_record_update_last()
+                    await self.client.towns_table.update_record([cond], *up)
+                
+                # Add town history
+                cond2 = [db.CreationCondition("town", town.name), db.CreationCondition("date", datetime.date.today())]
+                exists = await self.client.town_history_table.record_exists(cond2)
+                if not exists:
+                    add_town_history.append(town.to_record_history())
+                else:
+                    await self.client.town_history_table.update_record(cond2, *town.to_record_history())
+            except Exception as e:
+                # Error with town add. Town may need to be removed!
+                await self.client.bot.get_channel(setup.alert_channel).send(f"{update.get('label')} Town Tracking Update Error! `{e}`")
 
         if len(new_records) > 0:
             await self.client.towns_table.add_record(new_records)
         if len(add_town_history) > 0:
                 await self.client.town_history_table.add_record(add_town_history)
+        
         
         
     
