@@ -10,7 +10,6 @@ from discord.ext import commands
 import db
 
 import client
-from client.object import generate_time
 
 from matplotlib.pyplot import pie
 
@@ -36,20 +35,20 @@ def generate_command(c : client.Client, attribute : str, formatter = str, parser
 
         log = ""
         values = {}
-        for record in rs:
+        for i, record in enumerate(rs):
             parsed = parser(record.attribute(attribute)) if parser else record.attribute(attribute)
             val = formatter(parsed)
 
-            log = f"**{record.attribute('name')}**: {val}\n" + log
+            log = f"{len(rs)-i}. **{record.attribute('name')}**: {val}\n" + log
 
             if int(parsed) > 0:
                 values[str(record.attribute('name'))] = int(parsed)
         
 
-        file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"{o.name_formatted}'s distribution of {attnameformat}", "", "", pie)
+        file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"{o.name_formatted}'s distribution of {attnameformat} ({len(rs)})", "", "", pie)
         graph = discord.File(file, filename="graph.png")
 
-        embed = discord.Embed(title=f"{o.name_formatted}'s distribution of {attnameformat}", color=s.embed)
+        embed = discord.Embed(title=f"{o.name_formatted}'s distribution of {attnameformat} ({len(rs)} towns)", color=s.embed)
         embed.set_image(url="attachment://graph.png")
 
         if s.see_more_footer:
@@ -85,15 +84,8 @@ class Distribution(commands.Cog):
         nation = app_commands.Group(name="nation", description="Get nation attribute distributions", parent=distribution)
         culture = app_commands.Group(name="culture", description="Get culture attribute distributions", parent=distribution)
         religion = app_commands.Group(name="religion", description="Get religion attribute distributions", parent=distribution)
-
-        allowed_attributes = [
-            {"attribute":"bank", "formatter":lambda x: f"${x:,.2f}", "name":"town_bank", "parser":None},
-            {"attribute":"resident_count", "formatter":None, "name":"residents", "parser":None},
-            {"attribute":"area", "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None},
-            {"attribute":"duration", "formatter":lambda x: generate_time(x*60), "name":"activity", "parser":lambda x: x/60}
-        ]
         
-        for attribute in allowed_attributes:
+        for attribute in s.distribution_commands["object"]:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"History for nation {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_nation=True, attname=name))
             command.autocomplete("nation")(autocompletes.nation_autocomplete)

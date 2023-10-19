@@ -18,7 +18,7 @@ class ErrorHandling(commands.Cog):
         async def on_error(interaction : discord.Interaction, error : app_commands.AppCommandError):
             embed = discord.Embed(
                 title="You've run into an unknown error",
-                description=f"```{error}```\n\nMessage <@368071242189897728> for support",
+                description=f"```{error}```\n\nMessage <@{s.mods[0]}> for support",
                 color=s.embedFail
             )
 
@@ -28,7 +28,7 @@ class ErrorHandling(commands.Cog):
             if isinstance(error.original, c.errors.MildError):
                 embed = discord.Embed(
                     title=error.original.title,
-                    description=f"{error.original.description}\n\nMessage <@368071242189897728> for support",
+                    description=f"{error.original.description}\n\nMessage <@{s.mods[0]}> for support",
                     color=s.embedFail
                 )
 

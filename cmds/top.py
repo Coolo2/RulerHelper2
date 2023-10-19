@@ -10,7 +10,6 @@ from discord.ext import commands
 import db
 
 import client
-from client.object import generate_time
 
 from matplotlib.pyplot import bar
 
@@ -69,10 +68,10 @@ def generate_command(
             values[str(record.attribute('name'))] = int(parsed)
         
 
-        file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"Top {o_type}s by {attnameformat}", o_type.title(), y or "Value", bar, y_formatter=y_formatter)
+        file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"Top {o_type}s by {attnameformat} ({len(rs)})", o_type.title(), y or "Value", bar, y_formatter=y_formatter)
         graph = discord.File(file, filename="graph.png")
 
-        embed = discord.Embed(title=f"Top {o_type}s by {attnameformat}", color=s.embed)
+        embed = discord.Embed(title=f"Top {o_type}s by {attnameformat} ({len(rs)})", color=s.embed)
         embed.set_image(url="attachment://graph.png")
 
         if attribute == "duration":
@@ -102,45 +101,23 @@ class Top(commands.Cog):
         cultures = app_commands.Group(name="cultures", description="List the top cultures by an attribute", parent=top)
         religions = app_commands.Group(name="religions", description="List the top religions by an attribute", parent=top)
 
-        allowed_attributes = [
-            {"attribute":"resident_count", "formatter":None, "name":"residents", "parser":None},
-            {"attribute":"resident_tax", "formatter":lambda x: f"{x:,.1f}%", "name":"tax", "parser":None, "y":"Tax (%)"},
-            {"attribute":"bank", "formatter":lambda x: f"${x:,.2f}", "name":None, "parser":None, "y":"Bank ($)"},
-            {"attribute":"area", "formatter":lambda x: f"{x:,} plots", "name":None, "parser":None, "y":"Area (plots)"},
-            {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
-            {"attribute":"founded_date", "formatter":lambda x: f"{x:,} days ({datetime.date.today()-datetime.timedelta(days=x)})", "name":"age", "parser":lambda x: (datetime.date.today() - x).days, "y":"Age (days)", "reverse":True}
-        ]
-        allowed_attributes_player = [
-            {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time}
-        ]
-        allowed_attributes_nation = [
-            {"attribute":"towns", "formatter":None, "name":"towns", "parser":None},
-            {"attribute":"town_balance", "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
-            {"attribute":"residents", "formatter":None, "name":"residents", "parser":None},
-            {"attribute":"area", "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None, "y":"Area (plots)"}
-        ]
-        allowed_attributes_object = [
-            {"attribute":"towns", "formatter":None, "name":"towns", "parser":None},
-            {"attribute":"town_balance", "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
-            {"attribute":"residents", "formatter":None, "name":"residents", "parser":None},
-            {"attribute":"area", "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None, "y":"Area (plots)"}
-        ]
+        
 
-        for attribute in allowed_attributes:
+        for attribute in s.top_commands["town"]:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"Top towns by {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_town=True, attname=name, y=attribute.get("y"), reverse=attribute.get("reverse"), y_formatter=attribute.get("y_formatter")))
             towns.add_command(command)
 
-        for attribute in allowed_attributes_player:
+        for attribute in s.top_commands["player"]:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"Top players by {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_player=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
             players.add_command(command)
         
-        for attribute in allowed_attributes_nation:
+        for attribute in s.top_commands["nation"]:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"Top nations by {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_nation=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
             nations.add_command(command)
-        for attribute in allowed_attributes_object:
+        for attribute in s.top_commands["object"]:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"Top cultures by {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_culture=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
             cultures.add_command(command)

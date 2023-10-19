@@ -1,25 +1,26 @@
 
 from datetime import timedelta
 from discord import Object
+from client.funcs import generate_time
+import datetime
 
-refresh_commands = False
-PRODUCTION_MODE = False
+"""
+Setup file!
+-Make sure to clear all images from ./cache if adjusting map settings, otherwise may still show an old image when testing
 
-commands = True
+"""
+
+version = "2.0.0"
+
+refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
+PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
+
+commands = True # Whether to listen for commands
 
 mod_guild = Object(id=985589916794765332) # Guild to add mod commands to
 alert_channel = 1155439092423733359 # Channel ID to send heavy error messages to
 request_channel = 985590035556479017 # Channel ID to send /request stuff
-mods = [368071242189897728] # List of User IDs who are "bot moderators". They can accept requests
-
-flags = {
-    "player":{
-        "discord":{"unique":True}
-    },
-    "nation":{
-        "server":{"unique":False}
-    }
-}
+mods = [368071242189897728] # List of User IDs who are "bot moderators". They can accept requests. First member of this list should be bot owner
 
 DEFAULT_TOWNS = ["RulerSpawn", "Sea", "Unclaimed", "Europe_Quarry", "North_America_Quarry", "Asia-Pacific_Quarry", "South_America_Quarry", "Africa_Quarry"] # Ignore these towns in certain commands. Will still be tracked and can still be seen with /get
 DONT_TRACK_TOWNS = ["Sea", "RulerSpawn", "Unclaimed"] # Ignore these towns while tracking.
@@ -34,6 +35,7 @@ map_bordering_town_fill_colour = "#808080"
 map_bordering_town_opacity = 10 # 1-100 opacity for bordering towns on /get town and /get nation maps
 
 earth_bg_path = "earth.png"
+likely_residency_prefix_history = "`[R]` "
 
 map_url = "https://map.rulercraft.com" # Base map URL
 refresh_period = 30 # Duration in seconds to refresh
@@ -47,9 +49,101 @@ top_graph_object_count = 25 # Number of towns/players/nations to display in "/to
 history_skip_if_object_unknown = False # If True and an object (town/player) is not known, ignore it completely in history commands. If False will still display but with diff. format
 see_more_footer = True # Show a footer saying "see more with /command..." under certain commands. useful when bot is new for button calls
 
+show_earth_bg_if_over = 2000 # Shows earth background on maps if over this number (blocks) high or wide
+
 embed = 0x2F3136
 embedFail = 0xFF0000
 embedSuccess = 0x32CD32
+
+history_commands = {
+    "town":[
+            {"attribute":"nation", "qualitative":True, "formatter":None, "name":None, "parser":None},
+            {"attribute":"religion", "qualitative":True, "formatter":None, "name":None, "parser":None},
+            {"attribute":"culture", "qualitative":True, "formatter":None, "name":None, "parser":None},
+            {"attribute":"mayor", "qualitative":True, "formatter":None, "name":None, "parser":None},
+            {"attribute":"resident_count", "qualitative":False, "formatter":None, "name":None, "parser":None, "y":"Residents"},
+            {"attribute":"resident_tax", "qualitative":False, "formatter":lambda x: f"{x:,.1f}%", "name":"tax", "parser":None, "y":"Tax (%)"},
+            {"attribute":"bank", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "parser":None, "y":"Bank ($)"},
+            {"attribute":"public", "qualitative":True, "formatter":None, "name":None, "parser":bool},
+            #{"attribute":"peaceful", "qualitative":True, "formatter":None, "name":None, "parser":bool},
+            {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots", "name":None, "parser":None, "y":"plots"},
+            {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
+            {"attribute":"area/resident_count", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident"},
+    ],
+    "player":[
+            {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time}
+    ],
+    "nation":[
+            {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},
+            {"attribute":"town_balance", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
+            {"attribute":"residents", "qualitative":False, "formatter":None, "name":"residents", "parser":None},
+            {"attribute":"capital", "qualitative":True, "formatter":None, "name":None, "parser":None},
+            {"attribute":"leader", "qualitative":True, "formatter":None, "name":None, "parser":None},
+            {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None, "y":"Area (plots)"},
+            {"attribute":"area/residents", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident"},
+    ],
+    "object":[ # Religion and Culture
+            {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},
+            {"attribute":"town_balance", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
+            {"attribute":"residents", "qualitative":False, "formatter":None, "name":"residents", "parser":None},
+            {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None, "y":"Area (plots)"}
+    ],
+    "global":[
+            {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},
+            {"attribute":"town_value", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
+            {"attribute":"residents", "qualitative":False, "formatter":lambda x: f"{x:,}", "name":"residents", "parser":None},
+            {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None, "y":"Area (plots)"},
+            {"attribute":"nations", "qualitative":False, "formatter":None, "name":"nations", "parser":None},
+            {"attribute":"known_players", "qualitative":False, "formatter":lambda x: f"{x:,}", "name":None, "parser":None}
+    ]
+}
+
+top_commands = {
+    "town":[
+        {"attribute":"resident_count", "formatter":None, "name":"residents", "parser":None},
+        {"attribute":"resident_tax", "formatter":lambda x: f"{x:,.1f}%", "name":"tax", "parser":None, "y":"Tax (%)"},
+        {"attribute":"bank", "formatter":lambda x: f"${x:,.2f}", "name":None, "parser":None, "y":"Bank ($)"},
+        {"attribute":"area", "formatter":lambda x: f"{x:,} plots", "name":None, "parser":None, "y":"Area (plots)"},
+        {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
+        {"attribute":"founded_date", "formatter":lambda x: f"{x:,} days ({datetime.date.today()-datetime.timedelta(days=x)})", "name":"age", "parser":lambda x: (datetime.date.today() - x).days, "y":"Age (days)", "reverse":True},
+        {"attribute":"area/resident_count", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident"},
+    ],
+    "player":[
+        {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time}
+    ],
+    "nation":[
+        {"attribute":"towns", "formatter":None, "name":"towns", "parser":None},
+        {"attribute":"town_balance", "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
+        {"attribute":"residents", "formatter":None, "name":"residents", "parser":None},
+        {"attribute":"area", "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None, "y":"Area (plots)"},
+        {"attribute":"area/residents", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident"},
+    ],
+    "object":[#Culture and Religion
+        {"attribute":"towns", "formatter":None, "name":"towns", "parser":None},
+        {"attribute":"town_balance", "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
+        {"attribute":"residents", "formatter":None, "name":"residents", "parser":None},
+        {"attribute":"area", "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None, "y":"Area (plots)"}
+    ]
+}
+
+distribution_commands = {
+    "object":[ # Nation, culture religion
+        {"attribute":"bank", "formatter":lambda x: f"${x:,.2f}", "name":"town_bank", "parser":None},
+        {"attribute":"resident_count", "formatter":None, "name":"residents", "parser":None},
+        {"attribute":"area", "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None},
+        {"attribute":"duration", "formatter":lambda x: generate_time(x*60), "name":"activity", "parser":lambda x: x/60}
+    ]
+}
+
+flags = { # Don't change these unless you know what you're doing
+    "player":{
+        "discord":{"unique":True}
+    },
+    "nation":{
+        "server":{"unique":False}
+    }
+}
+
 
 # Template for town descriptions. Needs to be updated ASAP when server updates
 template = """<div><div style="text-align:left"> <img src="

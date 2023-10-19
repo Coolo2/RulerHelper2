@@ -33,6 +33,7 @@ class PaginatorView(discord.ui.View):
                 embed.set_image(url="attachment://paginator_image.png")
 
         pages = text.split(split_character)
+        pages.remove("")
         
         self.pages = [split_character.join(pages[i:i+per_page]) for i in range(0, len(pages), per_page)]
         self.embed.description = self.pages[0]

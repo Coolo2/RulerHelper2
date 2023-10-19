@@ -103,13 +103,14 @@ class CreationField():
         return s
     
     @classmethod
-    def external_query(self, table : wrapper.Table, attribute : CreationAttribute|str, condition : CreationCondition, operator : str = "="):
+    def external_query(self, table : wrapper.Table, attribute : CreationAttribute|str, condition : CreationCondition, operator : str = "=", query_attribute:CreationAttribute|str=None):
         attribute_name = self.attribute_name_calc(self, str(attribute))
+        attribute_name_val = self.attribute_name_calc(self, str(query_attribute or attribute))
         if condition:
             condition.no_bindings = True
 
         where = f"WHERE {str(condition)}" if condition else ""
-        s = self(attribute_name, f"(SELECT {attribute_name} FROM {table.name} {where})")
+        s = self(attribute_name, f"(SELECT {attribute_name_val} FROM {table.name} {where})")
         s._seperate_values = []
         s.no_quotations = True
         s.operator = operator

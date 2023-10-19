@@ -44,11 +44,16 @@ async def _refresh():
         await c.database.commit()
     except Exception as e:
         print(e)
-        await bot.get_channel(s.alert_channel).send(f"Refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}")
+        await bot.get_channel(s.alert_channel).send(f"Refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
+    
+    try:
+        await c.notifications.refresh()
+    except Exception as e:
+        await bot.get_channel(s.alert_channel).send(f"Notifications refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
 
     print("Refreshed", datetime.datetime.now()-t)
 
-    await bot.change_presence(activity=discord.CustomActivity(name=f"{c.world.player_count} online"))
+    await bot.change_presence(activity=discord.CustomActivity(name=f"{c.world.player_count} online | v{s.version}"))
 
 extensions = [file.replace(".py", "") for file in os.listdir('./cmds') if file.endswith(".py")]
 

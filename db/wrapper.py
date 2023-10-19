@@ -356,7 +356,6 @@ class Table():
         
         condition_str = "WHERE (" + (") OR (".join(" AND ".join(str(condition) for condition in c) for c in conditions) + ")") if len(conditions) > 0 else ""
         command = f"UPDATE {self.name} SET {set_command} {condition_str} "
-        
         cursor = await self.db.connection.execute(command, params)
         await self.db.commit(True)
         if self.__records:
@@ -548,6 +547,7 @@ class Database(database.RawDatabase):
         distinct_command = f" DISTINCT" if distinct else ""
         
         selection = ", ".join(str(a) for a in attrs ) if len(attrs) != len(table.attributes) or join else "*"
+        #print(f"SELECT{distinct_command} {selection} FROM {table.name}{join_command}{conditions_str}{group_command} {order_command}{limit_command}", tuple(params))
         cursor = await self.connection.execute(f"SELECT{distinct_command} {selection} FROM {table.name}{join_command}{conditions_str}{group_command} {order_command}{limit_command}", tuple(params))
         fetched = await cursor.fetchall()
 

@@ -231,7 +231,7 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
 
                 plt.fill(*polygon.exterior.xy, fc=s.map_bordering_town_fill_colour + f"{s.map_bordering_town_opacity:02}", ec=town.border_color + f"{s.map_bordering_town_opacity//2:02}", zorder=2, rasterized=True, lw=0.5)
 
-    if whole or (show_earth == "auto" and (x_lim[1]-x_lim[0] > 2000 or y_lim[1]-y_lim[0] > 2000)):
+    if whole or (show_earth == "auto" and (x_lim[1]-x_lim[0] > s.show_earth_bg_if_over or y_lim[1]-y_lim[0] > s.show_earth_bg_if_over)):
         show_earth = True
 
     if plot_spawn and towns:

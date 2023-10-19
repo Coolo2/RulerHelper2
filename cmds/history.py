@@ -12,9 +12,10 @@ from discord.ext import commands
 import db
 
 import client
-from client.object import generate_time
 
 from matplotlib.pyplot import plot, bar
+from client.funcs import generate_time
+
 
 import datetime
 
@@ -130,18 +131,32 @@ def generate_visited_command(c : client.Client, is_town=False, is_player=False):
             o = c.world.get_player(player, True)
             if not o: raise client.errors.MildError("Nothing found!")
             objects = await o.visited_towns
+            likely_residency = await o.likely_residency
 
         log = ""
         values = {}
         for i, obj in enumerate(reversed(objects)):
             is_known = True if type(obj.town) != str and type(obj.player) != str else False
             name = discord.utils.escape_markdown(str(obj.town or obj.player))
-            format = "**" if is_known else "`"
+            
+            prefix = ""
+            fmt = ""
+            if obj.player and type(obj.player) != str:
+                if str(await obj.player.likely_residency) == str(o):
+                    prefix = s.likely_residency_prefix_history
+            if obj.town and type(obj.town) != str:
+                if str(likely_residency) == str(obj.town):
+                    prefix = s.likely_residency_prefix_history
+            
+            if datetime.datetime.now() - obj.last <= datetime.timedelta(seconds=s.refresh_period+5):
+                fmt = "**"
+
+            format = fmt if is_known else "`"
             
             if not is_known and s.history_skip_if_object_unknown:
                 continue
             
-            log = f"{len(objects)-i}. {format}{name}{format}: {str(obj)}\n" + log
+            log = f"{len(objects)-i}. {prefix}{format}{name}{format}: {str(obj)}\n" + log
 
             values[name] = obj.total
 
@@ -149,7 +164,7 @@ def generate_visited_command(c : client.Client, is_town=False, is_player=False):
         file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"{str(o)}'s visited {opp} history ({len(objects)})", opp.title(), "Time (minutes)", bar, y_formatter=generate_time)
         graph = discord.File(file, filename="graph.png")
 
-        embed = discord.Embed(title=f"{str(o)} visited history", color=s.embed)
+        embed = discord.Embed(title=f"{str(o)} visited history ({len(objects)})", color=s.embed)
         embed.set_image(url="attachment://graph.png")
         
         embed.set_footer(text=f"Bot has been tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
@@ -185,69 +200,30 @@ class History(commands.Cog):
         religion = app_commands.Group(name="religion", description="Get history for a religion's attributes", parent=history)
 
 
-        allowed_attributes = [
-            {"attribute":"nation", "qualitative":True, "formatter":None, "name":None, "parser":None},
-            {"attribute":"religion", "qualitative":True, "formatter":None, "name":None, "parser":None},
-            {"attribute":"culture", "qualitative":True, "formatter":None, "name":None, "parser":None},
-            {"attribute":"mayor", "qualitative":True, "formatter":None, "name":None, "parser":None},
-            {"attribute":"resident_count", "qualitative":False, "formatter":None, "name":None, "parser":None, "y":"Residents"},
-            {"attribute":"resident_tax", "qualitative":False, "formatter":lambda x: f"{x:,.1f}%", "name":"tax", "parser":None, "y":"Tax (%)"},
-            {"attribute":"bank", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "parser":None, "y":"Bank ($)"},
-            {"attribute":"public", "qualitative":True, "formatter":None, "name":None, "parser":bool},
-            #{"attribute":"peaceful", "qualitative":True, "formatter":None, "name":None, "parser":bool},
-            {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots", "name":None, "parser":None, "y":"plots"},
-            {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time}
-        ]
-        allowed_attributes_player = [
-            {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time}
-        ]
-        allowed_attributes_nation = [
-            {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},
-            {"attribute":"town_balance", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
-            {"attribute":"residents", "qualitative":False, "formatter":None, "name":"residents", "parser":None},
-            {"attribute":"capital", "qualitative":True, "formatter":None, "name":None, "parser":None},
-            {"attribute":"leader", "qualitative":True, "formatter":None, "name":None, "parser":None},
-            {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None, "y":"Area (plots)"}
-        ]
-        allowed_attributes_object = [
-            {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},
-            {"attribute":"town_balance", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
-            {"attribute":"residents", "qualitative":False, "formatter":None, "name":"residents", "parser":None},
-            {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None, "y":"Area (plots)"}
-        ]
-        allowed_attributes_global = [
-            {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},
-            {"attribute":"town_value", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
-            {"attribute":"residents", "qualitative":False, "formatter":lambda x: f"{x:,}", "name":"residents", "parser":None},
-            {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None, "y":"Area (plots)"},
-            {"attribute":"nations", "qualitative":False, "formatter":None, "name":"nations", "parser":None},
-            {"attribute":"known_players", "qualitative":False, "formatter":lambda x: f"{x:,}", "name":None, "parser":None}
-        ]
-
-        for attribute in allowed_attributes:
+        for attribute in s.history_commands["town"]:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"History for town {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("qualitative"), attribute.get("formatter") or str, attribute.get("parser"), True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
             command.autocomplete("town")(autocompletes.town_autocomplete)
             town.add_command(command)
 
-        for attribute in allowed_attributes_player:
+        for attribute in s.history_commands["player"]:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"History for player {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("qualitative"), attribute.get("formatter") or str, attribute.get("parser"), is_player=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
             command.autocomplete("player")(autocompletes.player_autocomplete)
             player.add_command(command)
         
-        for attribute in allowed_attributes_nation:
+        for attribute in s.history_commands["nation"]:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"History for nation {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("qualitative"), attribute.get("formatter") or str, attribute.get("parser"), is_nation=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
             command.autocomplete("nation")(autocompletes.nation_autocomplete)
             nation.add_command(command)
         
-        for attribute in allowed_attributes_global:
+        for attribute in s.history_commands["global"]:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"History for global {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("qualitative"), attribute.get("formatter") or str, attribute.get("parser"), attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
             global_.add_command(command)
         
-        for attribute in allowed_attributes_object:
+        for attribute in s.history_commands["object"]:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"History for culture {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("qualitative"), attribute.get("formatter") or str, attribute.get("parser"), is_culture=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
             command.autocomplete("culture")(autocompletes.culture_autocomplete)

@@ -266,7 +266,6 @@ class Mod(commands.Cog):
                     await rec.update(db.CreationField.add("duration", dur))
             
             # Update main record
-            await self.client.towns_table.update_records([db.CreationCondition("name", obj.name)], [db.CreationField.add("duration", old_duration)])
             await self.client.towns_table.delete_records([db.CreationCondition("name", old_object_name)])
         elif object_type == "nation":
 
