@@ -61,6 +61,7 @@ class Client():
                     db.CreationAttribute("public", db.types.Int),
                     db.CreationAttribute("peaceful", db.types.Int),
                     db.CreationAttribute("area", db.types.Int),
+                    db.CreationAttribute("duration", db.types.Int),
                     db.CreationAttribute("last_seen", db.types.Datetime)
                 ]
             )
@@ -91,6 +92,7 @@ class Client():
                     db.CreationAttribute("town_balance", db.types.Float),
                     db.CreationAttribute("residents", db.types.Int),
                     db.CreationAttribute("area", db.types.Int),
+                    db.CreationAttribute("duration", db.types.Int),
                     db.CreationAttribute("last", db.types.Datetime)
                 ]
             )
@@ -151,7 +153,8 @@ class Client():
                     db.CreationAttribute("residents", db.types.Int),
                     db.CreationAttribute("capital", db.types.String),
                     db.CreationAttribute("leader", db.types.String),
-                    db.CreationAttribute("area", db.types.Int)
+                    db.CreationAttribute("area", db.types.Int),
+                    db.CreationAttribute("duration", db.types.Int)
                 ]
             )
         )
@@ -194,6 +197,18 @@ class Client():
                     db.CreationAttribute("object_name", db.types.String),
                     db.CreationAttribute("name", db.types.String),
                     db.CreationAttribute("value", db.types.Any)
+                ]
+            )
+        )
+
+        self.activity_table = await self.database.create_or_get_table(
+            db.CreationTable(
+                "activity",
+                [
+                    db.CreationAttribute("object_type", db.types.String),
+                    db.CreationAttribute("object_name", db.types.String),
+                    db.CreationAttribute("duration", db.types.Int),
+                    db.CreationAttribute("last", db.types.Datetime)
                 ]
             )
         )
@@ -248,11 +263,116 @@ class Client():
             if not await town.exists_in_db:
                 await self.bot.get_channel(s.alert_channel).send(f"Removed town {town.name}")
                 self.world._remove_town(town.name)
+                for t in self.world.towns:
+                    if t.spawn.x == town.spawn.x and t.spawn.z == town.spawn.z:
+                        await self.bot.get_channel(s.alert_channel).send(f"Is this town the same as  {t.name}?")
+                        await self.merge_objects("town", town.name, t.name)
+                
+                
         for nation in self.world.nations.copy():
             
             if not nation.capital:
                 await self.bot.get_channel(s.alert_channel).send(f"Removed nation {nation.name}")
                 self.world._remove_nation(nation.name)
+                for n in self.world.nations:
+                    if n.capital == nation.capital and len(n.towns) == len(nation.towns):
+                        await self.bot.get_channel(s.alert_channel).send(f"Is this nation the same as  {n.name}?")
+                        await self.merge_objects("nation", nation.name, n.name)
+    
+    async def merge_objects(self, object_type : str, old_object_name : str, new_object_name : str):
+
+        
+        
+        if object_type == "player":
+            obj = self.world.get_player(new_object_name)
+        elif object_type == "town":
+            obj = self.world.get_town(new_object_name)
+        elif object_type == "nation":
+            obj = self.world.get_nation(new_object_name)
+
+        if not obj:
+            raise errors.MildError(f"{object_type.title()} not found")
+
+        # Merge system. Probably overcomplicated but it works 
+
+        # Firstly merge activity. Same for all so can be reused
+        old_activity = await obj.activity 
+        await self.activity_table.delete_records([db.CreationCondition("object_type", object_type), db.CreationCondition("object_name", old_object_name)]) 
+        await self.activity_table.update_records([db.CreationCondition("object_type", object_type), db.CreationCondition("object_name", obj.name)], [object_type, obj.name, db.CreationField.add("duration", old_activity.total), old_activity.last])
+
+        if object_type == "player":
+            old_duration = (await self.player_history_table.get_record([db.CreationCondition("player", old_object_name)], [self.player_history_table.attribute("duration")], order=db.CreationOrder("date", db.types.OrderDescending))).attribute("duration")
+
+            # Update flag table
+            await self.flags_table.delete_records([db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", obj.name)]) 
+            await self.flags_table.update_records([db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", old_object_name)], [db.CreationField(self.flags_table.attribute("object_name"), new_object_name)])
+
+            # Iterate over old history records. If not under new name, add it. Otherwise, remove old
+                # Add to new player records with old duration
+            for record in await self.player_history_table.get_records([db.CreationCondition("player", new_object_name)], order=db.CreationOrder("date", db.types.OrderAscending)):
+                old_duration_at_point = await self.player_history_table.get_record([db.CreationCondition("player", old_object_name), db.CreationCondition("date", record.attribute("date"), "<=")], order=db.CreationOrder("date", db.types.OrderDescending))
+                if old_duration_at_point: await record.update(db.CreationField.add("duration", old_duration_at_point.attribute("duration")))
+                # Iterate over old records. If exists for new player, remove
+            for record in await self.player_history_table.get_records([db.CreationCondition("player", old_object_name)], order=db.CreationOrder("date", db.types.OrderAscending)):
+                if not await self.player_history_table.record_exists(db.CreationCondition("player", new_object_name), db.CreationCondition("date", record.attribute("date"))):
+                    await record.update([db.CreationField("player", obj.name)]) 
+                else:
+                    await record.delete()
+            # if duplicates exist, merge data
+            for record in await self.visited_towns_table.get_records([db.CreationCondition("player", old_object_name)]):
+                rec = await self.visited_towns_table.get_record([db.CreationCondition("player", new_object_name), db.CreationCondition("town", record.attribute("town"))])
+                if not rec:
+                    await record.update([db.CreationField("player", obj.name)]) 
+                else:
+                    dur = record.attribute("duration")
+                    await record.delete()
+                    await rec.update(db.CreationField.add("duration", dur))
+
+            await self.players_table.update_records([db.CreationCondition("name", obj.name)], [db.CreationField.add("duration", old_duration)])
+
+            await self.players_table.delete_records([db.CreationCondition("name", old_object_name)])
+        elif object_type == "town":
+            old_duration = (await self.town_history_table.get_record([db.CreationCondition("town", old_object_name)], [self.town_history_table.attribute("duration")], order=db.CreationOrder("date", db.types.OrderDescending))).attribute("duration")
+
+            # Update flag table
+            await self.flags_table.delete_records([db.CreationCondition("object_type", "town"), db.CreationCondition("object_name", obj.name)]) 
+            await self.flags_table.update_records([db.CreationCondition("object_type", "town"), db.CreationCondition("object_name", old_object_name)], [db.CreationField(self.flags_table.attribute("object_name"), new_object_name)])
+
+            # Iterate over old history records. If not under new name, add it. Otherwise, remove old
+            for record in await self.town_history_table.get_records([db.CreationCondition("town", new_object_name)], order=db.CreationOrder("date", db.types.OrderAscending)):
+                old_duration_at_point = await self.town_history_table.get_record([db.CreationCondition("town", old_object_name), db.CreationCondition("date", record.attribute("date"), "<=")], order=db.CreationOrder("date", db.types.OrderDescending))
+                if old_duration_at_point: await record.update(db.CreationField.add("duration", old_duration_at_point.attribute("duration")))
+                # Iterate over old records. If exists for new town, remove
+            for record in await self.town_history_table.get_records([db.CreationCondition("town", old_object_name)]):
+                if not await self.town_history_table.record_exists(db.CreationCondition("town", new_object_name), db.CreationCondition("date", record.attribute("date"))):
+                    await record.update([db.CreationField("town", obj.name)]) 
+                else:
+                    await record.delete()
+            # If duplicate exists, merge data
+            for record in await self.visited_towns_table.get_records([db.CreationCondition("town", old_object_name)]):
+                rec = await self.visited_towns_table.get_record([db.CreationCondition("town", new_object_name), db.CreationCondition("player", record.attribute("player"))])
+                if not rec:
+                    await record.update([db.CreationField("town", obj.name)]) 
+                else:
+                    dur = record.attribute("duration")
+                    await record.delete()
+                    await rec.update(db.CreationField.add("duration", dur))
+            
+            # Update main record
+            await self.towns_table.delete_records([db.CreationCondition("name", old_object_name)])
+        elif object_type == "nation":
+
+            # Update flags: 1. Delete flags if already exist 2. Update old name
+            await self.flags_table.delete_records([db.CreationCondition("object_type", "nation"), db.CreationCondition("object_name", obj.name)]) 
+            await self.flags_table.update_records([db.CreationCondition("object_type", "nation"), db.CreationCondition("object_name", old_object_name)], [db.CreationField(self.flags_table.attribute("object_name"), new_object_name)])
+
+            # Iterate over old history records. If not under new name, add it. Otherwise, remove old
+            for record in await self.nation_history_table.get_records([db.CreationCondition("nation", old_object_name)]):
+                if not await self.nation_history_table.record_exists(db.CreationCondition("nation", new_object_name), db.CreationCondition("date", record.attribute("date"))):
+                    await record.update([db.CreationField("nation", obj.name)]) 
+                else:
+                    await record.delete()
+                
     
 class NotificationChannel():
     def __init__(self):
@@ -391,3 +511,4 @@ def top_rankings_to_text(rankings : dict, object_name : str, notable_only = True
     if not notable_only or notable_statistics == "": notable_statistics = "None"
 
     return notable_statistics
+

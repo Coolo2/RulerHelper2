@@ -27,7 +27,10 @@ DONT_TRACK_TOWNS = ["Sea", "RulerSpawn", "Unclaimed"] # Ignore these towns while
 
 IMAGE_DPI_GRAPH = 100 # DPI (image quality) for graphs (bar charts, pie charts, line graphs)
 IMAGE_DPI_DRAWING = 300 # DPI (image quality) for drawings (maps)
+IMAGE_DPI_RENDER = 600
 timeline_colors = ["red", "green", "brown", "orange", "purple", "yellow"] # Colours for timelines 
+compare_emojis = [":red_square:", ":orange_square:", ":yellow_square:", ":green_square:", ":blue_square:"] # Emojis for compare commands
+connection_line_colours = ["red", "orange", "yellow", "green", "blue", "aqua", "purple", "grey", "black", "white", "cyan", "olive", "pink", "chocolate"] 
 timeline_colors_bool = ["green", "red"] # True, False bool colours for timeline
 bar_color = "#1F1F1F" # Colour of bars in images in commands such as /top
 line_color = "silver"
@@ -55,6 +58,35 @@ embed = 0x2F3136
 embedFail = 0xFF0000
 embedSuccess = 0x32CD32
 
+compare_attributes = {
+    "town": [
+        {"attribute":"activity", "qualitative":False, "y_formatter":generate_time},
+        {"attribute":"founded_date", "qualitative":False, "formatter":lambda x: f"{(datetime.date.today()-x).days:,} days ({x})", "parser":lambda x: (datetime.date.today() - x).days, "name":"age", "y":"Age (days)"},
+        {"attribute":"bank", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Bank ($)", "inline":True},
+        {"attribute":"resident_count", "qualitative":False, "name":"residents", "inline":True},
+        {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots", "name":None, "y":"Area (plots)", "inline":True},
+        {"attribute":"resident_tax", "qualitative":False, "formatter":lambda x: f"{x:,.2f}%", "name":"daily_tax", "y":"Tax (%)", "inline":True},
+        {"attribute":"mayor", "qualitative":True, "inline":True},
+        {"attribute":"nation", "qualitative":True, "formatter":lambda n: n.name_formatted if n else "None", "inline":True}
+    ],
+    "nation":[
+        {"attribute":"activity", "qualitative":False, "y_formatter":generate_time},
+        {"attribute":"total_towns", "qualitative":False, "inline":True, "name":"towns"},
+        {"attribute":"total_residents", "qualitative":False, "name":"residents", "inline":True},
+        {"attribute":"total_area", "qualitative":False, "formatter":lambda x: f"{x:,} plots", "name":None, "y":"Area (plots)", "inline":True},
+        {"attribute":"total_value", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Town Value ($)", "inline":True},
+        {"attribute":"leader", "qualitative":True, "inline":True}
+    ],
+    "player":[
+        {"attribute":"activity", "qualitative":False, "y_formatter":generate_time},
+        {"attribute":"total_visited_towns", "qualitative":False, "name":"visited_towns", "inline":True},
+        {"attribute":"location", "qualitative":True, "formatter":lambda x: f"{int(x.x)}, {int(x.y)}, {int(x.z)}", "inline":False},
+        {"attribute":"town", "qualitative":True, "inline":True},
+        {"attribute":"likely_residency", "qualitative":True, "inline":True},
+        
+    ]
+}
+
 history_commands = {
     "town":[
             {"attribute":"nation", "qualitative":True, "formatter":None, "name":None, "parser":None},
@@ -80,6 +112,7 @@ history_commands = {
             {"attribute":"capital", "qualitative":True, "formatter":None, "name":None, "parser":None},
             {"attribute":"leader", "qualitative":True, "formatter":None, "name":None, "parser":None},
             {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None, "y":"Area (plots)"},
+            {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
             {"attribute":"area/residents", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident"},
     ],
     "object":[ # Religion and Culture
@@ -116,6 +149,7 @@ top_commands = {
         {"attribute":"town_balance", "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
         {"attribute":"residents", "formatter":None, "name":"residents", "parser":None},
         {"attribute":"area", "formatter":lambda x: f"{x:,} plots", "name":"area", "parser":None, "y":"Area (plots)"},
+        {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
         {"attribute":"area/residents", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident"},
     ],
     "object":[#Culture and Religion
@@ -135,7 +169,8 @@ distribution_commands = {
     ]
 }
 
-flags = { # Don't change these unless you know what you're doing
+# Don't change these unless you know what you're doing
+flags = { 
     "player":{
         "discord":{"unique":True}
     },
@@ -143,6 +178,18 @@ flags = { # Don't change these unless you know what you're doing
         "server":{"unique":False}
     }
 }
+
+world_to_map = [ # Unused currently. Would be used for a potential /render command. DOn't change
+            2,
+            0,
+            -1.2246467991473532e-16,
+            -1.2246467991473532e-16,
+            0,
+            -2,
+            0,
+            1,
+            0
+]
 
 
 # Template for town descriptions. Needs to be updated ASAP when server updates

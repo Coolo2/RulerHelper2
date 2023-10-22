@@ -9,6 +9,7 @@ import datetime
 
 dotenv.load_dotenv()
 
+import funcs
 from discord.ext import tasks, commands
 
 intents = discord.Intents().default()
@@ -33,6 +34,8 @@ async def on_ready():
     
     _refresh.start()
 
+    
+
 @tasks.loop(seconds=c.refresh_period)
 async def _refresh():
     t = datetime.datetime.now()
@@ -52,7 +55,7 @@ async def _refresh():
         await bot.get_channel(s.alert_channel).send(f"Notifications refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
 
     print("Refreshed", datetime.datetime.now()-t)
-
+    #await funcs.activity_to_json(c)
     await bot.change_presence(activity=discord.CustomActivity(name=f"{c.world.player_count} online | v{s.version}"))
 
 extensions = [file.replace(".py", "") for file in os.listdir('./cmds') if file.endswith(".py")]

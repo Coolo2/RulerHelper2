@@ -2,7 +2,7 @@
 import discord 
 
 import setup as s
-from funcs import paginator, graphs
+from funcs import paginator, graphs, commands_view
 
 from discord import app_commands
 from discord.ext import commands
@@ -16,6 +16,7 @@ from matplotlib.pyplot import bar
 import datetime
 
 def generate_command(
+            cog,
             c : client.Client, 
             attribute : str, 
             formatter = str, 
@@ -60,7 +61,7 @@ def generate_command(
                 if continue_main:
                     continue
             
-            parsed = parser(record.attribute(attribute)) if parser else record.attribute(attribute)
+            parsed = (parser(record.fields[1].value) if parser else record.fields[1].value) or 0
             val = formatter(parsed)
 
             log =  f"{len(rs)-i}. **{discord.utils.escape_markdown(record.attribute('name'))}**: {val}\n" + log
@@ -74,10 +75,19 @@ def generate_command(
         embed = discord.Embed(title=f"Top {o_type}s by {attnameformat} ({len(rs)})", color=s.embed)
         embed.set_image(url="attachment://graph.png")
 
+        
+
+        cmds = []
+        for i, object_name in enumerate(reversed(values.keys())):
+            if i >= 25: break 
+            cmds.append(commands_view.Command(f"get {o_type}", f"{i+1}. {object_name}", (object_name,), emoji=None))
+        
+
         if attribute == "duration":
             embed.set_footer(text=f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
 
         view = paginator.PaginatorView(embed, log)
+        view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {o_type.title()} Info...", 2))
         
         return await interaction.response.send_message(embed=embed, view=view, file=graph)
 
@@ -105,26 +115,26 @@ class Top(commands.Cog):
 
         for attribute in s.top_commands["town"]:
             name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"Top towns by {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_town=True, attname=name, y=attribute.get("y"), reverse=attribute.get("reverse"), y_formatter=attribute.get("y_formatter")))
+            command = app_commands.command(name=name, description=f"Top towns by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_town=True, attname=name, y=attribute.get("y"), reverse=attribute.get("reverse"), y_formatter=attribute.get("y_formatter")))
             towns.add_command(command)
 
         for attribute in s.top_commands["player"]:
             name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"Top players by {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_player=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
+            command = app_commands.command(name=name, description=f"Top players by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_player=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
             players.add_command(command)
         
         for attribute in s.top_commands["nation"]:
             name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"Top nations by {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_nation=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
+            command = app_commands.command(name=name, description=f"Top nations by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_nation=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
             nations.add_command(command)
         for attribute in s.top_commands["object"]:
             name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"Top cultures by {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_culture=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
+            command = app_commands.command(name=name, description=f"Top cultures by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_culture=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
             cultures.add_command(command)
 
             name = attribute.get("name") or attribute.get("attribute")
             name = "followers" if name == "residents" else name
-            command = app_commands.command(name=name, description=f"Top religions by {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_religion=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
+            command = app_commands.command(name=name, description=f"Top religions by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_religion=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
             religions.add_command(command)
 
         self.bot.tree.add_command(top)

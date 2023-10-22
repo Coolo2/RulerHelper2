@@ -7,7 +7,7 @@ class PaginatorView(discord.ui.View):
     def __init__(
                 self, 
                 embed : discord.Embed, 
-                text : str, 
+                text : str = None, 
                 split_character : str = "\n", 
                 per_page : int = 10, 
                 index : int = 0, 
@@ -32,11 +32,16 @@ class PaginatorView(discord.ui.View):
                 self.attachment = graph
                 embed.set_image(url="attachment://paginator_image.png")
 
+        if not text:
+            text = (embed.description + split_character) * len(page_image_generators) if embed.description else split_character.join(["_ _"]*len(page_image_generators))
+            per_page = embed.description.count(split_character)+1
+        
         pages = text.split(split_character)
-        pages.remove("")
+        if "" in pages:
+            pages.remove("")
         
         self.pages = [split_character.join(pages[i:i+per_page]) for i in range(0, len(pages), per_page)]
-        self.embed.description = self.pages[0]
+        self.embed.description = self.pages[0] if len(pages) > 0 else "_ _"
 
         if self.embed.footer.text and "Page " not in self.embed.footer.text:
             self.embed.set_footer(text=f"{self.embed.footer.text} - Page {self.index+1}/{len(self.pages)}")

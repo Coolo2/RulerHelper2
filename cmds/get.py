@@ -73,7 +73,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         borders = town.borders
         notable_statistics = client.top_rankings_to_text(await town.top_rankings, town.name)
 
-        graph = discord.File(graphs.plot_towns([town], outposts=False, dimmed_towns=borders), filename="graph.png")
+        
 
         embed = discord.Embed(title=f"Town: {town.name_formatted}", description=town.geography_description, color=s.embed)
         embed.set_thumbnail(url="attachment://graph.png")
@@ -119,6 +119,11 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         button.callback = outposts_button(town, c_view, borders)
         if len(town.raw_locs) > 1:
             c_view.add_item(button)
+        
+        cache_name = f"Town+{town.name}"
+        cache_id = town.vertex_count
+        
+        graph = discord.File(graphs.plot_towns([town], outposts=False, dimmed_towns=borders, show_earth=False, cache_name=cache_name, cache_id=cache_id), filename="graph.png")
 
         return await interaction.response.send_message(embed=embed, file=graph, view=c_view)
     
@@ -154,6 +159,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Town Value", value=f"${nation.total_value:,.2f}")
         embed.add_field(name="Area", value=f"{nation.total_area:,} plots")
         embed.add_field(name="Population Density", value=f"{int(nation.total_area/total_residents):,} plots/resident")
+        embed.add_field(name="Activity", value=str(await nation.activity))
         embed.add_field(name="Discord", value=flags.get("server") or "None set.")
         embed.add_field(name=f"Borders ({len(borders[0])})", value="`" + ("`, `".join(n.name for n in borders[0]) + "`") if len(borders[1]) > 0 else "None", inline=False if len(borders[1]) > 0 else True) 
         embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in [capital]+towns)) + "`", inline=False)
@@ -162,12 +168,31 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Notable Statistics", value=notable_statistics, inline=False)
 
         c_view = commands_view.CommandsView(self)
+
+        button = discord.ui.Button(label="View Outposts", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
+        def outposts_button(nation : client.object.Nation, view : discord.ui.View, borders):
+            async def outposts_button_callback(interaction : discord.Interaction):
+                for item in view.children:
+                    if type(item) == discord.ui.Button and item.label == "View Outposts":
+                        item.disabled = True 
+                
+                graph = discord.File(graphs.plot_towns(nation.towns, outposts=True, dimmed_towns=borders[1], plot_spawn=False), filename="graph_outposts.png")
+
+                interaction.message.embeds[0].set_thumbnail(url=None)
+                interaction.message.embeds[0].set_image(url="attachment://graph_outposts.png")
+                
+                await interaction.response.edit_message(view=view, attachments=[graph], embed=interaction.message.embeds[0])
+            return outposts_button_callback
+        button.callback = outposts_button(nation, c_view, borders)
+        if len(nation.raw_locs) > len(towns)+1:
+            c_view.add_item(button)
+
         if type(leader) != str:
             c_view.add_command(commands_view.Command("get player", "Leader Info", (leader.name,), button_style=discord.ButtonStyle.primary, emoji="👑", row=1))
         c_view.add_command(commands_view.Command("history nation residents", "Resident History", (nation.name,), emoji="🧑", row=1))
         c_view.add_command(commands_view.Command("history nation towns", "Town History", (nation.name,), emoji="🗾", row=1))
 
-        if len(towns) > 1:
+        if len(towns)+1 > 1:
             c_view.add_command(commands_view.Command("distribution nation residents", "Resident distribution", (nation.name,), emoji="🧑", row=2))
             c_view.add_command(commands_view.Command("distribution nation town_bank", "Balance distr.", (nation.name,), emoji="💵", row=2))
             c_view.add_command(commands_view.Command("distribution nation area", "Area distr.", (nation.name,), emoji="🗾", row=2))
@@ -177,6 +202,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             if i >= 25: break 
             cmds.append(commands_view.Command("get town", town.name, (town.name,), emoji=None))
         c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", 3))
+
+        
 
         # Diagram and send
         cache_name = f"Nation+{nation.name}"
@@ -196,7 +223,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
             await interaction.response.send_message(embed=embed, files=files, view=c_view)
         
-        graph = discord.File(graphs.plot_towns([capital]+towns, plot_spawn=False, dimmed_towns=borders[1], cache_name=cache_name, cache_id=cache_id), filename="map.png")
+        graph = discord.File(graphs.plot_towns([capital]+towns, plot_spawn=False, dimmed_towns=borders[1], cache_name=cache_name, cache_id=cache_id, outposts=False), filename="map.png")
         embed.set_image(url="attachment://map.png")
 
         if len(towns) > 3:
