@@ -119,7 +119,7 @@ def generate_command(
             await cmd_uni(interaction)
     return cmd
 
-def generate_visited_command(c : client.Client, is_town=False, is_player=False):
+def generate_visited_command(cog, c : client.Client, is_town=False, is_player=False):
     async def cmd_uni(interaction : discord.Interaction, town : str = None, player : str = None):
 
         objects : list[client.object.Activity] = []
@@ -160,7 +160,7 @@ def generate_visited_command(c : client.Client, is_town=False, is_player=False):
 
             values[name] = obj.total
 
-        opp = "player" if town else "pown"
+        opp = "player" if town else "town"
         file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"{str(o)}'s visited {opp} history ({len(objects)})", opp.title(), "Time (minutes)", bar, y_formatter=generate_time)
         graph = discord.File(file, filename="graph.png")
 
@@ -169,7 +169,14 @@ def generate_visited_command(c : client.Client, is_town=False, is_player=False):
         
         embed.set_footer(text=f"Bot has been tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
 
+        cmds = []
+        for i, object_name in enumerate(reversed(values.keys())):
+            if i >= 25: break 
+            cmds.append(commands_view.Command(f"get {opp}", f"{i+1}. {object_name}", (object_name,), emoji=None))
+
         view = paginator.PaginatorView(embed, log)
+        if len(cmds) > 0:
+            view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {opp.title()} Info...", 2))
         
         return await interaction.response.send_message(embed=embed, view=view, file=graph)
 
@@ -234,11 +241,11 @@ class History(commands.Cog):
             command.autocomplete("religion")(autocompletes.religion_autocomplete)
             religion.add_command(command)
         
-        command = app_commands.command(name="visited_towns", description="History for player's visited towns")(generate_visited_command(self.client, is_player=True))
+        command = app_commands.command(name="visited_towns", description="History for player's visited towns")(generate_visited_command(self, self.client, is_player=True))
         command.autocomplete("player")(autocompletes.player_autocomplete)
         player.add_command(command)
 
-        command = app_commands.command(name="visited_players", description="History for town's visited players")(generate_visited_command(self.client, is_town=True))
+        command = app_commands.command(name="visited_players", description="History for town's visited players")(generate_visited_command(self, self.client, is_town=True))
         command.autocomplete("town")(autocompletes.town_autocomplete)
         town.add_command(command)
 

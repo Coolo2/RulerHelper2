@@ -73,8 +73,6 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         borders = town.borders
         notable_statistics = client.top_rankings_to_text(await town.top_rankings, town.name)
 
-        
-
         embed = discord.Embed(title=f"Town: {town.name_formatted}", description=town.geography_description, color=s.embed)
         embed.set_thumbnail(url="attachment://graph.png")
 
@@ -358,14 +356,19 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         
         online_players = self.client.world.online_players
         log = ""
-        for player in online_players:
+        cmds = []
+        for i, player in enumerate(online_players):
             today = await player.get_activity_today()
             log = f"**{discord.utils.escape_markdown(player.name)}**: [{int(player.location.x)}, {int(player.location.y)}, {int(player.location.z)}]({self.client.url}?x={int(player.location.x)}&z={int(player.location.z)}&zoom={s.map_link_zoom}) ({client.funcs.generate_time(today.total)} today)\n" + log
+
+            if i <= 25: cmds.append(commands_view.Command("get player", player.name, (player.name,), emoji=None))
 
         embed = discord.Embed(title=f"Online players ({len(online_players)})", color=s.embed)
         embed.set_image(url="attachment://map_waiting.jpg")
 
-        view = paginator.PaginatorView(embed, log)
+        view = paginator.PaginatorView(embed, log, skip_buttons=False)
+        if len(cmds) > 0:
+            view.add_item(commands_view.CommandSelect(self, list(reversed(cmds)), "Get Player Info...", 2))
 
         im = graphs.check_cache(cache_name="Earth", cache_id=f"{len(self.client.world.towns)}+{len(self.client.world.nations)}")
         

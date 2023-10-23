@@ -1125,8 +1125,9 @@ class World():
             p = self.get_player(player_data["account"])
 
             if not p:
+                
                 p = Player(self)
-                self.__players[p.name] = p
+                self.__players[player_data["account"]] = p
             p.update(player_data)
 
             # Add activity

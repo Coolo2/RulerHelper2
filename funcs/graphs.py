@@ -23,7 +23,6 @@ from shapely import Point
 
 import math
 
-from PIL import Image
 import itertools
 
 def floor(num, zoomed_scale):
@@ -256,7 +255,6 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
     x_lim = ax.get_xlim()
     y_lim = ax.get_ylim()
     
-    
 
     if dimmed_towns:
         for town in dimmed_towns:
@@ -290,9 +288,6 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
         img = plt.imread(bg_path)
         plt.imshow(img, extent=[0-xw, xw, 0-yw, yw], origin='lower')
     
-    
-    
-    
     if not whole and connect_spawns:
         ax.set_xlim(x_lim[1]-((x_lim[1]-x_lim[0])*1.25), x_lim[1])
         ax.set_ylim(y_lim[0], (y_lim[0]+((0.92+(0.08*len(connect_spawns)))*(y_lim[1]-y_lim[0]))))
@@ -306,130 +301,12 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
 
     buf = io.BytesIO()
     plt.savefig(buf, dpi=s.IMAGE_DPI_DRAWING, transparent=True, bbox_inches="tight", pad_inches = 0)
-   
 
-    if cache_name and cache_id:
+    if cache_name and cache_id and not players:
         with open(f"./cache/{cache_name}_{cache_id}.png", "wb") as f:
             f.write(buf.getbuffer())
     
     buf.seek(0)
-    
-    plt.close()
-
-    return buf
-
-
-async def render_towns(client : client.Client, towns : list[client.object.Town], dimmed_towns : list[client.object.Town], draw_town : bool, fill_opacity : int, line_width : float, bordering_town_opacity : int, spawn_size : int, show_outposts : bool):
-
-    scale_div = 128.0
-
-    fig = plt.figure()
-    fig.patch.set_facecolor('#2F3136')
-
-    min_x = 999999
-    max_x = -99999
-    
-    min_z = 999999
-    max_z = -99999
-    
-    for town in towns:
-        for i, polygon in enumerate(town.locations.geoms):
-            if not show_outposts and not polygon.contains(Point(town.spawn.x, town.spawn.z)):
-                continue
-
-            xx, yy = polygon.exterior.coords.xy
-            for x_val in xx:
-                if x_val > max_x:
-                    max_x = x_val 
-                if x_val < min_x:
-                    min_x = x_val
-            for z_val in yy:
-                if z_val > max_z:
-                    max_z = z_val 
-                if z_val < min_z:
-                    min_z = z_val
-
-            if draw_town:
-                plt.fill(*polygon.exterior.xy, fc=town.fill_color + f'{int(min(fill_opacity, 99)/100*255):x}', ec=town.border_color, zorder=3, rasterized=True, lw=min(line_width, 10))
-            else:
-                plt.fill(*polygon.exterior.xy, fc="#FFFFFF00", ec="#FFFFFF00", zorder=3, rasterized=True, lw=min(line_width, 10))
-            
-            plt.scatter([town.spawn.x], [town.spawn.z], color=town.border_color, zorder=3, s=spawn_size)
-    
-
-    ax = plt.gca()
-    ax.set_aspect('equal', adjustable='box')
-
-    x_lim = ax.get_xlim()
-    y_lim = ax.get_ylim()
-
-    zoom = int(min(max(max_x-min_x, max_z-min_z)//1500, 5))
-
-    zoomed_scale = 2 ** zoom 
-    tile_width = zoomed_scale * 64
-
-
-    min_x, max_x, min_z, max_z = floor(min_x, tile_width), ceil(max_x, tile_width), floor(min_z, tile_width), floor(max_z, tile_width)
-
-    
-    print(zoom)
-    
-    # -512 -> -256 at zoom 2. Width 256 (already established), starting at n
-
-
-    x1 = floor((s.world_to_map[0] * min_x + s.world_to_map[2] * min_z) / scale_div, zoomed_scale)
-    x2 = floor((s.world_to_map[0] * max_x + s.world_to_map[2] * max_z) / scale_div, zoomed_scale)
-
-    z1 = ceil(-(128 - (s.world_to_map[3] * min_x + s.world_to_map[5] * min_z)) / scale_div, zoomed_scale)
-    z2 = ceil(-(128 - (s.world_to_map[3] * max_x + s.world_to_map[5] * max_z)) / scale_div, zoomed_scale)
-
-    min_x_t, max_x_t = min(x1, x2), max(x1, x2)
-    min_z_t, max_z_t = min(z1, z2), max(z1, z2)
-    
-
-    for iz, z in enumerate(range(min_z_t, max_z_t+1, zoomed_scale)):
-        for ix, x in enumerate(range(min_x_t, max_x_t+1, zoomed_scale)):
-            
-            tile_x_min, tile_x_max = min_x + (ix*tile_width), min_x + ((ix+1)*tile_width)
-            tile_z_min, tile_z_max = max_z - ((iz-0.5)*tile_width), max_z - ((iz-0.5+1)*tile_width)
-
-            
-            image_path = '/tiles/RulerEarth/flat/%d_%d/%s%d_%d.png' % (x//32, z//32, ('' if zoom == 0 else ('z' * zoom) + '_'), x, z)
-            
-            url = client.url + image_path
-
-                #print(f"Downloading zoom {zoom} - {counter}/{totals[zoom]} - {(counter/totals[zoom])*100:,.2f}%")
-            
-            async with client.session.get(url=url) as r:
-                
-                img = Image.open(io.BytesIO(await r.read()))
-
-                plt.imshow(img, extent=[tile_x_min, tile_x_max, tile_z_max, tile_z_min], origin='lower')
-
-
-        
-
-    bordering_town_opacity_str = f'{int(min(bordering_town_opacity, 99)/100*255):x}'
-    for town in dimmed_towns:
-        for i, polygon in enumerate(town.locations.geoms):
-            plt.fill(*polygon.exterior.xy, fc=s.map_bordering_town_fill_colour + bordering_town_opacity_str, ec=town.border_color + bordering_town_opacity_str, zorder=2, rasterized=True, lw=line_width)
-
-    
-        
-    
-
-    ax.set_xlim(x_lim)
-    ax.set_ylim(y_lim)
-
-    ax.invert_yaxis()
-
-    plt.axis('off')
-
-    buf = io.BytesIO()
-    plt.savefig(buf, dpi=s.IMAGE_DPI_RENDER, transparent=True, bbox_inches="tight", pad_inches = 0)
-    
-    buf.seek(0)
-    
     plt.close()
 
     return buf

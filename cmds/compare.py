@@ -66,7 +66,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 parser = attribute.get("parser") or int
                 image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Town", y, bar, None, attribute.get("y_formatter"))))
         
-        view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False)
+        view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False)
         
         return await interaction.followup.send(embed=embed, view=view, file=view.attachment)
 
@@ -120,7 +120,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 parser = attribute.get("parser") or int
                 image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Nation", y, bar, None, attribute.get("y_formatter"))))
         
-        view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False)
+        view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False)
         
         return await interaction.followup.send(embed=embed, view=view, file=view.attachment)
 
@@ -171,7 +171,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 parser = attribute.get("parser") or int
                 image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Player", y, bar, None, attribute.get("y_formatter"))))
         
-        view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False)
+        view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False)
         
         return await interaction.followup.send(embed=embed, view=view, file=view.attachment)
     

@@ -13,8 +13,6 @@ import client
 
 from matplotlib.pyplot import bar
 
-import datetime
-
 def generate_command(
             cog,
             c : client.Client, 

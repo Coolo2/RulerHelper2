@@ -238,6 +238,9 @@ class Client():
 
         map = await self.session.get(f"{self.url}/up/world/RulerEarth/0")
         map_data = await self.session.get(f"{self.url}/tiles/_markers_/marker_RulerEarth.json")
+
+        if map.status == 502 or map_data.status == 502:
+            return
         
 
         await self.world.refresh(map.content, map_data.content)
@@ -298,7 +301,11 @@ class Client():
         # Firstly merge activity. Same for all so can be reused
         old_activity = await obj.activity 
         await self.activity_table.delete_records([db.CreationCondition("object_type", object_type), db.CreationCondition("object_name", old_object_name)]) 
-        await self.activity_table.update_records([db.CreationCondition("object_type", object_type), db.CreationCondition("object_name", obj.name)], [object_type, obj.name, db.CreationField.add("duration", old_activity.total), old_activity.last])
+        in_new = self.activity_table.record_exists(*[db.CreationCondition("object_type", object_type), db.CreationCondition("object_name", obj.name)])
+        if in_new:
+            await self.activity_table.update_records([db.CreationCondition("object_type", object_type), db.CreationCondition("object_name", obj.name)], [object_type, obj.name, db.CreationField.add("duration", old_activity.total), db.CreationField("last", old_activity.last)])
+        else:
+            await self.activity_table.add_record([object_type, obj.name, old_activity.total, old_activity.last])
 
         if object_type == "player":
             old_duration = (await self.player_history_table.get_record([db.CreationCondition("player", old_object_name)], [self.player_history_table.attribute("duration")], order=db.CreationOrder("date", db.types.OrderDescending))).attribute("duration")

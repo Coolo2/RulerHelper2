@@ -3,6 +3,7 @@ sql/
 *.db
 *.db-journal
 cache/*.png
+render_towns.py
 
 test.py
 
