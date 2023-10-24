@@ -40,19 +40,24 @@ async def on_ready():
 async def _refresh():
     t = datetime.datetime.now()
     print("Refreshing")
+    w = False
     try:
-        await c.fetch_world()
+        w = await c.fetch_world()
+
+        if w != False:
         
-        await c.cull_db()
-        await c.database.commit()
+            await c.cull_db()
+            await c.database.commit()
+
+            try:
+                await c.notifications.refresh()
+            except Exception as e:
+                await bot.get_channel(s.alert_channel).send(f"Notifications refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
     except Exception as e:
         print(e)
         await bot.get_channel(s.alert_channel).send(f"Refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
     
-    try:
-        await c.notifications.refresh()
-    except Exception as e:
-        await bot.get_channel(s.alert_channel).send(f"Notifications refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
+    
 
     print("Refreshed", datetime.datetime.now()-t)
     #await funcs.activity_to_json(c)

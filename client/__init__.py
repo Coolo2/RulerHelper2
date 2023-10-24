@@ -240,7 +240,7 @@ class Client():
         map_data = await self.session.get(f"{self.url}/tiles/_markers_/marker_RulerEarth.json")
 
         if map.status == 502 or map_data.status == 502:
-            return
+            return False
         
 
         await self.world.refresh(map.content, map_data.content)
@@ -255,7 +255,7 @@ class Client():
 
         await self.players_table.delete_records([db.CreationCondition("last", datetime.datetime.now()-s.cull_players_from, "<")])
         await self.towns_table.delete_records([db.CreationCondition("last_seen", datetime.datetime.now()-s.cull_objects_after, "<")])
-        await self.objects_table.delete_records([db.CreationCondition("last", datetime.datetime.now()-s.cull_objects_after, "<")])
+        
 
         await self.flags_table.delete_records([db.CreationCondition("object_type", "nation"), db.CreationField.external_query(self.objects_table, "object_name", db.CreationCondition("type", "nation"), operator="NOT IN")])
 
@@ -275,13 +275,18 @@ class Client():
         for nation in self.world.nations.copy():
             
             if not nation.capital:
+                nation_info = await self.objects_table.get_record([db.CreationCondition("type", "nation"), db.CreationCondition("name", nation.name)])
+
                 await self.bot.get_channel(s.alert_channel).send(f"Removed nation {nation.name}")
                 self.world._remove_nation(nation.name)
                 for n in self.world.nations:
-                    if n.capital == nation.capital and len(n.towns) == len(nation.towns):
+                    if len(n.towns) == nation_info.attribute("towns") and n.total_residents == nation_info.attribute("towns"):
                         await self.bot.get_channel(s.alert_channel).send(f"Is this nation the same as  {n.name}?")
                         await self.merge_objects("nation", nation.name, n.name)
-    
+                        break
+
+        # Must be done after because accesssed in cull
+        await self.objects_table.delete_records([db.CreationCondition("last", datetime.datetime.now()-s.cull_objects_after, "<")])
     async def merge_objects(self, object_type : str, old_object_name : str, new_object_name : str):
 
         
