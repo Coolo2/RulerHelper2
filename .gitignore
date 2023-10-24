@@ -4,6 +4,7 @@ sql/
 *.db-journal
 cache/*.png
 render_towns.py
+earthold.png
 
 test.py
 
