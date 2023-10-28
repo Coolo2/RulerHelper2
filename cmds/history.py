@@ -1,7 +1,5 @@
 
 import discord 
-import json
-import io
 
 import setup as s
 from funcs import autocompletes, commands_view, paginator, graphs
@@ -10,12 +8,10 @@ from discord import app_commands
 from discord.ext import commands
 
 import db
-
 import client
 
 from matplotlib.pyplot import plot, bar
 from client.funcs import generate_time
-
 
 import datetime
 
@@ -127,17 +123,20 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             o = c.world.get_town(town, True)
             if not o: raise client.errors.MildError("Nothing found!")
             objects = await o.visited_players
+            total = await c.visited_towns_table.total_column("duration", conditions=[db.CreationCondition("town", o.name)])
         elif player:
             o = c.world.get_player(player, True)
             if not o: raise client.errors.MildError("Nothing found!")
             objects = await o.visited_towns
             likely_residency = await o.likely_residency
+            total = await c.visited_towns_table.total_column("duration", conditions=[db.CreationCondition("player", o.name)])
 
         log = ""
         values = {}
+        towns = []
         for i, obj in enumerate(reversed(objects)):
             is_known = True if type(obj.town) != str and type(obj.player) != str else False
-            name = discord.utils.escape_markdown(str(obj.town or obj.player))
+            name = str(obj.town or obj.player)
             
             prefix = ""
             fmt = ""
@@ -145,6 +144,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
                 if str(await obj.player.likely_residency) == str(o):
                     prefix = s.likely_residency_prefix_history
             if obj.town and type(obj.town) != str:
+                towns.append(obj.town)
                 if str(likely_residency) == str(obj.town):
                     prefix = s.likely_residency_prefix_history
             
@@ -155,8 +155,10 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             
             if not is_known and s.history_skip_if_object_unknown:
                 continue
+
+            perc = (obj.total/total)*100
             
-            log = f"{len(objects)-i}. {prefix}{format}{name}{format}: {str(obj)}\n" + log
+            log = f"{len(objects)-i}. {prefix}{format}{discord.utils.escape_markdown(name)}{format}: {str(obj)} ({perc:,.1f}%)\n" + log
 
             values[name] = obj.total
 
@@ -178,7 +180,24 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
         if len(cmds) > 0:
             view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {opp.title()} Info...", 2))
         
-        return await interaction.response.send_message(embed=embed, view=view, file=graph)
+        if player:
+            button = discord.ui.Button(label="Map", emoji="🗺️", row=0)
+            def map_button(towns : list[client.object.Town], view : discord.ui.View):
+                async def map_button_callback(interaction : discord.Interaction):
+                    await interaction.response.defer()
+
+                    for item in view.children:
+                        if hasattr(item, "label") and item.label == "Map":
+                            item.disabled = True 
+                    
+                    map = discord.File(graphs.plot_towns(towns, plot_spawn=False, whole=True), filename="graph.png")
+                    
+                    await interaction.followup.edit_message(embed=embed, attachments=[map], message_id=interaction.message.id, view=view)
+                return map_button_callback
+            button.callback = map_button(towns, view)
+            view.add_item(button)
+        
+        await interaction.response.send_message(embed=embed, view=view, files=[graph])
 
     if is_town:
         async def cmd(interaction : discord.Interaction, town : str):

@@ -25,16 +25,6 @@ c.bot = bot
 @bot.event 
 async def on_ready():
     print(bot.user.name, "online")
-    
-
-    await c.init_db()
-    await c.world.initialise_player_list()
-    #await c.fetch_world()
-    
-    
-    _refresh.start()
-
-    
 
 @tasks.loop(seconds=c.refresh_period)
 async def _refresh():
@@ -53,11 +43,11 @@ async def _refresh():
                 await c.notifications.refresh()
             except Exception as e:
                 await bot.get_channel(s.alert_channel).send(f"Notifications refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
+            
+            await c.backup_db_if_not()
     except Exception as e:
         print(e)
         await bot.get_channel(s.alert_channel).send(f"Refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
-    
-    
 
     print("Refreshed", datetime.datetime.now()-t)
     #await funcs.activity_to_json(c)
@@ -76,6 +66,14 @@ async def setup_hook():
     if s.refresh_commands:
         await bot.tree.sync()
         await bot.tree.sync(guild=s.mod_guild)
+    
+    await c.init_db()
+    # Add column if needed. WIll get errors, just rerun
+    #await c.database.connection.execute("ALTER TABLE players ADD donator integer;")
+    await c.world.initialise_player_list()
+    #await c.fetch_world()
+    
+    _refresh.start()
 
 bot.setup_hook = setup_hook
 

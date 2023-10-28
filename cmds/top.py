@@ -13,6 +13,8 @@ import client
 
 from matplotlib.pyplot import bar
 
+import datetime
+
 def generate_command(
             cog,
             c : client.Client, 
@@ -33,8 +35,10 @@ def generate_command(
 
         if is_town:
             rs = await c.towns_table.get_records(attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+            total = await c.towns_table.total_column(attribute)
         elif is_player:
             rs = await c.players_table.get_records(attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+            total = await c.players_table.total_column(attribute)
         elif is_nation: 
             rs = await c.objects_table.get_records(conditions=[db.CreationCondition("type", "nation")], attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
         elif is_culture:
@@ -44,6 +48,10 @@ def generate_command(
 
         o_type = "nation" if is_nation else "town" if is_town else "player" if is_player else "culture" if is_culture else "religion"
         attnameformat = attname.replace('_', ' ')
+
+        if is_nation or is_culture or is_religion:
+            total = await c.objects_table.total_column(attribute, conditions=[db.CreationCondition("type", o_type)])
+            
 
         log = ""
         values = {}
@@ -61,10 +69,13 @@ def generate_command(
             
             parsed = (parser(record.fields[1].value) if parser else record.fields[1].value) or 0
             val = formatter(parsed)
+            perc = (record.attribute(attribute)/total)*100 if type(record.attribute(attribute)) != datetime.date else (parsed/total)*100
+            perc_str = f" ({perc:,.1f}%)" if type(record.attribute(attribute)) != datetime.date else ""
+            name = str(record.attribute('name')).replace("_", " ") if not is_player else str(record.attribute('name'))
 
-            log =  f"{len(rs)-i}. **{discord.utils.escape_markdown(record.attribute('name'))}**: {val}\n" + log
+            log =  f"{len(rs)-i}. **{discord.utils.escape_markdown(name)}**: {val}{perc_str}\n" + log
 
-            values[str(record.attribute('name'))] = int(parsed)
+            values[name] = int(parsed)
         
 
         file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"Top {o_type}s by {attnameformat} ({len(rs)})", o_type.title(), y or "Value", bar, y_formatter=y_formatter)
@@ -72,8 +83,6 @@ def generate_command(
 
         embed = discord.Embed(title=f"Top {o_type}s by {attnameformat} ({len(rs)})", color=s.embed)
         embed.set_image(url="attachment://graph.png")
-
-        
 
         cmds = []
         for i, object_name in enumerate(reversed(values.keys())):

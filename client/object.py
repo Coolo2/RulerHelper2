@@ -70,7 +70,7 @@ class Object():
 
     @property 
     def name_formatted(self):
-        return self.name.replace("_", " ").title()
+        return self.name.replace("_", " ")
     
     def __total(self, arr : list, attr : str):
         t = 0
@@ -102,6 +102,8 @@ class Object():
     def total_area(self) -> int: return self.__total(self.towns, "area")
     @property 
     def total_value(self) -> float: return self.__total(self.towns, "bank")
+    @property 
+    def total_detached_area(self) -> int: return self.__total(self.towns, "detached_area")
     @property
     def vertex_count(self) -> int:
         return self.__total(self.towns, "vertex_count")
@@ -201,6 +203,7 @@ class Nation(Object):
         for command in setup.top_commands["nation"]:
             value = (await self.world.client.objects_table.get_record(conditions=[db.CreationCondition("type", "nation"), db.CreationCondition("name", self.name)], attributes=[command["attribute"]])).attribute(command["attribute"])
             ranking = await self.world.client.objects_table.count_rows(conditions=[db.CreationCondition("type", "nation"), db.CreationCondition(command["attribute"], value, ">")])
+            if command.get("reverse_notable"): ranking = len(self.world.nations)-ranking-2
             notable = True if ranking <= len(self.world.nations)/2 else False
             rankings[command.get("name") or command.get("attribute")] = [value, ranking+1, notable]
         
@@ -228,6 +231,14 @@ class Nation(Object):
         d = dict(sorted(d.items(), key=lambda x: x[1], reverse=True))
         return d
     
+    @property 
+    def notable_statistics(self) -> list[str]:
+        stats = []
+        detached_area_perc = (self.total_detached_area / self.total_area) * 100
+        if detached_area_perc > 0:
+            stats.append(f"Detached territories make up **{detached_area_perc:,.2f}%** of {self.name_formatted}'s claims")
+        return stats
+
     @property 
     async def activity(self) -> Activity:
         return Activity.from_record(await self.world.client.activity_table.get_record([db.CreationCondition("object_type", "nation"), db.CreationCondition("object_name", self.name)], ["duration", "last"]))
@@ -302,6 +313,24 @@ class Religion(Object):
         d = dict(sorted(d.items(), key=lambda x: x[1], reverse=True))
         return d
 
+class Tax():
+    def __init__(self, amount : float, tax_type : str):
+        self.amount = amount 
+        self.tax_type = tax_type 
+    
+    def __float__(self):
+        return float(self.amount)
+
+    def __int__(self):
+        return int(self.amount)
+
+    def __str__(self):
+        if self.tax_type == "%":
+            return f"{self.amount:,.2f}%"
+        return f"${self.amount:,.2f}"
+
+    def for_record(self):
+        return self.amount if self.tax_type == "%" else 0
 
 class Town():
     def __init__(self, world : client_pre.object.World):
@@ -321,7 +350,7 @@ class Town():
         self.__mayor : str = None 
         self.resident_count : int = None 
         self.founded_date : datetime.date = None 
-        self.resident_tax : float = None 
+        self.resident_tax : Tax = None 
         self.bank : float = None 
         self.public : bool = None 
         self.peaceful : bool = False # Currently not on map. Defaults to false
@@ -350,7 +379,7 @@ class Town():
 
     @property 
     def name_formatted(self):
-        return self.name.replace("_", " ").title()
+        return self.name.replace("_", " ")
 
     @property 
     def _mayor_raw(self):
@@ -363,7 +392,7 @@ class Town():
     @property 
     def area(self) -> int:
         return round((self.locations.area)/256)
-    
+
     @property 
     async def likely_residents(self) -> list[Player]:
         pls = []
@@ -449,10 +478,29 @@ class Town():
         for command in setup.top_commands["town"]:
             value = (await self.__world.client.towns_table.get_record(conditions=[db.CreationCondition("name", self.name)], attributes=[command["attribute"]])).attribute(command["attribute"])
             ranking = await self.__world.client.towns_table.count_rows(conditions=[db.CreationCondition(command["attribute"], value, ">")])
+            if command.get("reverse_notable"): ranking = len(self.__world.towns)-ranking-2
             notable = True if ranking <= len(self.__world.towns)/5 else False
             rankings[command.get("name") or command.get("attribute")] = [value, ranking+1, notable]
         
         return dict(sorted(rankings.items(), key=lambda x: x[1][1]))
+    
+    @property 
+    def detached_area(self) -> int:
+        detached_area = 0
+        for polygon in self.locations.geoms:
+            if not polygon.contains(Point(self.spawn.x, self.spawn.z)):
+                detached_area += polygon.area / 256
+        return int(detached_area)
+        
+
+    @property 
+    def notable_statistics(self) -> list[str]:
+        stats = []
+        detached_area_perc = (self.detached_area / self.area) * 100
+        if detached_area_perc > 0:
+            stats.append(f"Detached territories make up **{detached_area_perc:,.2f}%** of {self.name_formatted}'s claims")
+        return stats
+
 
 
     def to_record(self) -> list:
@@ -466,7 +514,7 @@ class Town():
             str(self.mayor), 
             self.resident_count, 
             self.founded_date, 
-            self.resident_tax, 
+            self.resident_tax.for_record(), 
             self.bank, 
             int(self.public), 
             int(self.peaceful), 
@@ -488,7 +536,7 @@ class Town():
             self.culture.name if self.culture else None, 
             self.__mayor,
             self.resident_count,
-            self.resident_tax,
+            self.resident_tax.for_record(),
             self.bank,
             self.public,
             self.peaceful,
@@ -532,8 +580,9 @@ class Town():
             except ValueError:
                 self.founded_date = datetime.date.today()
 
-            self.resident_tax = float(groups[9][:-1])
-            self.bank = float(groups[10].replace(",", ""))
+            self.resident_tax = Tax(float(groups[9].replace("%", "").replace(" Dollars", "").replace("$", "").strip()), "%" if "%" in groups[9] else "$")
+            
+            self.bank = float(groups[10].replace(",", "").strip())
             self.public = True if "true" in groups[11] else False
             #self.peaceful = True if "true" in groups[12] else False
 
@@ -577,6 +626,7 @@ class Player():
         self.armor : int = None
         self.health : int = None
         self.online = False
+        self.donator : bool = None
 
         self._town_cache = None
 
@@ -603,6 +653,7 @@ class Player():
         for command in setup.top_commands["player"]:
             value = (await self.__world.client.players_table.get_record(conditions=[db.CreationCondition("name", self.name)], attributes=[command["attribute"]])).attribute(command["attribute"])
             ranking = await self.__world.client.players_table.count_rows(conditions=[db.CreationCondition(command["attribute"], value, ">")])
+            if command.get("reverse_notable"): ranking = len(self.__world.players)-ranking-2
             notable = True if ranking <= len(self.__world.players)/10 else False
             rankings[command.get("name") or command.get("attribute")] = [value, ranking+1, notable]
         
@@ -705,6 +756,9 @@ class Player():
         self.armor : int = data["armor"]
         self.health : int = data["health"]
         self.online = True
+
+        self.donator = True if data.get("name") != data.get("account") and "color:#ffffff" not in data.get("name") and "color:#ff5555" not in data.get("name") else False
+
     
     def to_record(self) -> list:
         town = self.town
@@ -715,12 +769,13 @@ class Player():
             self.armor, 
             self.health, 
             self.__world.client.refresh_period, 
-            datetime.datetime.now()
+            datetime.datetime.now(),
+            int(self.donator)
         ]
 
     def to_record_update(self) -> list:
         r = self.to_record()
-        r[-2] = db.CreationField.external_query(
+        r[-3] = db.CreationField.external_query(
                     self.__world.client.activity_table, 
                     "duration", 
                     [db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", self.name)]
@@ -1105,6 +1160,7 @@ class World():
             p.location = Point(float(c) for c in player.attribute("location").split(","))
             p.armor : int = player.attribute("armor")
             p.health : int = player.attribute("health")
+            p.donator : bool = bool(player.attribute("donator")) if player.attribute("donator") else None
 
             self.__players[p.name] = p
 

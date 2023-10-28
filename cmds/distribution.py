@@ -18,18 +18,19 @@ def generate_command(c : client.Client, attribute : str, formatter = str, parser
 
         if nation:
             o = c.world.get_nation(nation, True)
+            typeatt = "nation"
             if not o: raise client.errors.MildError("Nothing found!")
-            rs = await c.towns_table.get_records(conditions=[db.CreationCondition("nation", o.name)], attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
         elif culture:
             o = c.world.get_culture(culture, True)
             if not o: raise client.errors.MildError("Nothing found!")
-            rs = await c.towns_table.get_records(conditions=[db.CreationCondition("culture", o.name)], attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+            typeatt = "culture"
         else: # is religion
             o = c.world.get_religion(religion, True)
+            typeatt = "religion"
             if not o: raise client.errors.MildError("Nothing found!")
-            rs = await c.towns_table.get_records(conditions=[db.CreationCondition("religion", o.name)], attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
 
-        
+        rs = await c.towns_table.get_records(conditions=[db.CreationCondition(typeatt, o.name)], attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+        total = await c.towns_table.total_column(attribute, conditions=[db.CreationCondition(typeatt, o.name)])
 
         attnameformat = attname.replace('_', ' ')
 
@@ -37,12 +38,14 @@ def generate_command(c : client.Client, attribute : str, formatter = str, parser
         values = {}
         for i, record in enumerate(rs):
             parsed = parser(record.attribute(attribute)) if parser else record.attribute(attribute)
+            name = str(record.attribute('name').replace("_", " "))
             val = formatter(parsed)
+            perc = (record.attribute(attribute)/total)*100
 
-            log = f"{len(rs)-i}. **{record.attribute('name')}**: {val}\n" + log
+            log = f"{len(rs)-i}. **{discord.utils.escape_markdown(name)}**: {val} ({perc:,.1f}%)\n" + log
 
             if int(parsed) > 0:
-                values[str(record.attribute('name'))] = int(parsed)
+                values[name] = int(parsed)
         
 
         file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"{o.name_formatted}'s distribution of {attnameformat} ({len(rs)})", "", "", pie)

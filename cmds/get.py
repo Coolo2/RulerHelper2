@@ -30,7 +30,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         likely_residency = await player.likely_residency
         visited_towns_total = await player.total_visited_towns
         dc = await player.discord
-        notable_statistics = client.top_rankings_to_text(await player.top_rankings, player.name)
+        notable_statistics = client.funcs.top_rankings_to_text(await player.top_rankings, player.name)
 
         health = "<:heartfull:1152274373923844196>"*int(player.health//2) + "<:hearthalf:1152274386364145715>"*int(player.health%2) + "<:heartnone:1152275125199179867>"*int((20-player.health)//2)
         armor = "<:armorfull:1152274423898976289>"*int(player.armor//2) + "<:armorhalf:1152274436179898430>"*int(player.armor%2) + "<:armornone:1152274447445790730>"*int((20-player.armor)//2)
@@ -39,11 +39,12 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed = discord.Embed(title=f"Player: {discord.utils.escape_markdown(player.name)}", description=f"{online}\n\n{health}\n{armor}", color=s.embed)
         
         embed.add_field(name="Location", value=f"[{int(player.location.x)}, {int(player.location.y)}, {int(player.location.z)}]({self.client.url}?x={int(player.location.x)}&z={int(player.location.z)}&zoom={s.map_link_zoom})")
-        embed.add_field(name="Town", value=f"{town.name} {'('+str(town.nation)+')' if town.nation else ''}" if town else "None")
-        embed.add_field(name="Likely Residency", value=f"{likely_residency.name} {'('+str(likely_residency.nation)+')' if likely_residency.nation and likely_residency != town else ''}" if likely_residency else "None")
+        embed.add_field(name="Town", value=f"{town.name_formatted} {'('+str(town.nation.name_formatted)+')' if town.nation else ''}" if town else "None")
+        embed.add_field(name="Likely Residency", value=f"{likely_residency.name_formatted} {'('+likely_residency.nation.name_formatted+')' if likely_residency.nation and likely_residency != town else ''}" if likely_residency else "None")
         embed.add_field(name="Activity", value=str(activity))
         embed.add_field(name="Visited Towns", value=f"{visited_towns_total} ({(visited_towns_total/len(self.client.world.towns))*100:.1f}%)")
         embed.add_field(name="Likely Discord", value=str(dc.mention if dc else "Unknown"))
+        embed.add_field(name="Donator?", value="Yes" if player.donator == True else "Unlikely" if player.donator == False else "Unknown")
         embed.add_field(name="Notable Statistics", value=notable_statistics, inline=False)
 
         embed.set_footer(text=f"Bot has been tracking for {(await self.client.world.total_tracked).str_no_timestamp()}")
@@ -71,24 +72,28 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             raise client.errors.MildError("Couldn't find town")
         
         borders = town.borders
-        notable_statistics = client.top_rankings_to_text(await town.top_rankings, town.name)
+        area = town.area
+
+        notable_rankings_str = client.funcs.top_rankings_to_text(await town.top_rankings, town.name_formatted)
+        notable_statistics = town.notable_statistics
+        notable_statistics_str = "- " + "\n- ".join(notable_statistics) if len(notable_statistics) > 0 else ""
 
         embed = discord.Embed(title=f"Town: {town.name_formatted}", description=town.geography_description, color=s.embed)
         embed.set_thumbnail(url="attachment://graph.png")
 
         embed.add_field(name="Nation", value=town.nation.name_formatted if town.nation else "None")
-        embed.add_field(name="Daily Tax", value=f"{town.resident_tax:.1f}%")
+        embed.add_field(name="Daily Tax", value=str(town.resident_tax))
         embed.add_field(name="Bank", value=f"${town.bank:,.2f}")
         embed.add_field(name="Mayor", value=discord.utils.escape_markdown(str(town.mayor)))
         embed.add_field(name="Spawnblock", value=f"[{int(town.spawn.x)}, {int(town.spawn.z)}]({self.client.url}?x={int(town.spawn.x)}&z={int(town.spawn.z)}&zoom={s.map_link_zoom})")
         embed.add_field(name="Total Residents", value=f"{town.resident_count:,}")
         embed.add_field(name="Founded", value=str(town.founded_date))
-        embed.add_field(name="Area", value=f"{town.area:,} plots")
+        embed.add_field(name="Area", value=f"{area:,} plots ({area * 64:,}km²)")
         embed.add_field(name="Activity", value=str(await town.activity))
         embed.add_field(name="Public", value="Yes" if town.public else "No")
-        embed.add_field(name=f"Borders ({len(borders)})", value="`" + ("`, `".join(t.name for t in borders) + "`") if len(borders) > 0 else "None", inline=False) 
+        embed.add_field(name=f"Borders ({len(borders)})", value="`" + ("`, `".join(t.name_formatted for t in borders) + "`") if len(borders) > 0 else "None", inline=False) 
         #embed.add_field(name="Peaceful", value="Yes" if town.peaceful else "No")
-        embed.add_field(name="Notable Statistics", value=notable_statistics, inline=False)
+        embed.add_field(name="Notable Statistics", value=notable_statistics_str + notable_rankings_str, inline=False)
 
         embed.set_footer(text=f"Bot has been tracking for {(await self.client.world.total_tracked).str_no_timestamp()}")
 
@@ -139,12 +144,16 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         leader = capital.mayor
         flags = await nation.flags
         total_residents = nation.total_residents
+        area = nation.total_area
         
         borders = nation.borders
 
         towns.remove(capital)
 
-        notable_statistics = client.top_rankings_to_text(await nation.top_rankings, nation.name)
+        notable_rankings_str = client.funcs.top_rankings_to_text(await nation.top_rankings, nation.name_formatted)
+        notable_statistics = nation.notable_statistics
+        notable_statistics_str = "- " + "\n- ".join(notable_statistics) if len(notable_statistics) > 0 else ""
+
         religion_make_up = nation.religion_make_up
         culture_make_up = nation.culture_make_up
 
@@ -155,15 +164,15 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Capital", value=str(capital))
         embed.add_field(name="Residents", value=f"{total_residents:,}")
         embed.add_field(name="Town Value", value=f"${nation.total_value:,.2f}")
-        embed.add_field(name="Area", value=f"{nation.total_area:,} plots")
+        embed.add_field(name="Area", value=f"{area:,} plots ({area*64:,}km²)")
         embed.add_field(name="Population Density", value=f"{int(nation.total_area/total_residents):,} plots/resident")
         embed.add_field(name="Activity", value=str(await nation.activity))
         embed.add_field(name="Discord", value=flags.get("server") or "None set.")
-        embed.add_field(name=f"Borders ({len(borders[0])})", value="`" + ("`, `".join(n.name for n in borders[0]) + "`") if len(borders[1]) > 0 else "None", inline=False if len(borders[1]) > 0 else True) 
+        embed.add_field(name=f"Borders ({len(borders[0])})", value="`" + ("`, `".join(n.name_formatted for n in borders[0]) + "`") if len(borders[1]) > 0 else "None", inline=False if len(borders[1]) > 0 else True) 
         embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in [capital]+towns)) + "`", inline=False)
         embed.add_field(name="Culture Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in culture_make_up.items()][:5]) if len(culture_make_up) > 0 else 'None')
         embed.add_field(name="Religion Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in religion_make_up.items()][:5]) if len(religion_make_up) > 0 else 'None')
-        embed.add_field(name="Notable Statistics", value=notable_statistics, inline=False)
+        embed.add_field(name="Notable Statistics", value=notable_statistics_str + notable_rankings_str, inline=False)
 
         c_view = commands_view.CommandsView(self)
 
@@ -198,7 +207,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         cmds = []
         for i, town in enumerate([capital]+towns):
             if i >= 25: break 
-            cmds.append(commands_view.Command("get town", town.name, (town.name,), emoji=None))
+            cmds.append(commands_view.Command("get town", town.name_formatted, (town.name,), emoji=None))
         c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", 3))
 
         
@@ -235,6 +244,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         
         culture = self.client.world.get_culture(culture_name, True)
         towns = culture.towns
+        area = culture.total_area
 
         if not culture:
             raise client.errors.MildError("Couldn't find culture")
@@ -242,10 +252,10 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         nation_make_up = culture.nation_make_up
         total_residents = culture.total_residents
 
-        embed = discord.Embed(title=f"Culture: {culture.name}", color=s.embed)
+        embed = discord.Embed(title=f"Culture: {culture.name_formatted}", color=s.embed)
         
         embed.add_field(name="Residents", value=f"{total_residents:,}")
-        embed.add_field(name="Area", value=f"{culture.total_area:,} plots")
+        embed.add_field(name="Area", value=f"{area:,} plots ({area*64:,}km²)")
         embed.add_field(name="Town Value", value=f"${culture.total_value:,.2f}")
         embed.add_field(name="Population Density", value=f"{int(culture.total_area/total_residents):,} plots/resident")
         embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in towns)) + "`", inline=False)
@@ -256,7 +266,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         cmds = []
         for i, town in enumerate(towns):
             if i >= 25: break 
-            cmds.append(commands_view.Command("get town", town.name, (town.name,), emoji=None))
+            cmds.append(commands_view.Command("get town", town.name_formatted, (town.name,), emoji=None))
         c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", 3))
 
         if len(towns) > 3:
@@ -278,6 +288,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         
         religion = self.client.world.get_religion(religion_name, True)
         towns = religion.towns
+        area = religion.total_area
 
         if not religion:
             raise client.errors.MildError("Couldn't find religion")
@@ -285,10 +296,10 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         nation_make_up = religion.nation_make_up
         total_residents = religion.total_residents
 
-        embed = discord.Embed(title=f"Religion: {religion.name}", color=s.embed)
+        embed = discord.Embed(title=f"Religion: {religion.name_formatted}", color=s.embed)
         
         embed.add_field(name="Followers", value=f"{total_residents:,}")
-        embed.add_field(name="Area", value=f"{religion.total_area:,} plots")
+        embed.add_field(name="Area", value=f"{area:,} plots ({area*64:,}km²)")
         embed.add_field(name="Town Value", value=f"${religion.total_value:,.2f}")
         embed.add_field(name="Population Density", value=f"{int(religion.total_area/total_residents):,} plots/resident")
         embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in towns)) + "`", inline=False)
@@ -299,7 +310,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         cmds = []
         for i, town in enumerate(towns):
             if i >= 25: break 
-            cmds.append(commands_view.Command("get town", town.name, (town.name,), emoji=None))
+            cmds.append(commands_view.Command("get town", town.name_formatted, (town.name,), emoji=None))
         c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", 3))
 
         if len(towns) > 3:
@@ -320,6 +331,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         
         world = self.client.world
         towns = world.towns
+        area = world.total_area
 
         embed = discord.Embed(title="RulerCraft Earth", description=f"[View Map]({self.client.url})", color=s.embed)
         
@@ -328,7 +340,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Cultures", value=str(len(world.cultures)))
         embed.add_field(name="Religions", value=str(len(world.religions)))
         embed.add_field(name="Town Value", value=f"${world.total_value:,.2f}")
-        embed.add_field(name="Claimed Area", value=f"{world.total_area:,} plots")
+        embed.add_field(name="Claimed Area", value=f"{area:,} plots ({area*64:,}km²)")
         embed.add_field(name="Total Residents", value=f"{world.total_residents:,} ({len(world.players):,} known)")
 
         embed.set_footer(text=f"Bot has been tracking for {(await world.total_tracked).str_no_timestamp()}")

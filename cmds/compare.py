@@ -38,7 +38,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         
         embed = discord.Embed(
             title="Comparison between: ", 
-            description="\n".join(f"### {s.compare_emojis[i]} - {t.name}" for i, t in enumerate(towns)),
+            description="\n".join(f"### {s.compare_emojis[i]} - {t.name_formatted}" for i, t in enumerate(towns)),
             color=s.embed
         )
 
@@ -92,7 +92,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         
         embed = discord.Embed(
             title="Comparison between: ", 
-            description="\n".join(f"### {s.compare_emojis[i]} - {n.name}" for i, n in enumerate(nations)),
+            description="\n".join(f"### {s.compare_emojis[i]} - {n.name_formatted}" for i, n in enumerate(nations)),
             color=s.embed
         )
 
@@ -150,7 +150,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         attributes = s.compare_attributes["player"]
         image_generators.append((graphs.plot_towns, ([], False, "auto", True, 5, False, players, None, None, None, [], players)))
         for _, attribute in enumerate(attributes):
-            display_name : str = (attribute.get("name") or attribute.get("attribute")).replace("_", " ").title()
+            display_name : str = (attribute.get("name") or attribute.get("attribute")).title()
             formatter = attribute.get("formatter") or str
             values = [getattr(t, attribute.get("attribute")) for t in players]
             for i, value in enumerate(values): # Await what needs to be

@@ -25,6 +25,9 @@ import math
 
 import itertools
 
+import warnings
+warnings.filterwarnings("ignore")
+
 def floor(num, zoomed_scale):
     return zoomed_scale * math.floor(num / zoomed_scale)
 

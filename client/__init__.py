@@ -12,8 +12,8 @@ from db import wrapper
 import discord
 from discord.ext import commands
 
-
-
+import shutil
+import os
 
 class Client():
     def __init__(self):
@@ -287,9 +287,15 @@ class Client():
 
         # Must be done after because accesssed in cull
         await self.objects_table.delete_records([db.CreationCondition("last", datetime.datetime.now()-s.cull_objects_after, "<")])
+    
+    async def backup_db_if_not(self):
+        epoch = datetime.date(2022, 1, 1)
+        td = datetime.date.today()
+        backup_name = f"backups/towny_{(td-epoch).days}_{td.year}_{td.month}_{td.day}.db"
+        if not os.path.exists(backup_name):
+            shutil.copyfile("towny.db", backup_name)
+    
     async def merge_objects(self, object_type : str, old_object_name : str, new_object_name : str):
-
-        
         
         if object_type == "player":
             obj = self.world.get_player(new_object_name)
@@ -488,7 +494,7 @@ class Notifications():
                             continue
                             
                         embed = discord.Embed(title="Player entered territory", color=s.embed)
-                        embed.add_field(name="Player name", value=player.name)
+                        embed.add_field(name="Player name", value=discord.utils.escape_markdown(player.name))
                         embed.add_field(name="Coordinates", value=f"[{int(player.location.x)}, {int(player.location.y)}, {int(player.location.z)}]({self.client.url}?x={int(player.location.x)}&z={int(player.location.z)}&zoom={s.map_link_zoom})")
                         embed.add_field(name="Town", value=town.name_formatted)
                         embed.add_field(name="Likely residency", value=f"{likely_residency} ({likely_residency_nation})" if likely_residency else "Unknown")
@@ -516,11 +522,5 @@ class Notifications():
                         self._players_ignore[town_name].remove(player)
 
 
-def top_rankings_to_text(rankings : dict, object_name : str, notable_only = True) -> str:
-    notable_statistics = ""
-    for (leaderboard), (value, ranking, notable) in rankings.items():
-        if notable: notable_statistics += f"\n- {object_name} is **#{ranking}** on the **{leaderboard.replace('_', ' ')}** ranking"
-    if not notable_only or notable_statistics == "": notable_statistics = "None"
 
-    return notable_statistics
 
