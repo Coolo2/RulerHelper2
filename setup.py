@@ -38,13 +38,15 @@ map_bordering_town_fill_colour = "#808080"
 map_bordering_town_opacity = 10 # 1-100 opacity for bordering towns on /get town and /get nation maps
 
 earth_bg_path = "earth.png"
+earth_bg_path_whole = "earth_wholequality.png"
+waiting_bg_path = "map_waiting.jpg"
 likely_residency_prefix_history = "`[R]` "
 
 map_url = "https://map.rulercraft.com" # Base map URL
 refresh_period = 30 # Duration in seconds to refresh
 map_link_zoom = 10 # Zoom level for map links. Eg "Location" in /get player
 
-cull_history_from = timedelta(days=45) # Duration of time to remove history from the database after
+cull_history_from = timedelta(days=60) # Duration of time to remove history from the database after
 cull_players_from = timedelta(days=45) # Duration of time to remove players from the database after
 cull_objects_after = timedelta(minutes=1) # Duration of time to remove deleted towns/nations from the database after. Does not clear history, just concurrent data used in /top etc
 

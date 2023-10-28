@@ -280,7 +280,7 @@ class Client():
                 await self.bot.get_channel(s.alert_channel).send(f"Removed nation {nation.name}")
                 self.world._remove_nation(nation.name)
                 for n in self.world.nations:
-                    if len(n.towns) == nation_info.attribute("towns") and n.total_residents == nation_info.attribute("towns"):
+                    if len(n.towns) == nation_info.attribute("towns") and n.total_residents == nation_info.attribute("residents"):
                         await self.bot.get_channel(s.alert_channel).send(f"Is this nation the same as  {n.name}?")
                         await self.merge_objects("nation", nation.name, n.name)
                         break
@@ -310,13 +310,13 @@ class Client():
         # Merge system. Probably overcomplicated but it works 
 
         # Firstly merge activity. Same for all so can be reused
-        old_activity = await obj.activity 
+        old_activity = await self.activity_table.get_record([db.CreationCondition("object_type", object_type), db.CreationCondition("object_name", old_object_name)], ["duration", "last"]) 
         await self.activity_table.delete_records([db.CreationCondition("object_type", object_type), db.CreationCondition("object_name", old_object_name)]) 
         in_new = self.activity_table.record_exists(*[db.CreationCondition("object_type", object_type), db.CreationCondition("object_name", obj.name)])
         if in_new:
-            await self.activity_table.update_records([db.CreationCondition("object_type", object_type), db.CreationCondition("object_name", obj.name)], [object_type, obj.name, db.CreationField.add("duration", old_activity.total), db.CreationField("last", old_activity.last)])
+            await self.activity_table.update_records([db.CreationCondition("object_type", object_type), db.CreationCondition("object_name", obj.name)], [object_type, obj.name, db.CreationField.add("duration", old_activity.attribute("duration")), db.CreationField("last", old_activity.attribute("last"))])
         else:
-            await self.activity_table.add_record([object_type, obj.name, old_activity.total, old_activity.last])
+            await self.activity_table.add_record([object_type, obj.name, old_activity.attribute("total"), old_activity.attribute("last")])
 
         if object_type == "player":
             old_duration = (await self.player_history_table.get_record([db.CreationCondition("player", old_object_name)], [self.player_history_table.attribute("duration")], order=db.CreationOrder("date", db.types.OrderDescending))).attribute("duration")

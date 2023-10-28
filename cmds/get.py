@@ -225,7 +225,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         elif len(towns) > 3:
             
-            files.append(discord.File("map_waiting.jpg"))
+            files.append(discord.File(s.waiting_bg_path, "map_waiting.jpg"))
             embed.set_image(url="attachment://map_waiting.jpg")
 
             await interaction.response.send_message(embed=embed, files=files, view=c_view)
@@ -272,7 +272,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         if len(towns) > 3:
             embed.set_image(url="attachment://map_waiting.jpg")
 
-            await interaction.response.send_message(embed=embed, view=c_view, file=discord.File("map_waiting.jpg"))
+            await interaction.response.send_message(embed=embed, view=c_view, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"))
         
         graph = discord.File(graphs.plot_towns(towns, plot_spawn=False), filename="graph.png")
         embed.set_image(url="attachment://graph.png")
@@ -316,7 +316,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         if len(towns) > 3:
             embed.set_image(url="attachment://map_waiting.jpg")
 
-            await interaction.response.send_message(embed=embed, view=c_view, file=discord.File("map_waiting.jpg"))
+            await interaction.response.send_message(embed=embed, view=c_view, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"))
         
         graph = discord.File(graphs.plot_towns(towns, plot_spawn=False), filename="graph.png")
         embed.set_image(url="attachment://graph.png")
@@ -332,6 +332,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         world = self.client.world
         towns = world.towns
         area = world.total_area
+        total_activity = await world.total_activity
+        total_tracked = await world.total_tracked
 
         embed = discord.Embed(title="RulerCraft Earth", description=f"[View Map]({self.client.url})", color=s.embed)
         
@@ -342,8 +344,9 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Town Value", value=f"${world.total_value:,.2f}")
         embed.add_field(name="Claimed Area", value=f"{area:,} plots ({area*64:,}km²)")
         embed.add_field(name="Total Residents", value=f"{world.total_residents:,} ({len(world.players):,} known)")
+        embed.add_field(name="Average online players", value=f"{total_activity.total/total_tracked.total:,.2f}")
 
-        embed.set_footer(text=f"Bot has been tracking for {(await world.total_tracked).str_no_timestamp()}")
+        embed.set_footer(text=f"Bot has been tracking for {total_tracked.str_no_timestamp()}")
 
         cache_id = f"{len(world.towns)}+{len(world.nations)}"
         im = graphs.check_cache(cache_name="Earth", cache_id=cache_id)
@@ -352,7 +355,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             files.append(discord.File(im, "graph.png"))
             embed.set_image(url="attachment://graph.png")
         else:
-            files.append(discord.File("map_waiting.jpg"))
+            files.append(discord.File(s.waiting_bg_path, "map_waiting.jpg"))
             embed.set_image(url="attachment://map_waiting.jpg")
 
         await interaction.response.send_message(embed=embed, files=files)
@@ -380,11 +383,11 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         view = paginator.PaginatorView(embed, log, skip_buttons=False)
         if len(cmds) > 0:
-            view.add_item(commands_view.CommandSelect(self, list(reversed(cmds)), "Get Player Info...", 2))
+            view.add_item(commands_view.CommandSelect(self, list(reversed(cmds))[:25], "Get Player Info...", 2))
 
         im = graphs.check_cache(cache_name="Earth", cache_id=f"{len(self.client.world.towns)}+{len(self.client.world.nations)}")
         
-        await interaction.response.send_message(embed=embed, view=view, file=discord.File("map_waiting.jpg"))
+        await interaction.response.send_message(embed=embed, view=view, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"))
 
         graph = discord.File(graphs.plot_towns(self.client.world.towns, players=self.client.world.players, plot_spawn=False, whole=True, cache_checked=im, cache_name="Earth", cache_id=f"{len(self.client.world.towns)}+{len(self.client.world.nations)}"), filename="graph.png")
         embed.set_image(url="attachment://graph.png")

@@ -947,6 +947,10 @@ class World():
     def total_value(self) -> float: return self.__total(self.towns, "bank")
 
     @property 
+    async def total_activity(self) -> Activity:
+        return Activity(await self.client.activity_table.total_column("duration", [db.CreationCondition("object_type", "player")]))
+
+    @property 
     async def total_tracked(self) -> Activity:
         return Activity((await self.client.global_table.get_record([db.CreationCondition("name", "total_tracked")], ["value"])).attribute("value"))
 

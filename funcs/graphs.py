@@ -267,6 +267,11 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
 
     if whole or (show_earth == "auto" and (x_lim[1]-x_lim[0] > s.show_earth_bg_if_over or y_lim[1]-y_lim[0] > s.show_earth_bg_if_over)):
         show_earth = True
+        
+        if (x_lim[1]-x_lim[0] > xw*1.7 or y_lim[1]-y_lim[0] > yw*1.5) and bg_path == s.earth_bg_path:
+            print("Using Whole!")
+            bg_path = s.earth_bg_path_whole
+
 
     if plot_spawn:
         
