@@ -257,7 +257,6 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
 
     x_lim = ax.get_xlim()
     y_lim = ax.get_ylim()
-    
 
     if dimmed_towns:
         for town in dimmed_towns:
@@ -268,10 +267,8 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
     if whole or (show_earth == "auto" and (x_lim[1]-x_lim[0] > s.show_earth_bg_if_over or y_lim[1]-y_lim[0] > s.show_earth_bg_if_over)):
         show_earth = True
         
-        if (x_lim[1]-x_lim[0] > xw*1.7 or y_lim[1]-y_lim[0] > yw*1.5) and bg_path == s.earth_bg_path:
-            print("Using Whole!")
+        if whole or ((x_lim[1]-x_lim[0] > xw*1.7 or y_lim[1]-y_lim[0] > yw*1.5) and bg_path == s.earth_bg_path):
             bg_path = s.earth_bg_path_whole
-
 
     if plot_spawn:
         
