@@ -7,7 +7,7 @@ import matplotlib.style as mplstyle
 
 matplotlib.use('Agg') 
 mplstyle.use('fast')
-matplotlib.interactive(True)
+#matplotlib.interactive(True)
 
 from itertools import islice
 import setup as s
@@ -204,8 +204,9 @@ def check_cache(cache_name : str, cache_id : str):
 def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto", plot_spawn=True, dot_size=None, whole=False, players : list[client.object.Player] = None, cache_name : str = None, cache_id : int = None, cache_checked=False, dimmed_towns : list[client.object.Town]=[], connect_spawns:list[client.object.Town]=False):
 
     # Cache_checked can be False if not checked, None if doesn't exists, str if does exist
-
+    d = datetime.datetime.now()
     matplotlib.rcParams['text.color'] = "silver"
+    #matplotlib.rcParams['path.simplify_threshold'] = 0.0
 
     bg_path = s.earth_bg_path
     if cache_name and cache_id and cache_checked == False:
@@ -225,6 +226,7 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
     fig = plt.figure()
     fig.patch.set_facecolor('#2F3136')
 
+    
     if towns:
         for town in towns:
             
@@ -232,8 +234,9 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
                 if not outposts and not polygon.contains(Point(town.spawn.x, town.spawn.z)):
                     continue
 
-                plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.5)
+                plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.5, animated=True)
     
+
     if players:
         x_online = []
         z_online = []
@@ -267,7 +270,7 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
     if whole or (show_earth == "auto" and (x_lim[1]-x_lim[0] > s.show_earth_bg_if_over or y_lim[1]-y_lim[0] > s.show_earth_bg_if_over)):
         show_earth = True
         
-        if whole or ((x_lim[1]-x_lim[0] > xw*1.7 or y_lim[1]-y_lim[0] > yw*1.5) and bg_path == s.earth_bg_path):
+        if (whole or (x_lim[1]-x_lim[0] > xw*1.7 or y_lim[1]-y_lim[0] > yw*1.5)) and bg_path == s.earth_bg_path:
             bg_path = s.earth_bg_path_whole
 
     if plot_spawn:
@@ -290,8 +293,10 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
             plt.legend(loc="upper left", prop={'size':5}, frameon=False)
 
     if show_earth == True:
+        
         img = plt.imread(bg_path)
         plt.imshow(img, extent=[0-xw, xw, 0-yw, yw], origin='lower')
+        
     
     if not whole and connect_spawns:
         ax.set_xlim(x_lim[1]-((x_lim[1]-x_lim[0])*1.25), x_lim[1])
@@ -313,6 +318,8 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
     
     buf.seek(0)
     plt.close()
+
+    print(datetime.datetime.now()-d)
 
     return buf
 

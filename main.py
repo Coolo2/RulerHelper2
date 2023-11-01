@@ -51,7 +51,7 @@ async def _refresh():
 
     print("Refreshed", datetime.datetime.now()-t)
     #await funcs.activity_to_json(c)
-    await bot.change_presence(activity=discord.CustomActivity(name=f"{c.world.player_count} online | v{s.version}"))
+    await bot.change_presence(activity=discord.CustomActivity(name=f"{c.world.player_count} online | v{s.version} | /changelog"))
 
 extensions = [file.replace(".py", "") for file in os.listdir('./cmds') if file.endswith(".py")]
 

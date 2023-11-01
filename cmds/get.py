@@ -82,6 +82,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.set_thumbnail(url="attachment://graph.png")
 
         embed.add_field(name="Nation", value=town.nation.name_formatted if town.nation else "None")
+        embed.add_field(name="Culture", value=str(town.culture))
+        embed.add_field(name="Religion", value=str(town.religion))
         embed.add_field(name="Daily Tax", value=str(town.resident_tax))
         embed.add_field(name="Bank", value=f"${town.bank:,.2f}")
         embed.add_field(name="Mayor", value=discord.utils.escape_markdown(str(town.mayor)))
@@ -103,9 +105,13 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             c_view.add_command(commands_view.Command("get player", "Mayor Info", (town.mayor.name,), button_style=discord.ButtonStyle.primary, emoji="👑"))
         if town.nation:
             c_view.add_command(commands_view.Command("get nation", "Nation Info", (town.nation.name,), button_style=discord.ButtonStyle.primary, emoji="🗾"))
-        c_view.add_command(commands_view.Command("history town visited_players", "Visited Players", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="📖"))
+        if town.culture:
+            c_view.add_command(commands_view.Command("get culture", "Culture Info", (town.culture.name,), button_style=discord.ButtonStyle.primary, emoji="📔"))
+        if town.religion:
+            c_view.add_command(commands_view.Command("get religion", "Religion Info", (town.religion.name,), button_style=discord.ButtonStyle.primary, emoji="🙏"))
+        c_view.add_command(commands_view.Command("history town visited_players", "Visited Players", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="📖", row=2))
         
-        button = discord.ui.Button(label="View Outposts", emoji="🗺️", row=1)
+        button = discord.ui.Button(label="View Outposts", emoji="🗺️", row=2)
         def outposts_button(town : client.object.Town, view : discord.ui.View, borders):
             async def outposts_button_callback(interaction : discord.Interaction):
                 for item in view.children:
@@ -173,6 +179,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Culture Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in culture_make_up.items()][:5]) if len(culture_make_up) > 0 else 'None')
         embed.add_field(name="Religion Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in religion_make_up.items()][:5]) if len(religion_make_up) > 0 else 'None')
         embed.add_field(name="Notable Statistics", value=notable_statistics_str + notable_rankings_str, inline=False)
+
+        embed.set_footer(text=f"Bot has been tracking for {(await self.client.world.total_tracked).str_no_timestamp()}")
 
         c_view = commands_view.CommandsView(self)
 
