@@ -176,7 +176,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             if i >= 25: break 
             cmds.append(commands_view.Command(f"get {opp}", f"{i+1}. {object_name}", (object_name,), emoji=None))
 
-        view = paginator.PaginatorView(embed, log)
+        view = paginator.PaginatorView(embed, log, skip_buttons=False)
         if len(cmds) > 0:
             view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {opp.title()} Info...", 2))
         

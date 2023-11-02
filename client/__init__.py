@@ -498,7 +498,7 @@ class Notifications():
                         embed.add_field(name="Coordinates", value=f"[{int(player.location.x)}, {int(player.location.y)}, {int(player.location.z)}]({self.client.url}?x={int(player.location.x)}&z={int(player.location.z)}&zoom={s.map_link_zoom})")
                         embed.add_field(name="Town", value=town.name_formatted)
                         embed.add_field(name="Likely residency", value=f"{likely_residency} ({likely_residency_nation})" if likely_residency else "Unknown")
-                        embed.set_thumbnail(url=player.avatar_url)
+                        embed.set_thumbnail(url=await player.face_url)
 
                         try:
                             await channel.channel.send(embed=embed)

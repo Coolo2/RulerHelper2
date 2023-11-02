@@ -10,7 +10,7 @@ Setup file!
 
 """
 
-version = "2.0.0"
+version = "2.1.0"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
@@ -59,6 +59,52 @@ show_earth_bg_if_over = 2000 # Shows earth background on maps if over this numbe
 embed = 0x2F3136
 embedFail = 0xFF0000
 embedSuccess = 0x32CD32
+
+changelog_latest = """
+- Bedrock faces now shown in /get player etc
+- Fixed various bugs
+ - History for visited no longer freezes over 3 pages
+""" # Leave blank if not 
+changelog_main = """
+- /history and /top have many more parameters, for example /history global, /history nation
+- New /history type: timeline. Displays qualitative data. Eg: /history town mayor
+- Visited history commands now show deleted towns 
+- /distribution nation added which ranks towns by area, residents, etc
+- Bot now tracks nation activity
+- /get town
+ - Location description is better now. It shows continent rather than general map area
+- /get nation
+ - Now displays flag
+ - Shows world behind map drawing
+ - Link to nation spawn map added
+- /get player
+ - Displays armour/health in a more visual format
+ - Displays if player is online
+ - Detects donator
+- /get culture and /get religion
+ - Now display "nation make-up". This shows what nations make up the culture/religion
+- /compare
+ - Now supports >2 objects as input
+ - In a more blunt format
+- Map drawings:
+ - /get map drawings now show bordering towns in a dim colour
+ - Certain map drawings will no longer re-render if already rendered (and not updated in-game since)
+ - Higher quality background
+ - Shows "generating map" instead of wait
+- Request commands
+ - You can now request to merge old objects into their new names to restore history. 
+ - You can set nation discord links and discords as before, however system is more robust
+- /get online now displays "playtime today" for each player
+- Notable statistics are now more extensive
+- You now no longer need to complete input on command parameters; eg you can type "enderpig" instead of "enderpig992216" if there is no one else with "enderpig" in their name
+- Times now format correctly on x and y axis of graphs, if there is a gap it will be shown as a gap
+- Performance fixes
+- Top commands now allow you to visit a town/nation/culture/player's /get page from a select menu
+- Towns and nations will automatically merge on name update
+- Paged menus now allow you to skip to end
+- History visited towns now has a map
+- km² calculations were incorrect. changed to IRL km²
+"""
 
 compare_attributes = {
     "town": [

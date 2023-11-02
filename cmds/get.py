@@ -49,7 +49,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         embed.set_footer(text=f"Bot has been tracking for {(await self.client.world.total_tracked).str_no_timestamp()}")
         
-        embed.set_thumbnail(url=player.avatar_url)
+        embed.set_thumbnail(url=await player.face_url)
 
         c_view = commands_view.CommandsView(self)
         if town:

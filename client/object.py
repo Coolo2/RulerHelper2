@@ -203,7 +203,7 @@ class Nation(Object):
         for command in setup.top_commands["nation"]:
             value = (await self.world.client.objects_table.get_record(conditions=[db.CreationCondition("type", "nation"), db.CreationCondition("name", self.name)], attributes=[command["attribute"]])).attribute(command["attribute"])
             ranking = await self.world.client.objects_table.count_rows(conditions=[db.CreationCondition("type", "nation"), db.CreationCondition(command["attribute"], value, ">")])
-            if command.get("reverse_notable"): ranking = len(self.world.nations)-ranking-2
+            if command.get("reverse_notable"): ranking = len(self.world.nations)-ranking-1
             notable = True if ranking <= len(self.world.nations)/2 else False
             rankings[command.get("name") or command.get("attribute")] = [value, ranking+1, notable]
         
@@ -478,7 +478,7 @@ class Town():
         for command in setup.top_commands["town"]:
             value = (await self.__world.client.towns_table.get_record(conditions=[db.CreationCondition("name", self.name)], attributes=[command["attribute"]])).attribute(command["attribute"])
             ranking = await self.__world.client.towns_table.count_rows(conditions=[db.CreationCondition(command["attribute"], value, ">")])
-            if command.get("reverse_notable"): ranking = len(self.__world.towns)-ranking-2
+            if command.get("reverse_notable"): ranking = len(self.__world.towns)-ranking-1
             notable = True if ranking <= len(self.__world.towns)/5 else False
             rankings[command.get("name") or command.get("attribute")] = [value, ranking+1, notable]
         
@@ -635,6 +635,25 @@ class Player():
             await self.__world.client.visited_towns_table.get_record([db.CreationCondition("player", self.name), db.CreationCondition("town", town.name)], ["duration", "last"])
         )
     
+    @property 
+    def is_bedrock(self):
+        return True if "." in self.name else False
+
+    @property 
+    async def bedrock_face_url(self):
+
+        user = await self.__world.client.session.get(f"https://api.geysermc.org/v2/xbox/xuid/{self.name.replace('.', '')}")
+        user_json : dict = await user.json()
+        if not user_json.get("xuid"):
+            return f"{self.__world.client.url}/tiles/faces/32x32/{self.name}.png"
+        texture = await self.__world.client.session.get(f"https://api.geysermc.org/v2/skin/{user_json['xuid']}")
+        
+        return f"https://mc-heads.net/avatar/{(await texture.json())['texture_id']}/32"
+    
+    @property 
+    async def face_url(self):
+        return f"{self.__world.client.url}/tiles/faces/32x32/{self.name}.png" if not self.is_bedrock else await self.bedrock_face_url
+    
     @property
     async def discord(self) -> discord.User:
         flags = await self.flags
@@ -653,7 +672,7 @@ class Player():
         for command in setup.top_commands["player"]:
             value = (await self.__world.client.players_table.get_record(conditions=[db.CreationCondition("name", self.name)], attributes=[command["attribute"]])).attribute(command["attribute"])
             ranking = await self.__world.client.players_table.count_rows(conditions=[db.CreationCondition(command["attribute"], value, ">")])
-            if command.get("reverse_notable"): ranking = len(self.__world.players)-ranking-2
+            if command.get("reverse_notable"): ranking = len(self.__world.players)-ranking-1
             notable = True if ranking <= len(self.__world.players)/10 else False
             rankings[command.get("name") or command.get("attribute")] = [value, ranking+1, notable]
         
@@ -682,10 +701,6 @@ class Player():
     async def activity(self) -> Activity:
         a = await self.__world.client.activity_table.get_record([db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", self.name)], ["duration", "last"])
         return Activity.from_record(a)
-
-    @property 
-    def avatar_url(self) -> str:
-        return f"{self.__world.client.url}/tiles/faces/32x32/{self.name}.png"
     
     @property 
     async def visited_towns(self) -> list[Activity]:
@@ -1225,7 +1240,7 @@ class World():
                 exists = await self.client.visited_towns_table.record_exists(conds)
 
                 if not exists:
-                    add_visited_towns.append([p.name, town.name, 20, datetime.datetime.now()])
+                    add_visited_towns.append([p.name, town.name, setup.refresh_period, datetime.datetime.now()])
                 else:
                     await self.client.visited_towns_table.update_record(conds, *[p.name, town.name, db.CreationField.add("duration", self.client.refresh_period), datetime.datetime.now()])
         
