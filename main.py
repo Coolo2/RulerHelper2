@@ -6,6 +6,7 @@ import discord
 import traceback
 import dotenv 
 import datetime 
+import db
 
 dotenv.load_dotenv()
 
@@ -67,9 +68,13 @@ async def setup_hook():
         await bot.tree.sync()
         await bot.tree.sync(guild=s.mod_guild)
     
-    await c.init_db()
-    # Add column if needed. WIll get errors, just rerun
-    #await c.database.connection.execute("ALTER TABLE players ADD donator integer;")
+    # Add column if needed
+    
+
+
+    await c.init_db(client.funcs.update_db(c))
+    
+    
     await c.world.initialise_player_list()
     #await c.fetch_world()
     

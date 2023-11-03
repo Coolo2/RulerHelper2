@@ -64,6 +64,8 @@ def generate_command(
         last = None
         values = {}
         for record in rs:
+            if not record.attribute(attribute):
+                continue
             parsed = parser(record.attribute(attribute)) if parser else record.attribute(attribute)
             val = formatter(parsed)
             if qualitative and last == val:

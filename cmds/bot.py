@@ -43,7 +43,7 @@ class Get(commands.GroupCog, name="bot", description="Commands relating to the b
         embed = discord.Embed(title=f"Bot changelog up to {s.version}", color=s.embed)
         
         if len(s.changelog_latest) > 0:
-            embed.add_field(name=f"v{s.version}", value=s.changelog_latest, inline=False)
+            embed.add_field(name=f"v{str(s.version)[0]}.0.0 -> v{s.version}", value=s.changelog_latest, inline=False)
         cl = [s.changelog_main[i:i+1000] for i in range(0, len(s.changelog_main), 1000)]
         for i, text in enumerate(cl):
             embed.add_field(name=f"v{str(s.version)[0]}.0.0" + (" (continued)" if i >0 else ""), value=text, inline=False)

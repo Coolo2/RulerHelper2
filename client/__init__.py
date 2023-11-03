@@ -31,8 +31,11 @@ class Client():
         self.world = object.World(self) 
         self.notifications = Notifications(self)
 
-    async def init_db(self):
+    async def init_db(self, update_coro = None):
         await self.database.connect()
+
+        if update_coro:
+            await update_coro
 
         self.global_table = await self.database.create_or_get_table(
             db.CreationTable(
@@ -76,6 +79,8 @@ class Client():
                     db.CreationAttribute("town", db.types.String),
                     db.CreationAttribute("armor", db.types.Int),
                     db.CreationAttribute("health", db.types.Int),
+                    db.CreationAttribute("visited_towns", db.types.Int),
+                    db.CreationAttribute("donator", db.types.Int),
                     db.CreationAttribute("duration", db.types.Int),
                     db.CreationAttribute("last", db.types.Datetime)
                 ]
@@ -407,7 +412,7 @@ class NotificationChannel():
         nc.nation_name = record.attribute("object_name")
 
         ignore_if_resident = record.attribute("ignore_if_resident")
-        nc.ignore_if_resident = True if ignore_if_resident == 1 else False
+        nc.ignore_if_resident = True if str(ignore_if_resident) == "1" else False
 
         return nc
 
@@ -490,7 +495,8 @@ class Notifications():
                         likely_residency = await player.likely_residency
                         likely_residency_nation = likely_residency.nation if likely_residency else "None"
 
-                        if channel.ignore_if_resident and likely_residency == town:
+                        
+                        if channel.ignore_if_resident and likely_residency and likely_residency.nation == town.nation:
                             continue
                             
                         embed = discord.Embed(title="Player entered territory", color=s.embed)
@@ -504,8 +510,6 @@ class Notifications():
                             await channel.channel.send(embed=embed)
                         except:
                             pass
-
-                        
 
                         if town_name not in self._players_ignore:
                             self._players_ignore[town_name] = []

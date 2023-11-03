@@ -10,7 +10,7 @@ Setup file!
 
 """
 
-version = "2.1.0"
+version = "2.2.1"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
@@ -61,9 +61,17 @@ embedFail = 0xFF0000
 embedSuccess = 0x32CD32
 
 changelog_latest = """
+v2.2.1
+- Fixed /history visited_town_count
+v2.2.0
+- Added /history player visited_town_count, /top players visited_towns
+ - Visited town history tracking starts from today. 
+- Notification ignore_if_resident filter now works properly
+v2.1.0
 - Bedrock faces now shown in /get player etc
 - Fixed various bugs
  - History for visited no longer freezes over 3 pages
+
 """ # Leave blank if not 
 changelog_main = """
 - /history and /top have many more parameters, for example /history global, /history nation
@@ -151,7 +159,8 @@ history_commands = {
             {"attribute":"area/resident_count", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident"},
     ],
     "player":[
-            {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time}
+            {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
+            {"attribute":"visited_towns", "qualitative":False, "formatter":None, "name":"visited_town_count", "parser":None, "y":"Towns"}
     ],
     "nation":[
             {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},
@@ -190,7 +199,8 @@ top_commands = {
         {"attribute":"area/resident_count", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident", "reverse_notable":True},
     ],
     "player":[
-        {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time}
+        {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
+        {"attribute":"visited_towns", "qualitative":False, "formatter":None, "name":None, "parser":None, "y":"Towns"}
     ],
     "nation":[
         {"attribute":"towns", "formatter":None, "name":"towns", "parser":None},

@@ -783,14 +783,21 @@ class Player():
             town.name if town else None, 
             self.armor, 
             self.health, 
+            int(self.donator),
+            0,
             self.__world.client.refresh_period, 
             datetime.datetime.now(),
-            int(self.donator)
         ]
 
     def to_record_update(self) -> list:
         r = self.to_record()
-        r[-3] = db.CreationField.external_query(
+        r[-4] = db.CreationField.external_query(
+                    self.__world.client.visited_towns_table, 
+                    "visited_towns", 
+                    [db.CreationCondition("player", self.name)],
+                    query_attribute="COUNT(*)"
+        )
+        r[-2] = db.CreationField.external_query(
                     self.__world.client.activity_table, 
                     "duration", 
                     [db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", self.name)]
@@ -798,7 +805,12 @@ class Player():
         return r
     
     def to_record_history(self) -> list:
-        return [self.name, datetime.date.today(), db.CreationField.external_query(self.__world.client.players_table, "duration", db.CreationCondition("name", self.name))]
+        return [
+            self.name, 
+            datetime.date.today(), 
+            db.CreationField.external_query(self.__world.client.players_table, "duration", db.CreationCondition("name", self.name)), 
+            db.CreationField.external_query(self.__world.client.visited_towns_table, "visited_towns", [db.CreationCondition("player", self.name)], query_attribute="COUNT(*)")
+        ]
     
     def to_record_activity(self) -> list:
         return ["player", self.name, 0, datetime.datetime.now()]
