@@ -10,7 +10,7 @@ Setup file!
 
 """
 
-version = "2.2.1"
+version = "2.2.3"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
@@ -61,8 +61,14 @@ embedFail = 0xFF0000
 embedSuccess = 0x32CD32
 
 changelog_latest = """
-v2.2.1
+v2.2.1 -> v2.2.3
 - Fixed /history visited_town_count
+- Fixed bedrock heads for users with underscores
+- Fixed None being ignored for qualitive history
+- Fixed /history player visited_town_count when they haven't visited any towns
+- Added back history buttons to /get town
+- Added back visited town button to /get player when they have only visited one town
+- Renamed /history town resident_count to /history town residents
 v2.2.0
 - Added /history player visited_town_count, /top players visited_towns
  - Visited town history tracking starts from today. 
@@ -71,7 +77,6 @@ v2.1.0
 - Bedrock faces now shown in /get player etc
 - Fixed various bugs
  - History for visited no longer freezes over 3 pages
-
 """ # Leave blank if not 
 changelog_main = """
 - /history and /top have many more parameters, for example /history global, /history nation
@@ -149,7 +154,7 @@ history_commands = {
             {"attribute":"religion", "qualitative":True, "formatter":None, "name":None, "parser":None},
             {"attribute":"culture", "qualitative":True, "formatter":None, "name":None, "parser":None},
             {"attribute":"mayor", "qualitative":True, "formatter":None, "name":None, "parser":None},
-            {"attribute":"resident_count", "qualitative":False, "formatter":None, "name":None, "parser":None, "y":"Residents"},
+            {"attribute":"resident_count", "qualitative":False, "formatter":None, "name":"residents", "parser":None, "y":"Residents"},
             {"attribute":"resident_tax", "qualitative":False, "formatter":lambda x: f"{x:,.1f}%", "name":"tax", "parser":None, "y":"Tax (%)"},
             {"attribute":"bank", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "parser":None, "y":"Bank ($)"},
             {"attribute":"public", "qualitative":True, "formatter":None, "name":None, "parser":bool},

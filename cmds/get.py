@@ -57,7 +57,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         if likely_residency and likely_residency != town:
             c_view.add_command(commands_view.Command("get town", "Likely Residency Info", (likely_residency.name,), button_style=discord.ButtonStyle.primary, emoji="ℹ️"))
         c_view.add_command(commands_view.Command("history player activity", "Activity History", (player.name,), button_style=discord.ButtonStyle.secondary, emoji="⏳"))
-        if visited_towns_total > 1:
+        if visited_towns_total > 0:
             c_view.add_command(commands_view.Command("history player visited_towns", "Visited Towns", (player.name,), button_style=discord.ButtonStyle.secondary, emoji="📖"))
 
         return await interaction.response.send_message(embed=embed, view=c_view)
@@ -109,9 +109,9 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             c_view.add_command(commands_view.Command("get culture", "Culture Info", (town.culture.name,), button_style=discord.ButtonStyle.primary, emoji="📔"))
         if town.religion:
             c_view.add_command(commands_view.Command("get religion", "Religion Info", (town.religion.name,), button_style=discord.ButtonStyle.primary, emoji="🙏"))
-        c_view.add_command(commands_view.Command("history town visited_players", "Visited Players", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="📖", row=2))
         
-        button = discord.ui.Button(label="View Outposts", emoji="🗺️", row=2)
+        
+        button = discord.ui.Button(label="View Outposts", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
         def outposts_button(town : client.object.Town, view : discord.ui.View, borders):
             async def outposts_button_callback(interaction : discord.Interaction):
                 for item in view.children:
@@ -128,6 +128,9 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         button.callback = outposts_button(town, c_view, borders)
         if len(town.raw_locs) > 1:
             c_view.add_item(button)
+        c_view.add_command(commands_view.Command("history town visited_players", "Visited Players", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="📖", row=2))
+        c_view.add_command(commands_view.Command("history town bank", "Bank History", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="💵", row=2))
+        c_view.add_command(commands_view.Command("history town residents", "Resident History", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
         
         cache_name = f"Town+{town.name}"
         cache_id = town.vertex_count

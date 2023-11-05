@@ -642,7 +642,7 @@ class Player():
     @property 
     async def bedrock_face_url(self):
 
-        user = await self.__world.client.session.get(f"https://api.geysermc.org/v2/xbox/xuid/{self.name.replace('.', '')}")
+        user = await self.__world.client.session.get(f"https://api.geysermc.org/v2/xbox/xuid/{self.name.replace('.', '').replace('_', '%20')}")
         user_json : dict = await user.json()
         if not user_json.get("xuid"):
             return f"{self.__world.client.url}/tiles/faces/32x32/{self.name}.png"

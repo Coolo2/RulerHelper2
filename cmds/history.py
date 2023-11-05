@@ -64,7 +64,7 @@ def generate_command(
         last = None
         values = {}
         for record in rs:
-            if not record.attribute(attribute):
+            if not record.attribute(attribute) and not qualitative:
                 continue
             parsed = parser(record.attribute(attribute)) if parser else record.attribute(attribute)
             val = formatter(parsed)
@@ -76,7 +76,7 @@ def generate_command(
             values[str(record.attribute('date'))] = str(parsed) if qualitative else int(parsed)
 
         td = datetime.date.today().strftime("%Y-%m-%d")
-        if td not in values:
+        if td not in values and len(values) > 0:
             values[td] = values[list(values)[-1]]
 
         if not qualitative:

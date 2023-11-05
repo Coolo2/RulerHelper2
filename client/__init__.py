@@ -142,7 +142,8 @@ class Client():
                 [
                     db.CreationAttribute("player", db.types.String),
                     db.CreationAttribute("date", db.types.Date),
-                    db.CreationAttribute("duration", db.types.Int)
+                    db.CreationAttribute("duration", db.types.Int),
+                    db.CreationAttribute("visited_towns", db.types.Int),
                 ]
             )
         )
