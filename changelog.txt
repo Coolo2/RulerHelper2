@@ -1,0 +1,74 @@
+# v2.3.0 (2023/11/07)
+- New parameter "on" and return of parameter "highlight" to /top
+ - "on" allows you to specify a date to rank from
+ - "highlight" allows you to highlight one object on the chart
+- Improved date formatting throughout the bot
+- Likely residency algorithm performance fixes
+- Added back outposts to many drawings, however they won't expand the map boundary past standard territory
+- Spawn dots now resize dynamically with map size. Because of this they (can) now display on many more maps
+- /get culture and religion now have buttons for basic history commands
+- You can no longer select nations/towns/... that don't exist anymore
+- Changelog is now paginated and is easier to read
+- /compare 
+ - Now shows history on graphs rather than just present day stats
+ - Now totals attributes in the field titles
+ - Has updated town mayor and nation leader formatting
+ - Has new nation capital attribute
+ - Has new buttons to compare leaders/mayors/capitals/nations/towns etc
+newpage
+## v2.2.1 -> v2.2.3 (2023/11/03-05)
+- Fixed /history visited_town_count
+- Fixed bedrock heads for users with underscores
+- Fixed None being ignored for qualitive history
+- Fixed /history player visited_town_count when they haven't visited any towns
+- Added back history buttons to /get town
+- Added back visited town button to /get player when they have only visited one town
+- Renamed /history town resident_count to /history town residents
+newpage
+# v2.2.0 (2023/11/03)
+- Added /history player visited_town_count, /top players visited_towns
+ - Visited town history tracking starts from today. 
+- Notification ignore_if_resident filter now works properly
+# v2.1.0(2023/11/02)
+- Bedrock faces now shown in /get player etc
+- Fixed various bugs
+ - History for visited no longer freezes over 3 pages
+# v2.0.0 (2023/11/01)
+- /history and /top have many more parameters, for example /history global, /history nation
+- New /history type: timeline. Displays qualitative data. Eg: /history town mayor
+- Visited history commands now show deleted towns 
+- /distribution nation added which ranks towns by area, residents, etc
+- Bot now tracks nation activity
+- /get town
+ - Location description is better now. It shows continent rather than general map area
+- /get nation
+ - Now displays flag
+ - Shows world behind map drawing
+ - Link to nation spawn map added
+- /get player
+ - Displays armour/health in a more visual format
+ - Displays if player is online
+ - Detects donator
+- /get culture and /get religion
+ - Now display "nation make-up". This shows what nations make up the culture/religion
+- /compare
+ - Now supports >2 objects as input
+ - In a more blunt format
+- Map drawings:
+ - /get map drawings now show bordering towns in a dim colour
+ - Certain map drawings will no longer re-render if already rendered (and not updated in-game since)
+ - Higher quality background
+ - Shows "generating map" instead of wait
+- Request commands
+ - You can now request to merge old objects into their new names to restore history. 
+ - You can set nation discord links and discords as before, however system is more robust
+- /get online now displays "playtime today" for each player
+- Notable statistics are now more extensive
+- You now no longer need to complete input on command parameters; eg you can type "enderpig" instead of "enderpig992216" if there is no one else with "enderpig" in their name
+- Times now format correctly on x and y axis of graphs, if there is a gap it will be shown as a gap
+- Performance fixes
+- Top commands now allow you to visit a town/nation/culture/player's /get page from a select menu
+- Towns and nations will automatically merge on name update
+- Paged menus now allow you to skip to end
+- History visited towns now has a map
+- km² calculations were incorrect. changed to IRL km²

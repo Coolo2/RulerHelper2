@@ -2,7 +2,7 @@
 import discord 
 
 import setup as s
-from funcs import paginator, graphs, commands_view
+from funcs import paginator, graphs, commands_view, autocompletes
 
 from discord import app_commands
 from discord.ext import commands
@@ -29,29 +29,43 @@ def generate_command(
             attname : str = None, 
             y:str = None, 
             reverse=False, 
-            y_formatter = None
+            y_formatter = None,
+            not_in_history : bool = None
 ):
-    async def cmd_uni(interaction : discord.Interaction):
+    async def cmd_uni(interaction : discord.Interaction, on : str = None, highlight : str = None):
+
+        on_date = datetime.datetime.strptime(on, "%b %d %Y").date() if on and not not_in_history else datetime.date.today()
 
         if is_town:
-            rs = await c.towns_table.get_records(attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
-            total = await c.towns_table.total_column(attribute)
+            if not_in_history:
+                rs = await c.towns_table.get_records(attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+                total = await c.towns_table.total_column(attribute)
+            else:
+                rs = await c.town_history_table.get_records(attributes=["town AS name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending), conditions=[db.CreationCondition("date", on_date)])
+                total = await c.town_history_table.total_column(attribute, conditions=[db.CreationCondition("date", on_date)])
+            l = [t.name for t in c.world.towns]
         elif is_player:
-            rs = await c.players_table.get_records(attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
-            total = await c.players_table.total_column(attribute)
-        elif is_nation: 
-            rs = await c.objects_table.get_records(conditions=[db.CreationCondition("type", "nation")], attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
-        elif is_culture:
-            rs = await c.objects_table.get_records(conditions=[db.CreationCondition("type", "culture")], attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
-        else: # is religion
-            rs = await c.objects_table.get_records(conditions=[db.CreationCondition("type", "religion")], attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+            rs = await c.player_history_table.get_records(
+                attributes=["player AS name", f"MAX({attribute}) AS {attribute}"], 
+                order=db.CreationOrder(attribute, db.types.OrderAscending),
+                conditions=[db.CreationCondition("date", on_date, "<=")],
+                group=["player"]
+            )
+            total = 0
+            for r in rs: total += r.attribute(attribute) or 0
+            l = [p.name for p in c.world.players]
+        else: # is nation
+            rs = await c.nation_history_table.get_records(conditions=[db.CreationCondition("date", on_date)], attributes=["nation AS name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+            total = await c.nation_history_table.total_column(attribute, conditions=[db.CreationCondition("date", on_date)])
+            l = [n.name for n in c.world.nations]
 
         o_type = "nation" if is_nation else "town" if is_town else "player" if is_player else "culture" if is_culture else "religion"
         attnameformat = attname.replace('_', ' ')
 
-        if is_nation or is_culture or is_religion:
-            total = await c.objects_table.total_column(attribute, conditions=[db.CreationCondition("type", o_type)])
-            
+        if is_culture or is_religion:
+            rs = await c.object_history_table.get_records(conditions=[db.CreationCondition("type", o_type), db.CreationCondition("date", on_date)], attributes=["object AS name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+            total = await c.object_history_table.total_column(attribute, conditions=[db.CreationCondition("type", o_type), db.CreationCondition("date", on_date)])
+            l = [o.name for o in c.world._objects[o_type + "s"]]
 
         log = ""
         values = {}
@@ -69,24 +83,26 @@ def generate_command(
             
             parsed = (parser(record.fields[1].value) if parser else record.fields[1].value) or 0
             val = formatter(parsed)
-            perc = (record.attribute(attribute)/total)*100 if type(record.attribute(attribute)) != datetime.date else (parsed/total)*100
-            perc_str = f" ({perc:,.1f}%)" if type(record.attribute(attribute)) != datetime.date else ""
+            attval = record.attribute(attribute) or 0
+            perc = (attval/total)*100 if type(attval) != datetime.date else (parsed/total)*100
+            perc_str = f" ({perc:,.1f}%)" if type(attval) != datetime.date else ""
             name = str(record.attribute('name')).replace("_", " ") if not is_player else str(record.attribute('name'))
 
             log =  f"{len(rs)-i}. **{discord.utils.escape_markdown(name)}**: {val}{perc_str}\n" + log
 
             values[name] = int(parsed)
         
+        title = f"Top {o_type}s by {attnameformat} " + (f"on {on} " if on else "") + f"({len(rs)})"
 
-        file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"Top {o_type}s by {attnameformat} ({len(rs)})", o_type.title(), y or "Value", bar, y_formatter=y_formatter)
+        file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), title, o_type.title(), y or "Value", bar, y_formatter=y_formatter, highlight=highlight)
         graph = discord.File(file, filename="graph.png")
 
-        embed = discord.Embed(title=f"Top {o_type}s by {attnameformat} ({len(rs)})", color=s.embed)
+        embed = discord.Embed(title=title, color=s.embed)
         embed.set_image(url="attachment://graph.png")
 
         cmds = []
-        for i, object_name in enumerate(reversed(values.keys())):
-            if i >= 25: break 
+        for i, object_name in enumerate(o for o in reversed(values.keys()) if o in l):
+            if i >= 25: continue 
             cmds.append(commands_view.Command(f"get {o_type}", f"{i+1}. {object_name}", (object_name,), emoji=None))
         
 
@@ -99,9 +115,7 @@ def generate_command(
         return await interaction.response.send_message(embed=embed, view=view, file=graph)
 
 
-    async def cmd(interaction : discord.Interaction):
-        await cmd_uni(interaction)
-    return cmd
+    return cmd_uni
 
 class Top(commands.Cog):
 
@@ -122,26 +136,34 @@ class Top(commands.Cog):
 
         for attribute in s.top_commands["town"]:
             name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"Top towns by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_town=True, attname=name, y=attribute.get("y"), reverse=attribute.get("reverse"), y_formatter=attribute.get("y_formatter")))
+            command = app_commands.command(name=name, description=f"Top towns by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_town=True, attname=name, y=attribute.get("y"), reverse=attribute.get("reverse"), y_formatter=attribute.get("y_formatter"), not_in_history=attribute.get("not_in_history")))
+            command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper("town"))
+            command.autocomplete("highlight")(autocompletes.town_autocomplete)
             towns.add_command(command)
-
         for attribute in s.top_commands["player"]:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"Top players by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_player=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
+            command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper("player"))
+            command.autocomplete("highlight")(autocompletes.player_autocomplete)
             players.add_command(command)
-        
         for attribute in s.top_commands["nation"]:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"Top nations by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_nation=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
+            command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper("object"))
+            command.autocomplete("highlight")(autocompletes.nation_autocomplete)
             nations.add_command(command)
         for attribute in s.top_commands["object"]:
             name = attribute.get("name") or attribute.get("attribute")
             command = app_commands.command(name=name, description=f"Top cultures by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_culture=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
+            command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper("object"))
+            command.autocomplete("highlight")(autocompletes.culture_autocomplete)
             cultures.add_command(command)
 
             name = attribute.get("name") or attribute.get("attribute")
             name = "followers" if name == "residents" else name
             command = app_commands.command(name=name, description=f"Top religions by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_religion=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
+            command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper("object"))
+            command.autocomplete("highlight")(autocompletes.religion_autocomplete)
             religions.add_command(command)
 
         self.bot.tree.add_command(top)

@@ -8,8 +8,10 @@ from discord import app_commands
 from discord.ext import commands
 
 import client
+import db 
+import numpy as np
 
-from matplotlib.pyplot import bar
+from matplotlib.pyplot import bar, plot
 
 class Compare(commands.GroupCog, name="compare", description="Compare two (or more) objects"):
 
@@ -43,9 +45,11 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         )
 
         attributes = s.compare_attributes["town"]
-        image_generators.append((graphs.plot_towns, (towns, False, "auto", True, 5, False, None, None, None, None, [], towns)))
+        image_generators.append((graphs.plot_towns, (towns, "retain", "auto", True, 5, False, None, None, None, None, [], towns)))
+        history_days = [str(r.attribute("date")) for r in await self.client.town_history_table.get_records(attributes=["date"], order=db.CreationOrder("date", db.types.OrderAscending), group=["date"])]
         for _, attribute in enumerate(attributes):
             display_name : str = (attribute.get("name") or attribute.get("attribute")).replace("_", " ").title()
+            history_name = attribute.get("history_attribute") or attribute.get("attribute")
             formatter = attribute.get("formatter") or str
             values = [getattr(t, attribute.get("attribute")) for t in towns]
             for i, value in enumerate(values): # Await what needs to be
@@ -56,17 +60,36 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
             
             desc = ""
             vals = {}
+            history_values_per_town = {}
+            total = 0
             for i, (town, value) in enumerate(zip(towns, values)):
                 vals[town.name_formatted] = value
                 desc += f"{s.compare_emojis[i]} {formatter(value)}\n"
-            embed.add_field(name=display_name, value=desc, inline=attribute.get("inline") or False)
+
+                # History graph
+                if not attribute.get('no_history') and not attribute.get('qualitative'):
+                    total =  total + value
+                    history_r = await self.client.town_history_table.get_records([db.CreationCondition("town", town.name)], order=db.CreationOrder("date", db.types.OrderAscending), attributes=[history_name, "date"])
+                    vals_dict = {}
+                    for r in history_r:
+                        vals_dict[str(r.attribute("date"))] = r.attribute(history_name)
+                    history_values_per_town[str(town.name_formatted)] = []
+                    for date in history_days:
+                        history_values_per_town[str(town.name_formatted)].append(vals_dict.get(date) or np.NaN)
+                    
+            embed.add_field(name=f"{display_name} {('('+str(total)+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
         
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name
                 parser = attribute.get("parser") or int
-                image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Town", y, bar, None, attribute.get("y_formatter"))))
+                if not attribute.get("no_history"):
+                    image_generators.append((graphs.save_graph, (None, f"{display_name} Comparison", "Town", y, plot, None, attribute.get("y_formatter"), history_values_per_town, history_days, s.compare_line_colors)))
+                else:
+                    image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Town", y, bar, None, attribute.get("y_formatter"))))
         
         view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False)
+        view.add_item(commands_view.CommandButton(self, commands_view.Command("compare players", "Compare Mayors", parameters=[t._mayor_raw for t in towns], emoji="👤", row=2)))
+        view.add_item(commands_view.CommandButton(self, commands_view.Command("compare nations", "Compare Nations", parameters=[t.nation.name if t.nation else None for t in towns], emoji="🗾", row=2)))
         
         return await interaction.followup.send(embed=embed, view=view, file=view.attachment)
 
@@ -97,9 +120,11 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         )
 
         attributes = s.compare_attributes["nation"]
-        image_generators.append((graphs.plot_towns, (twns, False, "auto", True, 5, False, None, None, None, None, [], capitals)))
+        image_generators.append((graphs.plot_towns, (twns, "retain", "auto", True, 5, False, None, None, None, None, [], capitals)))
+        history_days = [str(r.attribute("date")) for r in await self.client.nation_history_table.get_records(attributes=["date"], order=db.CreationOrder("date", db.types.OrderAscending), group=["date"])]
         for _, attribute in enumerate(attributes):
             display_name : str = (attribute.get("name") or attribute.get("attribute")).replace("_", " ").title()
+            history_name = attribute.get("history_attribute") or attribute.get("attribute")
             formatter = attribute.get("formatter") or str
             values = [getattr(n, attribute.get("attribute")) for n in nations]
             for i, value in enumerate(values): # Await what needs to be
@@ -110,17 +135,36 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
             
             desc = ""
             vals = {}
+            history_values_per_nation = {}
+            total = 0
             for i, (nation, value) in enumerate(zip(nations, values)):
                 vals[nation.name_formatted] = value
                 desc += f"{s.compare_emojis[i]} {formatter(value)}\n"
-            embed.add_field(name=display_name, value=desc, inline=attribute.get("inline") or False)
+
+                # History graph
+                if not attribute.get('no_history') and not attribute.get('qualitative'):
+                    total =  total + value
+                    history_r = await self.client.nation_history_table.get_records([db.CreationCondition("nation", nation.name)], order=db.CreationOrder("date", db.types.OrderAscending), attributes=[history_name, "date"])
+                    vals_dict = {}
+                    for r in history_r:
+                        vals_dict[str(r.attribute("date"))] = r.attribute(history_name)
+                    history_values_per_nation[str(nation.name_formatted)] = []
+                    for date in history_days:
+                        history_values_per_nation[str(nation.name_formatted)].append(vals_dict.get(date) or np.NaN)
+
+            embed.add_field(name=f"{display_name} {('('+str(total)+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
         
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name
                 parser = attribute.get("parser") or int
-                image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Nation", y, bar, None, attribute.get("y_formatter"))))
+                if not attribute.get("no_history"):
+                    image_generators.append((graphs.save_graph, (None, f"{display_name} Comparison", "Nation", y, plot, None, attribute.get("y_formatter"), history_values_per_nation, history_days, s.compare_line_colors)))
+                else:
+                    image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Nation", y, bar, None, attribute.get("y_formatter"))))
         
         view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False)
+        view.add_item(commands_view.CommandButton(self, commands_view.Command("compare players", "Compare Leaders", parameters=[n.capital._mayor_raw for n in nations], emoji="👤", row=2)))
+        view.add_item(commands_view.CommandButton(self, commands_view.Command("compare towns", "Compare Capitals", parameters=[n.capital.name for n in nations], emoji="🏛️", row=2)))
         
         return await interaction.followup.send(embed=embed, view=view, file=view.attachment)
 
@@ -149,8 +193,10 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
 
         attributes = s.compare_attributes["player"]
         image_generators.append((graphs.plot_towns, ([], False, "auto", True, 5, False, players, None, None, None, [], players)))
+        history_days = [str(r.attribute("date")) for r in await self.client.player_history_table.get_records(attributes=["date"], order=db.CreationOrder("date", db.types.OrderAscending), group=["date"])]
         for _, attribute in enumerate(attributes):
             display_name : str = (attribute.get("name") or attribute.get("attribute")).title()
+            history_name = attribute.get("history_attribute") or attribute.get("attribute")
             formatter = attribute.get("formatter") or str
             values = [getattr(t, attribute.get("attribute")) for t in players]
             for i, value in enumerate(values): # Await what needs to be
@@ -161,17 +207,34 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
             
             desc = ""
             vals = {}
+            history_values_per_player = {}
+            total = 0
             for i, (player, value) in enumerate(zip(players, values)):
                 vals[player.name] = value
                 desc += f"{s.compare_emojis[i]} {formatter(value)}\n"
-            embed.add_field(name=display_name, value=desc, inline=attribute.get("inline") or False)
+
+                # History graph
+                if not attribute.get('no_history') and not attribute.get('qualitative'):
+                    total =  total + value
+                    history_r = await self.client.player_history_table.get_records([db.CreationCondition("player", player.name)], order=db.CreationOrder("date", db.types.OrderAscending), attributes=[history_name, "date"])
+                    vals_dict = {}
+                    for r in history_r:
+                        vals_dict[str(r.attribute("date"))] = r.attribute(history_name)
+                    history_values_per_player[str(player.name_formatted)] = []
+                    for date in history_days:
+                        history_values_per_player[str(player.name_formatted)].append(vals_dict.get(date) or np.NaN)
+            embed.add_field(name=f"{display_name} {('('+str(total)+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
         
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name
                 parser = attribute.get("parser") or int
-                image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Player", y, bar, None, attribute.get("y_formatter"))))
+                if not attribute.get("no_history"):
+                    image_generators.append((graphs.save_graph, (None, f"{display_name} Comparison", "Player", y, plot, None, attribute.get("y_formatter"), history_values_per_player, history_days, s.compare_line_colors)))
+                else:
+                    image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Player", y, bar, None, attribute.get("y_formatter"))))
         
         view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False)
+        view.add_item(commands_view.CommandButton(self, commands_view.Command("compare towns", "Compare Likely Residencies", parameters=[(await p.likely_residency).name if (await p.likely_residency) else None for p in players], emoji="🗾", row=2)))
         
         return await interaction.followup.send(embed=embed, view=view, file=view.attachment)
     

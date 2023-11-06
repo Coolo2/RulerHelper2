@@ -13,6 +13,7 @@ from itertools import islice
 import setup as s
 
 from matplotlib.ticker import MaxNLocator
+from matplotlib.patches import Rectangle
 
 import datetime
 
@@ -34,7 +35,7 @@ def floor(num, zoomed_scale):
 def ceil(num, zoomed_scale):
     return zoomed_scale * math.ceil(num / zoomed_scale)
 
-def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight : int = None, y_formatter = None):
+def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight : int = None, y_formatter = None, multi_data : dict[str, list] = None, ticks : list[str]= None, colors : list[str] = None):
     
     color = "silver"
 
@@ -54,13 +55,12 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
         for label, pct_text in zip(labels, pct_texts):
             pct_text.set_rotation(label.get_rotation())
     else:
-        
     
         # Add ticks if not pie
         start_date : datetime.date = None
         xticks = {}
         keys = []
-        for i, tick_raw in enumerate(data.keys()):
+        for i, tick_raw in enumerate(ticks or data.keys()):
             try:
                 date = datetime.datetime.strptime(tick_raw, "%Y-%m-%d").date()
             except:
@@ -81,7 +81,14 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
         else:
             chartType = gnt.plot 
         
-        barlist = chartType(keys, data.values(), color=s.bar_color if chartType == gnt.bar else s.line_color)
+        if not multi_data or len(multi_data) == 0:
+            multi_data = {"default":data.values()}
+        
+        for i, (name, plot) in enumerate(multi_data.items()):
+            barlist : list[Rectangle] = chartType(keys, plot, color=(s.bar_color if chartType == gnt.bar else s.line_color) if data else colors[i%len(colors)] if colors else None, label=name, alpha=0.75 if colors else 1)
+        
+        if len(multi_data) > 1:
+            plt.legend(bbox_to_anchor=(0, 1.05, 1, 0.2), loc="lower left", prop={'size':10}, frameon=False, mode="expand", borderaxespad=0, ncol=3)
 
         gnt.set_xticks(list(xticks.values()))
         gnt.set_xticklabels(list(xticks.keys()))
@@ -93,15 +100,17 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
             for tick in gnt.get_yticks():
                 y_ticks.append(y_formatter(tick))
             gnt.set_yticklabels(y_ticks)
+        
+        if highlight:
+            highlight = highlight.replace("_", " ").title()
+            if highlight in list(xticks):
+                barlist[list(xticks).index(highlight)].set_color('r')
 
     plt.title(title, y=1.2 if chartType == plt.pie else 1)
     plt.xlabel(x)
     plt.ylabel(y)
 
     plt.xticks(rotation=270)
-
-    if highlight:
-        barlist[highlight].set_color('r')
 
     buf = io.BytesIO()
     plt.savefig(buf, dpi=s.IMAGE_DPI_GRAPH, transparent=True, bbox_inches="tight")
@@ -201,7 +210,7 @@ def check_cache(cache_name : str, cache_id : str):
     
     return n
 
-def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto", plot_spawn=True, dot_size=None, whole=False, players : list[client.object.Player] = None, cache_name : str = None, cache_id : int = None, cache_checked=False, dimmed_towns : list[client.object.Town]=[], connect_spawns:list[client.object.Town]=False):
+def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="auto", plot_spawn=True, dot_size=None, whole=False, players : list[client.object.Player] = None, cache_name : str = None, cache_id : int = None, cache_checked=False, dimmed_towns : list[client.object.Town]=[], connect_spawns:list[client.object.Town]=False):
 
     # Cache_checked can be False if not checked, None if doesn't exists, str if does exist
     d = datetime.datetime.now()
@@ -226,15 +235,26 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
     fig = plt.figure()
     fig.patch.set_facecolor('#2F3136')
 
+    ax = plt.gca()
+    ax.set_aspect('equal', adjustable='box')
     
     if towns:
         for town in towns:
-            
             for i, polygon in enumerate(town.locations.geoms):
-                if not outposts and not polygon.contains(Point(town.spawn.x, town.spawn.z)):
+                if not polygon.contains(Point(town.spawn.x, town.spawn.z)):
                     continue
 
                 plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.5, animated=True)
+        
+        if outposts:
+            if outposts == "retain":
+                x_lim = ax.get_xlim()
+                y_lim = ax.get_ylim()
+
+            for town in towns:
+                det = town.detached_locations
+                for polygon in det.geoms if hasattr(det, "geoms") else [det]:
+                    plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.5, animated=True)
     
 
     if players:
@@ -255,11 +275,10 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
         plt.scatter(x_online, z_online, color="white", s=dot_size or 10, zorder=6)
         plt.scatter(x_offline, z_offline, color="#707070", s=dot_size or 1, zorder=5)
 
-    ax = plt.gca()
-    ax.set_aspect('equal', adjustable='box')
-
-    x_lim = ax.get_xlim()
-    y_lim = ax.get_ylim()
+    
+    if outposts != "retain":
+        x_lim = ax.get_xlim()
+        y_lim = ax.get_ylim()
 
     if dimmed_towns:
         for town in dimmed_towns:
@@ -274,11 +293,6 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
             bg_path = s.earth_bg_path_whole
 
     if plot_spawn:
-        
-        if towns:
-            for town in towns:
-            
-                plt.scatter([town.spawn.x], [town.spawn.z], color=town.border_color, zorder=3, s=dot_size or 10)
 
         if connect_spawns:
             done = []
@@ -304,6 +318,17 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
     elif not whole:
         ax.set_xlim(x_lim)
         ax.set_ylim(y_lim)
+    
+    if plot_spawn and towns:
+        if not dot_size:
+            dot_size = 10
+
+        x_lim = ax.get_xlim()
+        y_lim = ax.get_ylim()
+        biggest_boundary = max(x_lim[1]-x_lim[0], y_lim[1]-y_lim[0])
+        
+        for town in towns:
+            plt.scatter([town.spawn.x], [town.spawn.z], color=town.border_color, zorder=3, s=(2000/biggest_boundary)*dot_size)
 
     ax.invert_yaxis()
 
@@ -318,8 +343,6 @@ def plot_towns(towns : list[client.object.Town], outposts=True, show_earth="auto
     
     buf.seek(0)
     plt.close()
-
-    print(datetime.datetime.now()-d)
 
     return buf
 

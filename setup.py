@@ -1,6 +1,7 @@
 
 from datetime import timedelta
 from discord import Object
+from discord.utils import escape_markdown
 from client.funcs import generate_time
 import datetime
 
@@ -10,7 +11,7 @@ Setup file!
 
 """
 
-version = "2.2.3"
+version = "2.3.0"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
@@ -30,6 +31,7 @@ IMAGE_DPI_DRAWING = 300 # DPI (image quality) for drawings (maps)
 IMAGE_DPI_RENDER = 600
 timeline_colors = ["red", "green", "brown", "orange", "purple", "yellow"] # Colours for timelines 
 compare_emojis = [":red_square:", ":orange_square:", ":yellow_square:", ":green_square:", ":blue_square:"] # Emojis for compare commands
+compare_line_colors = ["red", "orange", "yellow", "green", "blue"]
 connection_line_colours = ["red", "orange", "yellow", "green", "blue", "aqua", "purple", "grey", "black", "white", "cyan", "olive", "pink", "chocolate"] 
 timeline_colors_bool = ["green", "red"] # True, False bool colours for timeline
 bar_color = "#1F1F1F" # Colour of bars in images in commands such as /top
@@ -60,87 +62,29 @@ embed = 0x2F3136
 embedFail = 0xFF0000
 embedSuccess = 0x32CD32
 
-changelog_latest = """
-v2.2.1 -> v2.2.3
-- Fixed /history visited_town_count
-- Fixed bedrock heads for users with underscores
-- Fixed None being ignored for qualitive history
-- Fixed /history player visited_town_count when they haven't visited any towns
-- Added back history buttons to /get town
-- Added back visited town button to /get player when they have only visited one town
-- Renamed /history town resident_count to /history town residents
-v2.2.0
-- Added /history player visited_town_count, /top players visited_towns
- - Visited town history tracking starts from today. 
-- Notification ignore_if_resident filter now works properly
-v2.1.0
-- Bedrock faces now shown in /get player etc
-- Fixed various bugs
- - History for visited no longer freezes over 3 pages
-""" # Leave blank if not 
-changelog_main = """
-- /history and /top have many more parameters, for example /history global, /history nation
-- New /history type: timeline. Displays qualitative data. Eg: /history town mayor
-- Visited history commands now show deleted towns 
-- /distribution nation added which ranks towns by area, residents, etc
-- Bot now tracks nation activity
-- /get town
- - Location description is better now. It shows continent rather than general map area
-- /get nation
- - Now displays flag
- - Shows world behind map drawing
- - Link to nation spawn map added
-- /get player
- - Displays armour/health in a more visual format
- - Displays if player is online
- - Detects donator
-- /get culture and /get religion
- - Now display "nation make-up". This shows what nations make up the culture/religion
-- /compare
- - Now supports >2 objects as input
- - In a more blunt format
-- Map drawings:
- - /get map drawings now show bordering towns in a dim colour
- - Certain map drawings will no longer re-render if already rendered (and not updated in-game since)
- - Higher quality background
- - Shows "generating map" instead of wait
-- Request commands
- - You can now request to merge old objects into their new names to restore history. 
- - You can set nation discord links and discords as before, however system is more robust
-- /get online now displays "playtime today" for each player
-- Notable statistics are now more extensive
-- You now no longer need to complete input on command parameters; eg you can type "enderpig" instead of "enderpig992216" if there is no one else with "enderpig" in their name
-- Times now format correctly on x and y axis of graphs, if there is a gap it will be shown as a gap
-- Performance fixes
-- Top commands now allow you to visit a town/nation/culture/player's /get page from a select menu
-- Towns and nations will automatically merge on name update
-- Paged menus now allow you to skip to end
-- History visited towns now has a map
-- km² calculations were incorrect. changed to IRL km²
-"""
-
 compare_attributes = {
     "town": [
-        {"attribute":"activity", "qualitative":False, "y_formatter":generate_time},
-        {"attribute":"founded_date", "qualitative":False, "formatter":lambda x: f"{(datetime.date.today()-x).days:,} days ({x})", "parser":lambda x: (datetime.date.today() - x).days, "name":"age", "y":"Age (days)"},
+        {"attribute":"activity", "qualitative":False, "y_formatter":generate_time, "history_attribute":"duration"},
+        {"attribute":"founded_date", "qualitative":False, "formatter":lambda x: f"{(datetime.date.today()-x).days:,} days ({x.strftime('%b %d %Y')})", "parser":lambda x: (datetime.date.today() - x).days, "name":"age", "y":"Age (days)", "no_history":True},
         {"attribute":"bank", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Bank ($)", "inline":True},
         {"attribute":"resident_count", "qualitative":False, "name":"residents", "inline":True},
         {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":None, "y":"Area (plots)", "inline":True},
         {"attribute":"resident_tax", "qualitative":False, "name":"daily_tax", "y":"Tax (%)", "inline":True},
-        {"attribute":"mayor", "qualitative":True, "inline":True},
+        {"attribute":"mayor", "qualitative":True, "inline":True, "formatter":lambda x: escape_markdown(x.name if hasattr(x, 'name') else x)},
         {"attribute":"nation", "qualitative":True, "formatter":lambda n: n.name_formatted if n else "None", "inline":True}
     ],
     "nation":[
-        {"attribute":"activity", "qualitative":False, "y_formatter":generate_time},
-        {"attribute":"total_towns", "qualitative":False, "inline":True, "name":"towns"},
-        {"attribute":"total_residents", "qualitative":False, "name":"residents", "inline":True},
-        {"attribute":"total_area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":None, "y":"Area (plots)", "inline":True},
-        {"attribute":"total_value", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Town Value ($)", "inline":True},
-        {"attribute":"leader", "qualitative":True, "inline":True}
+        {"attribute":"activity", "qualitative":False, "y_formatter":generate_time, "history_attribute":"duration"},
+        {"attribute":"total_towns", "qualitative":False, "inline":True, "name":"towns", "history_attribute":"towns"},
+        {"attribute":"total_residents", "qualitative":False, "name":"residents", "inline":True, "history_attribute":"residents"},
+        {"attribute":"total_area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":None, "y":"Area (plots)", "inline":True, "history_attribute":"area"},
+        {"attribute":"total_value", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Town Value ($)", "inline":True, "history_attribute":"town_balance"},
+        {"attribute":"leader", "qualitative":True, "inline":True, "formatter":lambda x: escape_markdown(x.name if hasattr(x, 'name') else x)},
+        {"attribute":"capital", "qualitative":True, "inline":True}
     ],
     "player":[
-        {"attribute":"activity", "qualitative":False, "y_formatter":generate_time},
-        {"attribute":"total_visited_towns", "qualitative":False, "name":"visited_towns", "inline":True},
+        {"attribute":"activity", "qualitative":False, "y_formatter":generate_time, "history_attribute":"duration"},
+        {"attribute":"total_visited_towns", "qualitative":False, "name":"visited towns", "inline":True, "history_attribute":"visited_towns"},
         {"attribute":"location", "qualitative":True, "formatter":lambda x: f"{int(x.x)}, {int(x.y)}, {int(x.z)}", "inline":False},
         {"attribute":"town", "qualitative":True, "inline":True},
         {"attribute":"likely_residency", "qualitative":True, "inline":True},
@@ -200,7 +144,7 @@ top_commands = {
         {"attribute":"bank", "formatter":lambda x: f"${x:,.2f}", "name":None, "parser":None, "y":"Bank ($)"},
         {"attribute":"area", "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":None, "parser":None, "y":"Area (plots)"},
         {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
-        {"attribute":"founded_date", "formatter":lambda x: f"{x:,} days ({datetime.date.today()-datetime.timedelta(days=x)})", "name":"age", "parser":lambda x: (datetime.date.today() - x).days, "y":"Age (days)", "reverse":True, "reverse_notable":True},
+        {"attribute":"founded_date", "formatter":lambda x: f"{x:,} days ({(datetime.date.today()-datetime.timedelta(days=x)).strftime('%b %d %Y')})", "name":"age", "parser":lambda x: (datetime.date.today() - x).days, "y":"Age (days)", "reverse":True, "reverse_notable":True, "not_in_history":True},
         {"attribute":"area/resident_count", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident", "reverse_notable":True},
     ],
     "player":[

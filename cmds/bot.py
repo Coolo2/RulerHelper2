@@ -7,6 +7,8 @@ import os
 from discord import app_commands
 from discord.ext import commands
 
+from funcs import paginator
+
 import client
 
 class Get(commands.GroupCog, name="bot", description="Commands relating to the bot"):
@@ -41,14 +43,14 @@ class Get(commands.GroupCog, name="bot", description="Commands relating to the b
     async def _changelog(self, interaction : discord.Interaction):
         
         embed = discord.Embed(title=f"Bot changelog up to {s.version}", color=s.embed)
-        
-        if len(s.changelog_latest) > 0:
-            embed.add_field(name=f"v{str(s.version)[0]}.0.0 -> v{s.version}", value=s.changelog_latest, inline=False)
-        cl = [s.changelog_main[i:i+1000] for i in range(0, len(s.changelog_main), 1000)]
-        for i, text in enumerate(cl):
-            embed.add_field(name=f"v{str(s.version)[0]}.0.0" + (" (continued)" if i >0 else ""), value=text, inline=False)
 
-        await interaction.response.send_message(embed=embed)
+        with open("changelog.txt", encoding="utf-8") as f:
+            changelog = f.read()
+        
+        embed = discord.Embed(title=f"Changelog up to v{s.version}", color=s.embed)
+        view = paginator.PaginatorView(embed, changelog, "newpage", 1, search=False)
+
+        await interaction.response.send_message(embed=view.embed, view=view)
 
 
 async def setup(bot : commands.Bot):

@@ -160,7 +160,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
 
             perc = (obj.total/total)*100
             
-            log = f"{len(objects)-i}. {prefix}{format}{discord.utils.escape_markdown(name)}{format}: {str(obj)} ({perc:,.1f}%)\n" + log
+            log = f"{len(objects)-i}. {prefix}{format}{discord.utils.escape_markdown(name) if is_known else name}{format}: {str(obj)} ({perc:,.1f}%)\n" + log
 
             values[name] = obj.total
 

@@ -38,8 +38,10 @@ class Activity():
     def str_no_timestamp(self):
         return funcs.generate_time(self.total)
 
-    def __radd__(self, other):
+    def __add__(self, other):
         return Activity(self.total + (other.total if hasattr(other, "total") else other), max(self.last, (other.last if hasattr(other, "last") else datetime.datetime(2000, 1, 1))), self.town)
+
+    __radd__ = __add__
 
     def __str__(self):
         return f"{funcs.generate_time(self.total)}" + (f" <t:{round(self.last.timestamp())}:R>" if self.total > 0 else '')
@@ -323,6 +325,11 @@ class Tax():
 
     def __int__(self):
         return int(self.amount)
+    
+    def __add__(self, other):
+        return Tax(self.amount + (other.amount if hasattr(other, "amount") else other), self.tax_type)
+
+    __radd__ = __add__
 
     def __str__(self):
         if self.tax_type == "%":
@@ -485,12 +492,16 @@ class Town():
         return dict(sorted(rankings.items(), key=lambda x: x[1][1]))
     
     @property 
-    def detached_area(self) -> int:
-        detached_area = 0
+    def detached_locations(self) -> MultiPolygon|Polygon:
+        multi = MultiPolygon()
         for polygon in self.locations.geoms:
             if not polygon.contains(Point(self.spawn.x, self.spawn.z)):
-                detached_area += polygon.area / 256
-        return int(detached_area)
+                multi = multi.union(polygon)
+        return multi
+
+    @property 
+    def detached_area(self) -> int:
+        return self.detached_locations.area / 256
         
 
     @property 
@@ -717,16 +728,20 @@ class Player():
     
     @property 
     async def likely_residency(self) -> Town:
-        visited_towns = await self.visited_towns
 
         for town in self.__world.towns:
             if town._mayor_raw == self.name:
                 return town 
         
-        if len(visited_towns) > 0:
-            for activity in visited_towns:
-                if type(activity.town) != str and activity.town :
-                    return activity.town
+        r = await self.__world.client.visited_towns_table.get_record(
+            [db.CreationCondition("player", self.name)], 
+            ["visited_towns.town AS town"], 
+            group=["visited_towns.town"], 
+            order=db.CreationOrder("visited_towns.duration", db.types.OrderDescending),
+            join=[db.CreationTableJoin(self.__world.client.towns_table, "visited_towns.town", "towns.name")] # Remove towns which don't exist anymore
+        )
+
+        return self.__world.get_town(r.attribute("town"))
     
     @property 
     async def exists_in_db(self):

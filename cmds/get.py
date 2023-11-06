@@ -89,7 +89,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Mayor", value=discord.utils.escape_markdown(str(town.mayor)))
         embed.add_field(name="Spawnblock", value=f"[{int(town.spawn.x)}, {int(town.spawn.z)}]({self.client.url}?x={int(town.spawn.x)}&z={int(town.spawn.z)}&zoom={s.map_link_zoom})")
         embed.add_field(name="Total Residents", value=f"{town.resident_count:,}")
-        embed.add_field(name="Founded", value=str(town.founded_date))
+        embed.add_field(name="Founded", value=town.founded_date.strftime('%b %d %Y'))
         embed.add_field(name="Area", value=f"{area:,} plots ({area * 64:,}km²)")
         embed.add_field(name="Activity", value=str(await town.activity))
         embed.add_field(name="Public", value="Yes" if town.public else "No")
@@ -111,11 +111,11 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             c_view.add_command(commands_view.Command("get religion", "Religion Info", (town.religion.name,), button_style=discord.ButtonStyle.primary, emoji="🙏"))
         
         
-        button = discord.ui.Button(label="View Outposts", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
+        button = discord.ui.Button(label="Expand Outposts", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
         def outposts_button(town : client.object.Town, view : discord.ui.View, borders):
             async def outposts_button_callback(interaction : discord.Interaction):
                 for item in view.children:
-                    if item.label == "View Outposts":
+                    if item.label == "Expand Outposts":
                         item.disabled = True 
                 
                 graph = discord.File(graphs.plot_towns([town], outposts=True, dimmed_towns=borders), filename="graph_outposts.png")
@@ -135,7 +135,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         cache_name = f"Town+{town.name}"
         cache_id = town.vertex_count
         
-        graph = discord.File(graphs.plot_towns([town], outposts=False, dimmed_towns=borders, show_earth=False, cache_name=cache_name, cache_id=cache_id), filename="graph.png")
+        graph = discord.File(graphs.plot_towns([town], outposts="retain", dimmed_towns=borders, show_earth=False, cache_name=cache_name, cache_id=cache_id), filename="graph.png")
 
         return await interaction.response.send_message(embed=embed, file=graph, view=c_view)
     
@@ -187,14 +187,14 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         c_view = commands_view.CommandsView(self)
 
-        button = discord.ui.Button(label="View Outposts", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
+        button = discord.ui.Button(label="Expand Outposts", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
         def outposts_button(nation : client.object.Nation, view : discord.ui.View, borders):
             async def outposts_button_callback(interaction : discord.Interaction):
                 for item in view.children:
-                    if type(item) == discord.ui.Button and item.label == "View Outposts":
+                    if type(item) == discord.ui.Button and item.label == "Expand Outposts":
                         item.disabled = True 
                 
-                graph = discord.File(graphs.plot_towns(nation.towns, outposts=True, dimmed_towns=borders[1], plot_spawn=False), filename="graph_outposts.png")
+                graph = discord.File(graphs.plot_towns(nation.towns, outposts=True, dimmed_towns=borders[1], plot_spawn=True), filename="graph_outposts.png")
 
                 interaction.message.embeds[0].set_thumbnail(url=None)
                 interaction.message.embeds[0].set_image(url="attachment://graph_outposts.png")
@@ -241,7 +241,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
             await interaction.response.send_message(embed=embed, files=files, view=c_view)
         
-        graph = discord.File(graphs.plot_towns([capital]+towns, plot_spawn=False, dimmed_towns=borders[1], cache_name=cache_name, cache_id=cache_id, outposts=False), filename="map.png")
+        graph = discord.File(graphs.plot_towns([capital]+towns, plot_spawn=True, dimmed_towns=borders[1], cache_name=cache_name, cache_id=cache_id, outposts="retain"), filename="map.png")
         embed.set_image(url="attachment://map.png")
 
         if len(towns) > 3:
@@ -279,6 +279,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             if i >= 25: break 
             cmds.append(commands_view.Command("get town", town.name_formatted, (town.name,), emoji=None))
         c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", 3))
+        c_view.add_command(commands_view.Command("history culture towns", "Town History", (culture.name,), button_style=discord.ButtonStyle.secondary, emoji="🗾", row=2))
+        c_view.add_command(commands_view.Command("history culture residents", "Resident History", (culture.name,), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
 
         if len(towns) > 3:
             embed.set_image(url="attachment://map_waiting.jpg")
@@ -323,6 +325,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             if i >= 25: break 
             cmds.append(commands_view.Command("get town", town.name_formatted, (town.name,), emoji=None))
         c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", 3))
+        c_view.add_command(commands_view.Command("history religion towns", "Town History", (religion.name,), button_style=discord.ButtonStyle.secondary, emoji="🗾", row=2))
+        c_view.add_command(commands_view.Command("history religion followers", "Follower History", (religion.name,), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
 
         if len(towns) > 3:
             embed.set_image(url="attachment://map_waiting.jpg")

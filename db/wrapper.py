@@ -239,6 +239,7 @@ class Table():
             attributes: typing.List[typing.Union[str, Attribute]] = None,
             group: typing.List[typing.Union[str, Attribute]] = None,
             order : creation.CreationOrder = None,
+            join : typing.Union[creation.CreationTableJoin, typing.List[creation.CreationTableJoin]] = None,
     ) -> typing.Optional[Record]:
         records = await self.get_records(conditions=conditions, attributes=attributes, limit=1, group=group, order=order)
         return records[0] if len(records) > 0 else None

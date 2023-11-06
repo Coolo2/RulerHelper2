@@ -37,6 +37,16 @@ class Command():
         except TypeError:
             await (self.get_command_callback(interaction.client.tree))(interaction, *self.parameters)
 
+class CommandButton(discord.ui.Button):
+    def __init__(self, cog, command : Command):
+        self.cog = cog 
+        self.command = command 
+
+        super().__init__(style=command.button_style, label=command.label, emoji=command.emoji, row=command.row)
+    
+    async def callback(self, interaction : discord.Interaction):
+        await self.command.execute(self.cog, interaction)
+
 class CommandSelect(discord.ui.Select):
     def __init__(self, cog, commands : list[Command], placeholder : str = "Select an option...", row : int = 1):
         self.cog = cog
