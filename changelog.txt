@@ -1,4 +1,8 @@
-# v2.3.0 (2023/11/07)
+## v2.3.1 (Nov 11 2023)
+- X-axis dates now format better in /history
+- /get world now has buttons to view global history 
+- Fixed a bug causing nations with "_" in their names to not be selectable
+# v2.3.0 (Nov 07 2023)
 - New parameter "on" and return of parameter "highlight" to /top
  - "on" allows you to specify a date to rank from
  - "highlight" allows you to highlight one object on the chart
@@ -16,7 +20,7 @@
  - Has new nation capital attribute
  - Has new buttons to compare leaders/mayors/capitals/nations/towns etc
 newpage
-## v2.2.1 -> v2.2.3 (2023/11/03-05)
+## v2.2.1 -> v2.2.3 (Nov 03-05 2023)
 - Fixed /history visited_town_count
 - Fixed bedrock heads for users with underscores
 - Fixed None being ignored for qualitive history
@@ -24,7 +28,6 @@ newpage
 - Added back history buttons to /get town
 - Added back visited town button to /get player when they have only visited one town
 - Renamed /history town resident_count to /history town residents
-newpage
 # v2.2.0 (2023/11/03)
 - Added /history player visited_town_count, /top players visited_towns
  - Visited town history tracking starts from today. 
@@ -33,7 +36,8 @@ newpage
 - Bedrock faces now shown in /get player etc
 - Fixed various bugs
  - History for visited no longer freezes over 3 pages
-# v2.0.0 (2023/11/01)
+newpage
+# v2.0.0 (Nov 01 2023)
 - /history and /top have many more parameters, for example /history global, /history nation
 - New /history type: timeline. Displays qualitative data. Eg: /history town mayor
 - Visited history commands now show deleted towns 

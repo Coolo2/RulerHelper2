@@ -363,6 +363,11 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         embed.set_footer(text=f"Bot has been tracking for {total_tracked.str_no_timestamp()}")
 
+        c_view = commands_view.CommandsView(self)
+        c_view.add_command(commands_view.Command("history global towns", "Town History", (), button_style=discord.ButtonStyle.secondary, emoji="🗾", row=2))
+        c_view.add_command(commands_view.Command("history global residents", "Resident History", (), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
+        c_view.add_command(commands_view.Command("history global nations", "Nation History", (), button_style=discord.ButtonStyle.secondary, emoji="👑", row=2))
+
         cache_id = f"{len(world.towns)}+{len(world.nations)}"
         im = graphs.check_cache(cache_name="Earth", cache_id=cache_id)
         files=[]
@@ -373,7 +378,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             files.append(discord.File(s.waiting_bg_path, "map_waiting.jpg"))
             embed.set_image(url="attachment://map_waiting.jpg")
 
-        await interaction.response.send_message(embed=embed, files=files)
+        await interaction.response.send_message(embed=embed, files=files, view=c_view)
 
         if not im:
             graph = discord.File(graphs.plot_towns(towns, plot_spawn=False, whole=True, cache_name="Earth", cache_id=cache_id, cache_checked=im), filename="graph.png")

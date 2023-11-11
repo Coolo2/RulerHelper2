@@ -486,6 +486,8 @@ class Notifications():
             
             town = self.client.world.get_town(town_name)
             ignore_players = self._players_ignore.get(town_name) or []
+            if not town:
+                continue
 
             for channel in channels:
                 if town.nation and channel.notification_type == "territory_enter" and channel.nation_name == town.nation.name:

@@ -101,7 +101,7 @@ def generate_command(
         embed.set_image(url="attachment://graph.png")
 
         cmds = []
-        for i, object_name in enumerate(o for o in reversed(values.keys()) if o in l):
+        for i, object_name in enumerate(o for o in reversed(values.keys()) if o.replace(" ", "_") in l):
             if i >= 25: continue 
             cmds.append(commands_view.Command(f"get {o_type}", f"{i+1}. {object_name}", (object_name,), emoji=None))
         

@@ -26,6 +26,8 @@ c.bot = bot
 @bot.event 
 async def on_ready():
     print(bot.user.name, "online")
+    for guild in bot.guilds:
+        print(guild.name, guild.owner)
 
 @tasks.loop(seconds=c.refresh_period)
 async def _refresh():

@@ -69,8 +69,8 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
                 if i == 0:
                     start_date = date
 
-                xticks[tick_raw] = (date-start_date).days
-                keys.append(xticks[tick_raw])
+                xticks[date.strftime('%b %d %Y')] = (date-start_date).days
+                keys.append(xticks[date.strftime('%b %d %Y')])
             else:
                 xticks[tick_raw] = i
                 keys.append(i)
