@@ -512,7 +512,9 @@ class Town():
             stats.append(f"Detached territories make up **{detached_area_perc:,.2f}%** of {self.name_formatted}'s claims")
         return stats
 
-
+    @property 
+    async def total_visited_players(self) -> int:
+        return await self.__world.client.visited_towns_table.count_rows([db.CreationCondition("town", self.name)])
 
     def to_record(self) -> list:
 
@@ -530,6 +532,7 @@ class Town():
             int(self.public), 
             int(self.peaceful), 
             self.area,
+            0,
             db.CreationField.external_query(
                     self.__world.client.activity_table, 
                     "duration", 
@@ -537,6 +540,16 @@ class Town():
             ),
             self.last_updated
         ]
+    
+    def to_record_update(self) -> list:
+        r = self.to_record()
+        r[-3] = db.CreationField.external_query(
+                    self.__world.client.visited_towns_table, 
+                    "visited_players", 
+                    [db.CreationCondition("town", self.name)],
+                    query_attribute="COUNT(*)"
+        )
+        return r
     
     def to_record_history(self) -> list:
         return [
@@ -556,7 +569,8 @@ class Town():
                     self.__world.client.activity_table, 
                     "duration", 
                     [db.CreationCondition("object_type", "town"), db.CreationCondition("object_name", self.name)]
-            )
+            ),
+            db.CreationField.external_query(self.__world.client.visited_towns_table, "visited_players", [db.CreationCondition("town", self.name)], query_attribute="COUNT(*)")
         ]
     
     def to_record_activity(self) -> list:
@@ -798,8 +812,8 @@ class Player():
             town.name if town else None, 
             self.armor, 
             self.health, 
-            int(self.donator),
             0,
+            int(self.donator),
             self.__world.client.refresh_period, 
             datetime.datetime.now(),
         ]
@@ -1059,7 +1073,9 @@ class World():
 
         for object_type, objects in self._objects.items():
             for object in objects:
-                
+                if object_type == "nation" and not object.capital:
+                    continue 
+                    
                 cond = [db.CreationCondition("type", object.object_type), db.CreationCondition("name", object.name)]
                 exists = await self.client.objects_table.record_exists(cond)
 
@@ -1174,7 +1190,7 @@ class World():
                 if not exists:
                     new_records.append(town.to_record())
                 else:
-                    await self.client.towns_table.update_record([cond], *town.to_record())
+                    await self.client.towns_table.update_record([cond], *town.to_record_update())
                 
                 # Add town history
                 cond2 = [db.CreationCondition("town", town.name), db.CreationCondition("date", datetime.date.today())]

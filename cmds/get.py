@@ -73,6 +73,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         
         borders = town.borders
         area = town.area
+        visited_players_total = await town.total_visited_players
 
         notable_rankings_str = client.funcs.top_rankings_to_text(await town.top_rankings, town.name_formatted)
         notable_statistics = town.notable_statistics
@@ -92,6 +93,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Founded", value=town.founded_date.strftime('%b %d %Y'))
         embed.add_field(name="Area", value=f"{area:,} plots ({area * 64:,}km²)")
         embed.add_field(name="Activity", value=str(await town.activity))
+        embed.add_field(name="Visited Players", value=f"{visited_players_total} ({(visited_players_total/len(self.client.world.players))*100:.1f}%)")
         embed.add_field(name="Public", value="Yes" if town.public else "No")
         embed.add_field(name=f"Borders ({len(borders)})", value="`" + ("`, `".join(t.name_formatted for t in borders) + "`") if len(borders) > 0 else "None", inline=False) 
         #embed.add_field(name="Peaceful", value="Yes" if town.peaceful else "No")

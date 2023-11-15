@@ -1,3 +1,14 @@
+# v2.4.0 (Nov 15 2023)
+- Town visited player tracking
+ - /get town now displays visited player count
+ - New /top towns visited_players command
+ - New /history town visited_player_count command (tracking starts today)
+- Dates are now formatted properly in history descriptions and timeline graphs
+- Quarry religions now are no longer counted everywhere
+- Fixes to automatic nation merging
+- Fixed town history merging
+- Minor performance improvements in /top religions
+newpage
 ## v2.3.1 (Nov 11 2023)
 - X-axis dates now format better in /history
 - /get world now has buttons to view global history 

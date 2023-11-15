@@ -35,37 +35,54 @@ async def update_db(c):
 
         tables = [
             [
-                "players",
-                "visited_towns",
+                "towns",
+                "visited_players",
                 "integer",
                 "0",
                 [
                     db.CreationAttribute("name", db.types.String, primary_key=True),
-                    db.CreationAttribute("location", db.types.String),
-                    db.CreationAttribute("town", db.types.String),
-                    db.CreationAttribute("armor", db.types.Int),
-                    db.CreationAttribute("health", db.types.Int),
-                    db.CreationAttribute("visited_towns", db.types.Int),
-                    db.CreationAttribute("donator", db.types.Int),
+                    db.CreationAttribute("flag_url", db.types.String),
+                    db.CreationAttribute("nation", db.types.String),
+                    db.CreationAttribute("religion", db.types.String),
+                    db.CreationAttribute("culture", db.types.String),
+                    db.CreationAttribute("mayor", db.types.String),
+                    db.CreationAttribute("resident_count", db.types.Int),
+                    db.CreationAttribute("founded_date", db.types.Date),
+                    db.CreationAttribute("resident_tax", db.types.Float),
+                    db.CreationAttribute("bank", db.types.Float),
+                    db.CreationAttribute("public", db.types.Int),
+                    db.CreationAttribute("peaceful", db.types.Int),
+                    db.CreationAttribute("area", db.types.Int),
+                    db.CreationAttribute("visited_players", db.types.Int),
                     db.CreationAttribute("duration", db.types.Int),
-                    db.CreationAttribute("last", db.types.Datetime)
+                    db.CreationAttribute("last_seen", db.types.Datetime)
                 ],
-                ["name", "location", "town", "armor", "health", "duration", "last", "donator"],
-                "UPDATE tempplayers SET visited_towns=(SELECT COUNT(*) FROM visited_towns WHERE visited_towns.player = name)" #None if don't want
+                ["name", "flag_url", "nation", "religion", "culture", "mayor", "resident_count", "founded_date", "resident_tax", "bank", "public", "peaceful", "area", "duration", "last_seen"],
+                "UPDATE temptowns SET visited_players=(SELECT COUNT(*) FROM visited_towns WHERE visited_towns.town = name)" #None if don't want
             ],
             [
-                "player_history",
-                "visited_towns",
+                "town_history",
+                "visited_players",
                 "integer",
                 "NULL",
                 [
-                    db.CreationAttribute("player", db.types.String),
+                    db.CreationAttribute("town", db.types.String),
                     db.CreationAttribute("date", db.types.Date),
+                    db.CreationAttribute("nation", db.types.String),
+                    db.CreationAttribute("religion", db.types.String),
+                    db.CreationAttribute("culture", db.types.String),
+                    db.CreationAttribute("mayor", db.types.String),
+                    db.CreationAttribute("resident_count", db.types.Int),
+                    db.CreationAttribute("resident_tax", db.types.Float),
+                    db.CreationAttribute("bank", db.types.Float),
+                    db.CreationAttribute("public", db.types.Int),
+                    db.CreationAttribute("peaceful", db.types.Int),
+                    db.CreationAttribute("area", db.types.Int),
                     db.CreationAttribute("duration", db.types.Int),
-                    db.CreationAttribute("visited_towns", db.types.Int),
+                    db.CreationAttribute("visited_players", db.types.Int),
                 ],
-                ["player", "date", "duration"],
-                f'UPDATE tempplayer_history SET visited_towns=(SELECT COUNT(*) FROM visited_towns WHERE visited_towns.player = tempplayer_history.player) WHERE date="{d.year}-{str(d.month).zfill(2)}-{str(d.day).zfill(2)}"' #None if don't want
+                ["town", "date", "nation", "religion", "culture", "mayor", "resident_count", "resident_tax", "bank", "public", "peaceful", "area", "duration"],
+                f'UPDATE temptown_history SET visited_players=(SELECT COUNT(*) FROM visited_towns WHERE visited_towns.town = temptown_history.town) WHERE date="{d.year}-{str(d.month).zfill(2)}-{str(d.day).zfill(2)}"' #None if don't want
             ]
         ]
         

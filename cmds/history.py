@@ -70,7 +70,7 @@ def generate_command(
             val = formatter(parsed)
             if qualitative and last == val:
                 continue
-            log = f"**{record.attribute('date')}**: {discord.utils.escape_markdown(str(val))}\n" + log
+            log = f"**{record.attribute('date').strftime('%b %d %Y')}**: {discord.utils.escape_markdown(str(val))}\n" + log
             last = val
 
             values[str(record.attribute('date'))] = str(parsed) if qualitative else int(parsed)

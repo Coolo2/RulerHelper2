@@ -72,14 +72,9 @@ def generate_command(
         for i, record in enumerate(reversed(rs) if reverse else rs):
             if is_town and record.attribute('name') in s.DEFAULT_TOWNS:
                 continue
-            r = c.world.get_religion(record.attribute("name"))
-            if is_religion and r:
-                continue_main = False
-                for dt in s.DEFAULT_TOWNS:
-                    if dt in [t.name for t in r.towns]:
-                        continue_main = True
-                if continue_main:
-                    continue
+            
+            if is_religion and "Produces" in record.attribute("name"):
+                continue
             
             parsed = (parser(record.fields[1].value) if parser else record.fields[1].value) or 0
             val = formatter(parsed)

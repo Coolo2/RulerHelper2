@@ -144,7 +144,7 @@ def save_timeline(data : dict, title : str, booly=False):
     for i, date_str in enumerate(data):
         date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
 
-        xticks[date_str] = (date-start_date).days
+        xticks[date.strftime('%b %d %Y')] = (date-start_date).days
 
         if not last_date:
             last_date = date
