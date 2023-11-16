@@ -17,6 +17,8 @@ import os
 
 class Client():
     def __init__(self):
+
+        self.refresh_no : int = 0
         
         self.session : aiohttp.ClientSession= None
         self.database = db.Database("towny.db", auto_commit=False)
@@ -337,11 +339,12 @@ class Client():
                 # Add to new player records with old duration
             for record in await self.player_history_table.get_records([db.CreationCondition("player", obj.name)], order=db.CreationOrder("date", db.types.OrderAscending)):
                 old_duration_at_point = await self.player_history_table.get_record([db.CreationCondition("player", old_object_name), db.CreationCondition("date", record.attribute("date"), "<=")], order=db.CreationOrder("date", db.types.OrderDescending))
-                if old_duration_at_point: await record.update(db.CreationField.add("duration", old_duration_at_point.attribute("duration")))
-                # Iterate over old records. If exists for new player, remove
+                #if old_duration_at_point: await record.update(db.CreationField.add("duration", old_duration_at_point.attribute("duration")))
+                if old_duration_at_point: await self.player_history_table.update_records([db.CreationCondition("player", obj.name), db.CreationCondition("date", record.attribute("date"))], [db.CreationField.add("duration", old_duration_at_point.attribute("duration"))])
+            # Iterate over old records. If exists for new player, remove
             for record in await self.player_history_table.get_records([db.CreationCondition("player", old_object_name)], order=db.CreationOrder("date", db.types.OrderAscending)):
                 if not await self.player_history_table.record_exists(db.CreationCondition("player", obj.name), db.CreationCondition("date", record.attribute("date"))):
-                    await record.update([db.CreationField("player", obj.name)]) 
+                    await self.player_history_table.update_records([db.CreationCondition("player", old_object_name), db.CreationCondition("date", record.attribute("date"))], [db.CreationField("player", obj.name)]) 
                 else:
                     await record.delete()
             # if duplicates exist, merge data
@@ -367,11 +370,12 @@ class Client():
             # Iterate over old history records. If not under new name, add it. Otherwise, remove old
             for record in await self.town_history_table.get_records([db.CreationCondition("town", obj.name)], order=db.CreationOrder("date", db.types.OrderAscending)):
                 old_duration_at_point = await self.town_history_table.get_record([db.CreationCondition("town", old_object_name), db.CreationCondition("date", record.attribute("date"), "<=")], order=db.CreationOrder("date", db.types.OrderDescending))
-                if old_duration_at_point: await record.update(db.CreationField.add("duration", old_duration_at_point.attribute("duration")))
+                #if old_duration_at_point: await record.update(db.CreationField.add("duration", old_duration_at_point.attribute("duration")))
+                if old_duration_at_point: await self.town_history_table.update_records([db.CreationCondition("town", obj.name), db.CreationCondition("date", record.attribute("date"))], [db.CreationField.add("duration", old_duration_at_point.attribute("duration"))])
                 # Iterate over old records. If exists for new town, remove
             for record in await self.town_history_table.get_records([db.CreationCondition("town", old_object_name)]):
                 if not await self.town_history_table.record_exists(db.CreationCondition("town", obj.name), db.CreationCondition("date", record.attribute("date"))):
-                    await record.update([db.CreationField("town", obj.name)]) 
+                    await self.town_history_table.update_records([db.CreationCondition("town", old_object_name), db.CreationCondition("date", record.attribute("date"))], [db.CreationField("town", obj.name)]) 
                 else:
                     await record.delete()
             # If duplicate exists, merge data
@@ -391,11 +395,16 @@ class Client():
             # Update flags: 1. Delete flags if already exist 2. Update old name
             await self.flags_table.delete_records([db.CreationCondition("object_type", "nation"), db.CreationCondition("object_name", obj.name)]) 
             await self.flags_table.update_records([db.CreationCondition("object_type", "nation"), db.CreationCondition("object_name", old_object_name)], [db.CreationField(self.flags_table.attribute("object_name"), new_object_name)])
-
+            
             # Iterate over old history records. If not under new name, add it. Otherwise, remove old
+            for record in await self.nation_history_table.get_records([db.CreationCondition("nation", obj.name)], order=db.CreationOrder("date", db.types.OrderAscending)):
+                old_duration_at_point = await self.nation_history_table.get_record([db.CreationCondition("nation", old_object_name), db.CreationCondition("date", record.attribute("date"), "<=")], order=db.CreationOrder("date", db.types.OrderDescending))
+                #await record.update(db.CreationField.add("duration", old_duration_at_point.attribute("duration")))
+                if old_duration_at_point: await self.nation_history_table.update_records([db.CreationCondition("nation", obj.name), db.CreationCondition("date", record.attribute("date"))], [db.CreationField.add("duration", old_duration_at_point.attribute("duration"))])
+            # Iterate over old records. If exists for new nation, remove
             for record in await self.nation_history_table.get_records([db.CreationCondition("nation", old_object_name)]):
                 if not await self.nation_history_table.record_exists(db.CreationCondition("nation", obj.name), db.CreationCondition("date", record.attribute("date"))):
-                    await record.update([db.CreationField("nation", obj.name)]) 
+                    await self.nation_history_table.update_records([db.CreationCondition("nation", old_object_name), db.CreationCondition("date", record.attribute("date"))], [db.CreationField("nation", obj.name)]) 
                 else:
                     await record.delete()
                 

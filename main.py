@@ -29,8 +29,12 @@ async def on_ready():
     for guild in bot.guilds:
         print(guild.name, guild.owner)
 
+
+
 @tasks.loop(seconds=c.refresh_period)
 async def _refresh():
+    c.refresh_no += 1
+
     t = datetime.datetime.now()
     print("Refreshing")
     w = False

@@ -241,7 +241,7 @@ class Table():
             order : creation.CreationOrder = None,
             join : typing.Union[creation.CreationTableJoin, typing.List[creation.CreationTableJoin]] = None,
     ) -> typing.Optional[Record]:
-        records = await self.get_records(conditions=conditions, attributes=attributes, limit=1, group=group, order=order)
+        records = await self.get_records(conditions=conditions, attributes=attributes, limit=1, group=group, order=order, join=join)
         return records[0] if len(records) > 0 else None
 
     async def total_column(
@@ -357,6 +357,7 @@ class Table():
         
         condition_str = "WHERE (" + (") OR (".join(" AND ".join(str(condition) for condition in c) for c in conditions) + ")") if len(conditions) > 0 else ""
         command = f"UPDATE {self.name} SET {set_command} {condition_str} "
+        #print(command, params)
         cursor = await self.db.connection.execute(command, params)
         await self.db.commit(True)
         if self.__records:

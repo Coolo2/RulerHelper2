@@ -51,6 +51,9 @@ class Activity():
 
     def __float__(self):
         return float(self.total)
+    
+    def __round__(self, *args):
+        return self
 
 class Object():
     def __init__(self, world : client_pre.object.World, name : str, object_type : str):
@@ -328,6 +331,9 @@ class Tax():
     
     def __add__(self, other):
         return Tax(self.amount + (other.amount if hasattr(other, "amount") else other), self.tax_type)
+    
+    def __round__(self, *args):
+        return self
 
     __radd__ = __add__
 
@@ -749,13 +755,14 @@ class Player():
         
         r = await self.__world.client.visited_towns_table.get_record(
             [db.CreationCondition("player", self.name)], 
-            ["visited_towns.town AS town"], 
+            ["visited_towns.town AS town", "towns.resident_count AS residents"], 
             group=["visited_towns.town"], 
             order=db.CreationOrder("visited_towns.duration", db.types.OrderDescending),
-            join=[db.CreationTableJoin(self.__world.client.towns_table, "visited_towns.town", "towns.name")] # Remove towns which don't exist anymore
+            join=db.CreationTableJoin(self.__world.client.towns_table, "visited_towns.town", "towns.name") # Remove towns which don't exist anymore
         )
 
-        return self.__world.get_town(r.attribute("town"))
+        if r.attribute("residents") != 1: # If town has one resident and player is not mayor they cannot be a resident
+            return self.__world.get_town(r.attribute("town"))
     
     @property 
     async def exists_in_db(self):
@@ -1073,7 +1080,7 @@ class World():
 
         for object_type, objects in self._objects.items():
             for object in objects:
-                if object_type == "nation" and not object.capital:
+                if object_type == "nations" and not object.capital:
                     continue 
                     
                 cond = [db.CreationCondition("type", object.object_type), db.CreationCondition("name", object.name)]

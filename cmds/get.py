@@ -135,7 +135,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         c_view.add_command(commands_view.Command("history town residents", "Resident History", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
         
         cache_name = f"Town+{town.name}"
-        cache_id = town.vertex_count
+        cache_id = f"{town.vertex_count}_{area}"
         
         graph = discord.File(graphs.plot_towns([town], outposts="retain", dimmed_towns=borders, show_earth=False, cache_name=cache_name, cache_id=cache_id), filename="graph.png")
 
@@ -227,7 +227,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         # Diagram and send
         cache_name = f"Nation+{nation.name}"
-        cache_id = nation.vertex_count
+        cache_id = f"{nation.vertex_count}_{area}"
         im = graphs.check_cache(cache_name=cache_name, cache_id=cache_id)
         files=[]
         if im:

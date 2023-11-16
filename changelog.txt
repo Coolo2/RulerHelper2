@@ -1,13 +1,24 @@
+## v2.4.1 (Nov 16 2023)
+- Bar charts on compare commands now have colours corresponding to the emojis
+- Fixed rounding issues in compare commands' attribute totals
+- Duplicates are now removed from /compare commands.
+ - If a town is compared to itself and no others it will be handled
+- Fixed nations not automatically merging on rename 
+- Fixed history merging
 # v2.4.0 (Nov 15 2023)
 - Town visited player tracking
  - /get town now displays visited player count
  - New /top towns visited_players command
  - New /history town visited_player_count command (tracking starts today)
+ - Town visited player count now shows in /compare towns
 - Dates are now formatted properly in history descriptions and timeline graphs
+- Bot will not longer predict non-mayor likely residents for towns with a population of one
 - Quarry religions now are no longer counted everywhere
 - Fixes to automatic nation merging
 - Fixed town history merging
 - Minor performance improvements in /top religions
+- Fixed likely residency applying for deleted towns
+- Fixed map caching not updating always
 newpage
 ## v2.3.1 (Nov 11 2023)
 - X-axis dates now format better in /history

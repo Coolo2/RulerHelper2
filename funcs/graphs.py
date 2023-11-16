@@ -85,7 +85,7 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
             multi_data = {"default":data.values()}
         
         for i, (name, plot) in enumerate(multi_data.items()):
-            barlist : list[Rectangle] = chartType(keys, plot, color=(s.bar_color if chartType == gnt.bar else s.line_color) if data else colors[i%len(colors)] if colors else None, label=name, alpha=0.75 if colors else 1)
+            barlist : list[Rectangle] = chartType(keys, plot, color=((colors if colors else s.bar_color) if chartType == gnt.bar else s.line_color) if data else colors[i%len(colors)] if colors else None, label=name, alpha=0.75 if colors else 1)
         
         if len(multi_data) > 1:
             plt.legend(bbox_to_anchor=(0, 1.05, 1, 0.2), loc="lower left", prop={'size':10}, frameon=False, mode="expand", borderaxespad=0, ncol=3)

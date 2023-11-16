@@ -29,7 +29,9 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
 
         image_generators = []
         town_names = [tn for tn in [town_name_1, town_name_2, town_name_3, town_name_4, town_name_5] if tn != None] # COmbine and remove None
-        
+        town_names = list(dict.fromkeys(town_names)) # Remove duplicates
+        if len(town_names) == 1:
+            raise client.errors.MildError("Cannot compare a town to itself")
 
         towns : list[client.object.Town] = []
         for i, town_name in enumerate(town_names):
@@ -77,7 +79,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                     for date in history_days:
                         history_values_per_town[str(town.name_formatted)].append(vals_dict.get(date) or np.NaN)
                     
-            embed.add_field(name=f"{display_name} {('('+str(total)+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
+            embed.add_field(name=f"{display_name} {('('+str(total if type(total) == int else round(total, 2))+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
         
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name
@@ -85,7 +87,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 if not attribute.get("no_history"):
                     image_generators.append((graphs.save_graph, (None, f"{display_name} Comparison", "Town", y, plot, None, attribute.get("y_formatter"), history_values_per_town, history_days, s.compare_line_colors)))
                 else:
-                    image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Town", y, bar, None, attribute.get("y_formatter"))))
+                    image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Town", y, bar, None, attribute.get("y_formatter"), None, None, s.compare_line_colors)))
         
         view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False)
         view.add_item(commands_view.CommandButton(self, commands_view.Command("compare players", "Compare Mayors", parameters=[t._mayor_raw for t in towns], emoji="👤", row=2)))
@@ -101,6 +103,9 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
 
         image_generators = []
         nation_names = [tn for tn in [nation_name_1, nation_name_2, nation_name_3, nation_name_4, nation_name_5] if tn != None] # COmbine and remove None
+        nation_names = list(dict.fromkeys(nation_names)) # Remove duplicates
+        if len(nation_names) == 1:
+            raise client.errors.MildError("Cannot compare a nation to itself")
         
         twns : list[client.object.Town] = []
         capitals : list[client.object.Town] = []
@@ -152,7 +157,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                     for date in history_days:
                         history_values_per_nation[str(nation.name_formatted)].append(vals_dict.get(date) or np.NaN)
 
-            embed.add_field(name=f"{display_name} {('('+str(total)+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
+            embed.add_field(name=f"{display_name} {('('+str(total if type(total) == int else round(total, 2))+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
         
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name
@@ -160,7 +165,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 if not attribute.get("no_history"):
                     image_generators.append((graphs.save_graph, (None, f"{display_name} Comparison", "Nation", y, plot, None, attribute.get("y_formatter"), history_values_per_nation, history_days, s.compare_line_colors)))
                 else:
-                    image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Nation", y, bar, None, attribute.get("y_formatter"))))
+                    image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Nation", y, bar, None, attribute.get("y_formatter"), None, None, s.compare_line_colors)))
         
         view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False)
         view.add_item(commands_view.CommandButton(self, commands_view.Command("compare players", "Compare Leaders", parameters=[n.capital._mayor_raw for n in nations], emoji="👤", row=2)))
@@ -176,7 +181,9 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
 
         image_generators = []
         player_names = [tn for tn in [player_name_1, player_name_2, player_name_3, player_name_4, player_name_5] if tn != None] # COmbine and remove None
-        
+        player_names = list(dict.fromkeys(player_names)) # Remove duplicates
+        if len(player_names) == 1:
+            raise client.errors.MildError("Cannot compare a player to itself")
 
         players : list[client.object.Player] = []
         for i, player_name in enumerate(player_names):
@@ -223,7 +230,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                     history_values_per_player[str(player.name_formatted)] = []
                     for date in history_days:
                         history_values_per_player[str(player.name_formatted)].append(vals_dict.get(date) or np.NaN)
-            embed.add_field(name=f"{display_name} {('('+str(total)+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
+            embed.add_field(name=f"{display_name} {('('+str(total if type(total) == int else round(total, 2))+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
         
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name
@@ -231,7 +238,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 if not attribute.get("no_history"):
                     image_generators.append((graphs.save_graph, (None, f"{display_name} Comparison", "Player", y, plot, None, attribute.get("y_formatter"), history_values_per_player, history_days, s.compare_line_colors)))
                 else:
-                    image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Player", y, bar, None, attribute.get("y_formatter"))))
+                    image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Player", y, bar, None, attribute.get("y_formatter"), None, None, s.compare_line_colors)))
         
         view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False)
         view.add_item(commands_view.CommandButton(self, commands_view.Command("compare towns", "Compare Likely Residencies", parameters=[(await p.likely_residency).name if (await p.likely_residency) else None for p in players], emoji="🗾", row=2)))
