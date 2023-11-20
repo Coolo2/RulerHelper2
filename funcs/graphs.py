@@ -45,6 +45,8 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
     matplotlib.rcParams['ytick.color'] = color
     matplotlib.rcParams["axes.edgecolor"] = color
     matplotlib.rcParams["xtick.labelsize"] = 7
+    #matplotlib.rcParams['figure.facecolor'] = '#2B2D31'
+    #matplotlib.rcParams['axes.facecolor'] = '#2B2D31'
 
     if chartType == plt.pie:
         def my_autopct(pct):
@@ -54,6 +56,8 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
         
         for label, pct_text in zip(labels, pct_texts):
             pct_text.set_rotation(label.get_rotation())
+        
+        
     else:
     
         # Add ticks if not pie
@@ -244,7 +248,7 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
                 if not polygon.contains(Point(town.spawn.x, town.spawn.z)):
                     continue
 
-                plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.5, animated=True)
+                plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.2 if whole == True else 0.5, animated=True)
         
         if outposts:
             if outposts == "retain":
@@ -254,7 +258,7 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
             for town in towns:
                 det = town.detached_locations
                 for polygon in det.geoms if hasattr(det, "geoms") else [det]:
-                    plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.5, animated=True)
+                    plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.2 if whole == True else 0.5, animated=True)
     
 
     if players:
@@ -273,7 +277,7 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
                 z_offline.append(player.location.z)
 
         plt.scatter(x_online, z_online, color="white", s=dot_size or 10, zorder=6)
-        plt.scatter(x_offline, z_offline, color="#707070", s=dot_size or 1, zorder=5)
+        plt.scatter(x_offline, z_offline, color="#707070", s=dot_size/10 or 1, zorder=5)
 
     
     if outposts != "retain":
@@ -286,11 +290,14 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
 
                 plt.fill(*polygon.exterior.xy, fc=s.map_bordering_town_fill_colour + f"{s.map_bordering_town_opacity:02}", ec=town.border_color + f"{s.map_bordering_town_opacity//2:02}", zorder=2, rasterized=True, lw=0.5)
 
+    dpi = s.IMAGE_DPI_DRAWING
     if whole or (show_earth == "auto" and (x_lim[1]-x_lim[0] > s.show_earth_bg_if_over or y_lim[1]-y_lim[0] > s.show_earth_bg_if_over)):
         show_earth = True
         
-        if (whole or (x_lim[1]-x_lim[0] > xw*1.7 or y_lim[1]-y_lim[0] > yw*1.5)) and bg_path == s.earth_bg_path:
-            bg_path = s.earth_bg_path_whole
+        if (whole or (x_lim[1]-x_lim[0] > xw*1.7 or y_lim[1]-y_lim[0] > yw*1.5)):
+            if bg_path == s.earth_bg_path:
+                bg_path = s.earth_bg_path_whole
+            dpi = s.IMAGE_DPI_DRAWING_BIG
 
     if plot_spawn:
 
@@ -335,7 +342,7 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
     plt.axis('off')
 
     buf = io.BytesIO()
-    plt.savefig(buf, dpi=s.IMAGE_DPI_DRAWING, transparent=True, bbox_inches="tight", pad_inches = 0)
+    plt.savefig(buf, dpi=dpi, transparent=True, bbox_inches="tight", pad_inches = 0)
 
     if cache_name and cache_id and not players:
         with open(f"./cache/{cache_name}_{cache_id}.png", "wb") as f:

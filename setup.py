@@ -11,7 +11,7 @@ Setup file!
 
 """
 
-version = "2.4.0"
+version = "2.5.0"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
@@ -28,6 +28,7 @@ DONT_TRACK_TOWNS = ["Sea", "RulerSpawn", "Unclaimed"] # Ignore these towns while
 
 IMAGE_DPI_GRAPH = 100 # DPI (image quality) for graphs (bar charts, pie charts, line graphs)
 IMAGE_DPI_DRAWING = 300 # DPI (image quality) for drawings (maps)
+IMAGE_DPI_DRAWING_BIG = 500 # DPI (image quality) for big drawings (maps)
 IMAGE_DPI_RENDER = 600
 timeline_colors = ["red", "green", "brown", "orange", "purple", "yellow"] # Colours for timelines 
 compare_emojis = [":red_square:", ":orange_square:", ":yellow_square:", ":green_square:", ":blue_square:"] # Emojis for compare commands
@@ -45,7 +46,7 @@ waiting_bg_path = "map_waiting.jpg"
 likely_residency_prefix_history = "`[R]` "
 
 map_url = "https://map.rulercraft.com" # Base map URL
-refresh_period = 30 # Duration in seconds to refresh
+default_refresh_period = 20 # Duration in seconds to refresh
 map_link_zoom = 10 # Zoom level for map links. Eg "Location" in /get player
 
 cull_history_from = timedelta(days=60) # Duration of time to remove history from the database after
@@ -95,9 +96,9 @@ compare_attributes = {
 
 history_commands = {
     "town":[
-            {"attribute":"nation", "qualitative":True, "formatter":None, "name":None, "parser":None},
-            {"attribute":"religion", "qualitative":True, "formatter":None, "name":None, "parser":None},
-            {"attribute":"culture", "qualitative":True, "formatter":None, "name":None, "parser":None},
+            {"attribute":"nation", "qualitative":True, "formatter":None, "name":None, "parser":lambda x: str(x).replace("_", " ")},
+            {"attribute":"religion", "qualitative":True, "formatter":None, "name":None, "parser":lambda x: str(x).replace("_", " ")},
+            {"attribute":"culture", "qualitative":True, "formatter":None, "name":None, "parser":lambda x: str(x).replace("_", " ")},
             {"attribute":"mayor", "qualitative":True, "formatter":None, "name":None, "parser":None},
             {"attribute":"resident_count", "qualitative":False, "formatter":None, "name":"residents", "parser":None, "y":"Residents"},
             {"attribute":"resident_tax", "qualitative":False, "formatter":lambda x: f"{x:,.1f}%", "name":"tax", "parser":None, "y":"Tax (%)"},
@@ -111,13 +112,15 @@ history_commands = {
     ],
     "player":[
             {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
-            {"attribute":"visited_towns", "qualitative":False, "formatter":None, "name":"visited_town_count", "parser":None, "y":"Towns"}
+            {"attribute":"visited_towns", "qualitative":False, "formatter":None, "name":"visited_town_count", "parser":None, "y":"Towns"},
+            {"attribute":"likely_town", "qualitative":True, "formatter":None, "parser":lambda x: str(x).replace("_", " "), "start_at":datetime.date(2023, 11, 20)},
+            {"attribute":"likely_nation", "qualitative":True, "formatter":None, "parser":lambda x: str(x).replace("_", " "), "start_at":datetime.date(2023, 11, 20)}
     ],
     "nation":[
             {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},
             {"attribute":"town_balance", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
             {"attribute":"residents", "qualitative":False, "formatter":None, "name":"residents", "parser":None},
-            {"attribute":"capital", "qualitative":True, "formatter":None, "name":None, "parser":None},
+            {"attribute":"capital", "qualitative":True, "formatter":None, "name":None, "parser":lambda x: str(x).replace("_", " ")},
             {"attribute":"leader", "qualitative":True, "formatter":None, "name":None, "parser":None},
             {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":"area", "parser":None, "y":"Area (plots)"},
             {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
@@ -135,7 +138,8 @@ history_commands = {
             {"attribute":"residents", "qualitative":False, "formatter":lambda x: f"{x:,}", "name":"residents", "parser":None},
             {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":"area", "parser":None, "y":"Area (plots)"},
             {"attribute":"nations", "qualitative":False, "formatter":None, "name":"nations", "parser":None},
-            {"attribute":"known_players", "qualitative":False, "formatter":lambda x: f"{x:,}", "name":None, "parser":None}
+            {"attribute":"known_players", "qualitative":False, "formatter":lambda x: f"{x:,}", "name":None, "parser":None},
+            {"attribute":"activity", "qualitative":False, "formatter":generate_time, "name":"total_player_activity", "y":"Time", "y_formatter":generate_time}
     ]
 }
 

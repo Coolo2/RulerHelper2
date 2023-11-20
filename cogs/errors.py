@@ -13,9 +13,11 @@ class ErrorHandling(commands.Cog):
         self.client = client 
     
 
-
+        
         @bot.tree.error 
-        async def on_error(interaction : discord.Interaction, error : app_commands.AppCommandError):
+        async def on_error(interaction : discord.Interaction, error : app_commands.CommandInvokeError|Exception):
+            error_original = error.original if hasattr(error, "original") else error 
+
             embed = discord.Embed(
                 title="You've run into an unknown error",
                 description=f"```{error}```\n\nMessage <@{s.mods[0]}> for support",
@@ -25,10 +27,10 @@ class ErrorHandling(commands.Cog):
             if isinstance(error, app_commands.errors.CommandNotFound):
                 return
 
-            if isinstance(error.original, c.errors.MildError):
+            if isinstance(error_original, c.errors.MildError):
                 embed = discord.Embed(
-                    title=error.original.title,
-                    description=f"{error.original.description}\n\nMessage <@{s.mods[0]}> for support",
+                    title=error_original.title,
+                    description=f"{error_original.description}\n\nMessage <@{s.mods[0]}> for support",
                     color=s.embedFail
                 )
 

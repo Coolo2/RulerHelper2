@@ -2,6 +2,8 @@ discord/
 sql/
 *.db
 *.db-journal
+*.db-shm 
+*.db-wal
 cache/*.png
 render_towns.py
 earthold.png

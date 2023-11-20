@@ -2,7 +2,7 @@
 import discord 
 
 import setup as s
-from funcs import paginator, graphs, autocompletes
+from funcs import paginator, graphs, autocompletes, commands_view
 
 from discord import app_commands
 from discord.ext import commands
@@ -15,6 +15,8 @@ from matplotlib.pyplot import pie
 
 def generate_command(c : client.Client, attribute : str, formatter = str, parser = None, is_nation=False, is_culture=False, is_religion=False,attname : str = None):
     async def cmd_uni(interaction : discord.Interaction, nation : str=None, culture : str=None, religion : str=None):
+
+        edit = interaction.extras.get("edit")
 
         if nation:
             o = c.world.get_nation(nation, True)
@@ -55,13 +57,14 @@ def generate_command(c : client.Client, attribute : str, formatter = str, parser
         embed.set_image(url="attachment://graph.png")
 
         if s.see_more_footer:
-            embed.set_footer(text="View more with /distribution nation!" + (f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}" if attribute =="duration" else ""))
+            embed.set_footer(text=f"View more with /distribution {typeatt}!" + (f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}" if attribute =="duration" else ""))
         elif attribute == "duration":
             embed.set_footer(text=f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
 
-        view = paginator.PaginatorView(embed, log)
+        view = paginator.PaginatorView(embed, log, index=interaction.extras.get("page"))
+        view.add_item(commands_view.RefreshButton(c, f"distribution {typeatt} {attname}", (o.name,), row=0 if len(view.children) < 5 else 1))
         
-        return await interaction.response.send_message(embed=embed, view=view, file=graph)
+        return await (interaction.response.edit_message(embed=embed, view=view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=view, file=graph))
 
 
     if is_nation:

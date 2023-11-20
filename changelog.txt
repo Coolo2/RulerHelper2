@@ -1,3 +1,30 @@
+# 2.5.0 (Nov 20 2023)
+- Added "refresh" buttons to many commands which refresh the data in fields
+ - This button works permanently, even after bot refreshes. 
+ - It may be disabled for old messages in the future to keep server history 
+- Total player activity tracking
+ - Added new command /history global total_player_activity
+ - /get world now displays total player activity
+- Totals in /top titles are now comma seperated if over 1000
+- Compare changes
+ - Commands will now edit in the map images rather than "thinking"
+ - "Compare ..." buttons will no longer show if all duplicates in /compare
+ - Fixed certain /compare attribute titles having underscores in
+- Likely residency and nation tracking
+ - New commands: /history player likely_town and /history player likely_nation
+ - History of player residency can now be seen and tracked from today
+- Vastly sped up /bot info and added "current refresh time" attribute
+- Improved quality and sizes of large drawings. They should look much cleaner now
+- "Command" buttons now work forever (even after refresh)
+- "Command" buttons no longer work if the user doesn't have send message permissions in the channel
+- Nation/Culture/Religion/Town names in timeline history commands are now formatted properly
+- Refresh period is now dynamic. Means tracking data will be more accurate and can refresh faster when less people are online
+- Fixed automatic nation merging choosing the merge nation incorrectly 
+- Fixed a bug where /distribution footer tips will always say "nation" and /history's wouldn't say religion/global
+- Command registration has been updated (backend)
+- History values now properly merge
+- Fixed paginated footer not changing for skip buttons
+newpage
 ## v2.4.1 (Nov 16 2023)
 - Bar charts on compare commands now have colours corresponding to the emojis
 - Fixed rounding issues in compare commands' attribute totals

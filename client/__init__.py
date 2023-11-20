@@ -29,7 +29,8 @@ class Client():
         self.players_table : wrapper.Table = []
         self.visited_towns_table : wrapper.Table = []
 
-        self.refresh_period = s.refresh_period
+        self.refresh_period = s.default_refresh_period
+        self.last_refreshed : datetime.datetime = None
         self.world = object.World(self) 
         self.notifications = Notifications(self)
 
@@ -148,6 +149,8 @@ class Client():
                     db.CreationAttribute("date", db.types.Date),
                     db.CreationAttribute("duration", db.types.Int),
                     db.CreationAttribute("visited_towns", db.types.Int),
+                    db.CreationAttribute("likely_town", db.types.String),
+                    db.CreationAttribute("likely_nation", db.types.String),
                 ]
             )
         )
@@ -179,7 +182,8 @@ class Client():
                     db.CreationAttribute("nations", db.types.Int),
                     db.CreationAttribute("town_value", db.types.Float),
                     db.CreationAttribute("area", db.types.Int),
-                    db.CreationAttribute("known_players", db.types.Int)
+                    db.CreationAttribute("known_players", db.types.Int),
+                    db.CreationAttribute("activity", db.types.Int)
                 ]
             )
         )
@@ -236,6 +240,9 @@ class Client():
             )
         )
 
+        #await self.database.connection.execute('PRAGMA synchronous = OFF')
+        await self.database.connection.execute('PRAGMA journal_mode = WAL')
+
     async def create_session(self):
         if not self.session:
             self.session = aiohttp.ClientSession()
@@ -285,12 +292,12 @@ class Client():
         for nation in self.world.nations.copy():
             
             if not nation.capital:
-                nation_info = await self.objects_table.get_record([db.CreationCondition("type", "nation"), db.CreationCondition("name", nation.name)])
-
-                await self.bot.get_channel(s.alert_channel).send(f"Removed nation {nation.name} {nation_info.attribute('towns')} {nation_info.attribute('residents')}")
+                nation_info = await self.nation_history_table.get_record([db.CreationCondition("nation", nation.name)], order=db.CreationOrder("date", db.types.OrderDescending))
                 self.world._remove_nation(nation.name)
+                await self.bot.get_channel(s.alert_channel).send(f"Removed nation {nation.name} {nation_info.attribute('towns')} {nation_info.attribute('residents')}")
+                
                 for n in self.world.nations:
-                    if len(n.towns) == nation_info.attribute("towns") and n.total_residents == nation_info.attribute("residents"):
+                    if len(n.towns) == nation_info.attribute("towns") and n.total_residents == nation_info.attribute("residents") and n.capital and n.capital.name == nation_info.attribute("capital"):
                         await self.bot.get_channel(s.alert_channel).send(f"Is this nation the same as  {n.name}?")
                         await self.merge_objects("nation", nation.name, n.name)
                         break
@@ -360,6 +367,9 @@ class Client():
             await self.players_table.update_records([db.CreationCondition("name", obj.name)], [db.CreationField.add("duration", old_duration)])
 
             await self.players_table.delete_records([db.CreationCondition("name", old_object_name)])
+
+            await self.town_history_table.update_records([db.CreationCondition("mayor", old_object_name)], db.CreationField("mayor", obj.name))
+            await self.nation_history_table.update_records([db.CreationCondition("leader", old_object_name)], db.CreationField("leader", obj.name))
         elif object_type == "town":
             old_duration = (await self.town_history_table.get_record([db.CreationCondition("town", old_object_name)], [self.town_history_table.attribute("duration")], order=db.CreationOrder("date", db.types.OrderDescending))).attribute("duration")
 
@@ -378,6 +388,7 @@ class Client():
                     await self.town_history_table.update_records([db.CreationCondition("town", old_object_name), db.CreationCondition("date", record.attribute("date"))], [db.CreationField("town", obj.name)]) 
                 else:
                     await record.delete()
+            
             # If duplicate exists, merge data
             for record in await self.visited_towns_table.get_records([db.CreationCondition("town", old_object_name)]):
                 rec = await self.visited_towns_table.get_record([db.CreationCondition("town", obj.name), db.CreationCondition("player", record.attribute("player"))])
@@ -390,6 +401,9 @@ class Client():
             
             # Update main record
             await self.towns_table.delete_records([db.CreationCondition("name", old_object_name)])
+
+            await self.nation_history_table.update_records([db.CreationCondition("capital", old_object_name)], db.CreationField("capital", obj.name))
+            await self.player_history_table.update_records([db.CreationCondition("likely_town", old_object_name)], db.CreationField("likely_town", obj.name))
         elif object_type == "nation":
 
             # Update flags: 1. Delete flags if already exist 2. Update old name
@@ -407,6 +421,9 @@ class Client():
                     await self.nation_history_table.update_records([db.CreationCondition("nation", old_object_name), db.CreationCondition("date", record.attribute("date"))], [db.CreationField("nation", obj.name)]) 
                 else:
                     await record.delete()
+            
+            await self.town_history_table.update_records([db.CreationCondition("nation", old_object_name)], db.CreationField("nation", obj.name))
+            await self.player_history_table.update_records([db.CreationCondition("likely_nation", old_object_name)], db.CreationField("likely_nation", obj.name))
                 
     
 class NotificationChannel():

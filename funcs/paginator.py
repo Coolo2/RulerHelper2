@@ -14,14 +14,24 @@ class PaginatorView(discord.ui.View):
                 private = None, 
                 page_image_generators : typing.List[typing.Tuple[typing.Callable, tuple]] = [],
                 search : bool = True,
-                skip_buttons : bool = True
+                skip_buttons : bool = True,
+                render_image_after : bool = False,
+                temp_img_url : str = None
     ):
         self.embed = embed
-        self.index = index
+        self.index = index or 0
         self.private : discord.User = private
         self.page_image_generators = page_image_generators
         self.attachment = None
+
+        pages = text.split(split_character)
+        if "" in pages:
+            pages.remove("")
         
+        self.pages = [split_character.join(pages[i:i+per_page]) for i in range(0, len(pages), per_page)]
+
+        if self.index >= len(self.pages):
+            self.index = len(self.pages)-1
 
         if len(page_image_generators) > 0 and page_image_generators[0]:
             generator = self.page_image_generators[self.index]
@@ -29,10 +39,13 @@ class PaginatorView(discord.ui.View):
             if type(generator) == str:
                 embed.set_image(url=generator)
             else:
-                image = generator[0](*generator[1])
-                graph = discord.File(image, filename="paginator_image.png")
-                self.attachment = graph
-                embed.set_image(url="attachment://paginator_image.png")
+                if not render_image_after:
+                    image = generator[0](*generator[1])
+                    graph = discord.File(image, filename="paginator_image.png")
+                    self.attachment = graph
+                    embed.set_image(url="attachment://paginator_image.png")
+                else:
+                    embed.set_image(url=temp_img_url)
 
         if not text or text == "":
             if not embed.description:
@@ -40,12 +53,8 @@ class PaginatorView(discord.ui.View):
             text = (embed.description + split_character) * len(page_image_generators) if embed.description else split_character.join(["_ _"]*len(page_image_generators))
             per_page = embed.description.count(split_character)+1
         
-        pages = text.split(split_character)
-        if "" in pages:
-            pages.remove("")
         
-        self.pages = [split_character.join(pages[i:i+per_page]) for i in range(0, len(pages), per_page)]
-        self.embed.description = self.pages[0] if len(pages) > 0 else "_ _"
+        self.embed.description = self.pages[self.index] if len(pages) > 0 else "_ _"
 
         if self.embed.footer.text and "Page " not in self.embed.footer.text:
             self.embed.set_footer(text=f"{self.embed.footer.text} - Page {self.index+1}/{len(self.pages)}")
@@ -65,9 +74,13 @@ class PaginatorView(discord.ui.View):
 
             self.children[1].disabled = self.index >= len(self.pages) - 1
             self.children[0].disabled = self.index <= 0
-
+        
         if not search or len(self.pages) < 2:
             self.remove_item(self.children[4 if self.skip_buttons else 2])
+        
+        if render_image_after:
+            for child in self.children:
+                child.disabled = True
     
     async def refresh(self, interaction : discord.Interaction):
         self.embed.description = self.pages[self.index]
@@ -98,8 +111,9 @@ class PaginatorView(discord.ui.View):
         if self.private and interaction.user != self.private:
             return 
 
+        old_index = self.index
         self.index = 0
-        self.embed.set_footer(text=self.embed.footer.text.replace(f"Page {self.index+2}", f"Page {self.index+1}"))
+        self.embed.set_footer(text=self.embed.footer.text.replace(f"Page {old_index+1}", f"Page {self.index+1}"))
 
         await self.refresh(interaction)
 
@@ -127,9 +141,10 @@ class PaginatorView(discord.ui.View):
     async def _right_all(self, interaction : discord.Interaction, button: discord.ui.Button):
         if self.private and interaction.user != self.private:
             return 
-
+        
+        old_index = self.index
         self.index = len(self.pages)-1
-        self.embed.set_footer(text=self.embed.footer.text.replace(f"Page {self.index+2}", f"Page {self.index+1}"))
+        self.embed.set_footer(text=self.embed.footer.text.replace(f"Page {old_index+1}", f"Page {self.index+1}"))
 
         await self.refresh(interaction)
     
@@ -139,6 +154,23 @@ class PaginatorView(discord.ui.View):
             return 
 
         await interaction.response.send_modal(SearchModal(self))
+    
+    def render_initial_image(self):
+        for child in self.children:
+            child.disabled = False
+
+        generator = self.page_image_generators[self.index]
+        image = generator[0](*generator[1])
+        graph = discord.File(image, filename="paginator_image.png")
+        self.attachment = graph
+        self.embed.set_image(url="attachment://paginator_image.png")
+
+        if self.skip_buttons:
+            self.children[2].disabled = self.children[3].disabled = self.index >= len(self.pages) - 1
+            self.children[1].disabled = self.children[0].disabled = self.index <= 0
+        else:
+            self.children[1].disabled = self.index >= len(self.pages) - 1
+            self.children[0].disabled = self.index <= 0
 
 class SearchModal(discord.ui.Modal):
 

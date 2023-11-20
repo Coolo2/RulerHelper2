@@ -34,6 +34,8 @@ def generate_command(
 ):
     async def cmd_uni(interaction : discord.Interaction, on : str = None, highlight : str = None):
 
+        edit = interaction.extras.get("edit")
+
         on_date = datetime.datetime.strptime(on, "%b %d %Y").date() if on and not not_in_history else datetime.date.today()
 
         if is_town:
@@ -87,7 +89,7 @@ def generate_command(
 
             values[name] = int(parsed)
         
-        title = f"Top {o_type}s by {attnameformat} " + (f"on {on} " if on else "") + f"({len(rs)})"
+        title = f"Top {o_type}s by {attnameformat} " + (f"on {on} " if on else "") + f"({len(rs):,})"
 
         file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), title, o_type.title(), y or "Value", bar, y_formatter=y_formatter, highlight=highlight)
         graph = discord.File(file, filename="graph.png")
@@ -100,14 +102,14 @@ def generate_command(
             if i >= 25: continue 
             cmds.append(commands_view.Command(f"get {o_type}", f"{i+1}. {object_name}", (object_name,), emoji=None))
         
-
         if attribute == "duration":
             embed.set_footer(text=f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
 
-        view = paginator.PaginatorView(embed, log)
+        view = paginator.PaginatorView(embed, log, index=interaction.extras.get("page"))
+        view.add_item(commands_view.RefreshButton(c, f"top {o_type}s {attname}", (), 3))
         view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {o_type.title()} Info...", 2))
         
-        return await interaction.response.send_message(embed=embed, view=view, file=graph)
+        return await (interaction.response.edit_message(embed=embed, view=view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=view, file=graph))
 
 
     return cmd_uni
@@ -121,48 +123,41 @@ class Top(commands.Cog):
         super().__init__()
     
         top = app_commands.Group(name="top", description="Rank objects")
-        towns = app_commands.Group(name="towns", description="List the top towns by an attribute", parent=top)
-        players = app_commands.Group(name="players", description="List the top nations by an attribute", parent=top)
-        nations = app_commands.Group(name="nations", description="List the top nations by an attribute", parent=top)
-        cultures = app_commands.Group(name="cultures", description="List the top cultures by an attribute", parent=top)
-        religions = app_commands.Group(name="religions", description="List the top religions by an attribute", parent=top)
 
-        
+        command_types = [
+            {"name":"town", "group":app_commands.Group(name="towns", description="List the top towns by an attribute", parent=top), "parameters":[{"name":"highlight", "autocomplete":autocompletes.town_autocomplete}]},
+            {"name":"player", "group":app_commands.Group(name="players", description="List the top nations by an attribute", parent=top), "parameters":[{"name":"highlight", "autocomplete":autocompletes.player_autocomplete}]},
+            {"name":"nation", "group":app_commands.Group(name="nations", description="List the top nations by an attribute", parent=top), "parameters":[{"name":"highlight", "autocomplete":autocompletes.nation_autocomplete}]},
+            {"name":"culture", "group":app_commands.Group(name="cultures", description="List the top cultures by an attribute", parent=top), "parameters":[{"name":"highlight", "autocomplete":autocompletes.culture_autocomplete}], "attributes":s.top_commands["object"]},
+            {"name":"religion", "group":app_commands.Group(name="religions", description="List the top religions by an attribute", parent=top), "parameters":[{"name":"highlight", "autocomplete":autocompletes.religion_autocomplete}], "attributes":s.top_commands["object"]},
+        ]
 
-        for attribute in s.top_commands["town"]:
-            name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"Top towns by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_town=True, attname=name, y=attribute.get("y"), reverse=attribute.get("reverse"), y_formatter=attribute.get("y_formatter"), not_in_history=attribute.get("not_in_history")))
-            command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper("town"))
-            command.autocomplete("highlight")(autocompletes.town_autocomplete)
-            towns.add_command(command)
-        for attribute in s.top_commands["player"]:
-            name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"Top players by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_player=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
-            command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper("player"))
-            command.autocomplete("highlight")(autocompletes.player_autocomplete)
-            players.add_command(command)
-        for attribute in s.top_commands["nation"]:
-            name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"Top nations by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_nation=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
-            command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper("object"))
-            command.autocomplete("highlight")(autocompletes.nation_autocomplete)
-            nations.add_command(command)
-        for attribute in s.top_commands["object"]:
-            name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"Top cultures by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_culture=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
-            command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper("object"))
-            command.autocomplete("highlight")(autocompletes.culture_autocomplete)
-            cultures.add_command(command)
+        for command_type in command_types:
+            for attribute in command_type.get("attributes") or s.top_commands[command_type["name"]]:
+                name = attribute.get("name") or attribute.get("attribute")
+                cmd_type_name = command_type['name']
+                name = "followers" if name == "residents" and cmd_type_name == "religion" else name
 
-            name = attribute.get("name") or attribute.get("attribute")
-            name = "followers" if name == "residents" else name
-            command = app_commands.command(name=name, description=f"Top religions by {name}")(generate_command(self, self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_religion=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
-            command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper("object"))
-            command.autocomplete("highlight")(autocompletes.religion_autocomplete)
-            religions.add_command(command)
+                command = app_commands.command(name=name, description=f"Top {cmd_type_name}s by {name}")(generate_command(
+                    self, 
+                    self.client, 
+                    attribute.get("attribute"), 
+                    attribute.get("formatter") or str, 
+                    attribute.get("parser"), 
+                    is_town=cmd_type_name == "town", is_nation = cmd_type_name == "nation", is_player=cmd_type_name == "player", is_culture=cmd_type_name == "culture", is_religion=cmd_type_name == "religion",
+                    attname=name, 
+                    y=attribute.get("y"), 
+                    reverse=attribute.get("reverse"), 
+                    y_formatter=attribute.get("y_formatter"), 
+                    not_in_history=attribute.get("not_in_history")
+                ))
+                command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper(cmd_type_name))
+                for parameter in command_type["parameters"]:
+                    if parameter.get("autocomplete"):
+                        command.autocomplete(parameter["name"])(parameter["autocomplete"])
+                command_type["group"].add_command(command)
 
         self.bot.tree.add_command(top)
-
 
 async def setup(bot : commands.Bot):
     await bot.add_cog(Top(bot, bot.client))

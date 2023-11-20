@@ -7,7 +7,7 @@ import os
 from discord import app_commands
 from discord.ext import commands
 
-from funcs import paginator
+from funcs import paginator, commands_view
 
 import client
 
@@ -21,6 +21,8 @@ class Get(commands.GroupCog, name="bot", description="Commands relating to the b
 
     @app_commands.command(name="info", description="Get information on the bot")
     async def _info(self, interaction : discord.Interaction):
+
+        send = interaction.response.edit_message if interaction.extras.get("edit") else interaction.response.send_message
         
         embed = discord.Embed(title="Bot information", description=f"{self.client.bot.user.display_name} is a bot managed by <@{s.mods[0]}> which provides towny stats.", color=s.embed)
 
@@ -28,16 +30,13 @@ class Get(commands.GroupCog, name="bot", description="Commands relating to the b
         embed.add_field(name="Servers", value=str(len(self.bot.guilds)))
         embed.add_field(name="Database size", value=f"{round(os.path.getsize('towny.db')/1000/1000, 2)}MB")
         embed.add_field(name="Last refresh", value=f"<t:{round(self.client.world.last_refreshed.timestamp())}:R>")
+        embed.add_field(name="Linked discord accounts", value=str(len(await self.client.world.linked_discords)))
+        embed.add_field(name="Current refresh time", value=f"{self.client.refresh_period}s")
 
-        total_linked_accounts = 0
+        view = discord.ui.View()
+        view.add_item(commands_view.RefreshButton(self.client, "bot info", []))
 
-        for player in self.client.world.players:
-            if await player.discord:
-                total_linked_accounts += 1
-        
-        embed.add_field(name="Linked Discord accounts", value=str(total_linked_accounts))
-
-        await interaction.response.send_message(embed=embed)
+        await send(embed=embed, view=view)
     
     @app_commands.command(name="changelog", description="Get a changelog of recent versions")
     async def _changelog(self, interaction : discord.Interaction):

@@ -21,6 +21,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
     @app_commands.autocomplete(player_name=autocompletes.player_autocomplete)
     async def _player(self, interaction : discord.Interaction, player_name : str):
 
+        response_coro = interaction.response.edit_message if interaction.extras.get("edit") else interaction.response.send_message
+
         player = self.client.world.get_player(player_name, True)
         if not player:
             raise client.errors.MildError("Player not found")
@@ -52,6 +54,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.set_thumbnail(url=await player.face_url)
 
         c_view = commands_view.CommandsView(self)
+        c_view.add_item(commands_view.RefreshButton(self.client, "get player", (player.name,)))
         if town:
             c_view.add_command(commands_view.Command("get town", "Town Info", (town.name,), button_style=discord.ButtonStyle.primary, emoji="ℹ️"))
         if likely_residency and likely_residency != town:
@@ -59,12 +62,15 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         c_view.add_command(commands_view.Command("history player activity", "Activity History", (player.name,), button_style=discord.ButtonStyle.secondary, emoji="⏳"))
         if visited_towns_total > 0:
             c_view.add_command(commands_view.Command("history player visited_towns", "Visited Towns", (player.name,), button_style=discord.ButtonStyle.secondary, emoji="📖"))
+        
 
-        return await interaction.response.send_message(embed=embed, view=c_view)
+        return await response_coro(embed=embed, view=c_view)
 
     @app_commands.command(name="town", description="Get information about a town")
     @app_commands.autocomplete(town_name=autocompletes.town_autocomplete)
     async def _town(self, interaction : discord.Interaction, town_name : str):
+
+        edit = interaction.extras.get("edit")
         
         town = self.client.world.get_town(town_name, True)
 
@@ -103,6 +109,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         c_view = commands_view.CommandsView(self)
 
+        c_view.add_item(commands_view.RefreshButton(self.client, "get town", (town.name,)))
+
         if type(town.mayor) != str:
             c_view.add_command(commands_view.Command("get player", "Mayor Info", (town.mayor.name,), button_style=discord.ButtonStyle.primary, emoji="👑"))
         if town.nation:
@@ -138,12 +146,15 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         cache_id = f"{town.vertex_count}_{area}"
         
         graph = discord.File(graphs.plot_towns([town], outposts="retain", dimmed_towns=borders, show_earth=False, cache_name=cache_name, cache_id=cache_id), filename="graph.png")
+        
 
-        return await interaction.response.send_message(embed=embed, file=graph, view=c_view)
+        return await interaction.response.edit_message(embed=embed, attachments=[graph], view=c_view) if edit else await interaction.response.send_message(embed=embed, file=graph, view=c_view)
     
     @app_commands.command(name="nation", description="Get information about a nation")
     @app_commands.autocomplete(nation_name=autocompletes.nation_autocomplete)
     async def _nation(self, interaction : discord.Interaction, nation_name : str):
+
+        edit = interaction.extras.get("edit")
         
         nation = self.client.world.get_nation(nation_name, True)
 
@@ -188,6 +199,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.set_footer(text=f"Bot has been tracking for {(await self.client.world.total_tracked).str_no_timestamp()}")
 
         c_view = commands_view.CommandsView(self)
+        c_view.add_item(commands_view.RefreshButton(self.client, "get nation", (nation.name,)))
 
         button = discord.ui.Button(label="Expand Outposts", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
         def outposts_button(nation : client.object.Nation, view : discord.ui.View, borders):
@@ -223,25 +235,28 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             cmds.append(commands_view.Command("get town", town.name_formatted, (town.name,), emoji=None))
         c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", 3))
 
-        
-
         # Diagram and send
         cache_name = f"Nation+{nation.name}"
         cache_id = f"{nation.vertex_count}_{area}"
         im = graphs.check_cache(cache_name=cache_name, cache_id=cache_id)
         files=[]
+        embed.set_image(url="attachment://map.png")
         if im:
             files.append(discord.File(im, "map.png"))
-            embed.set_image(url="attachment://map.png")
+            
 
-            return await interaction.response.send_message(embed=embed, files=files, view=c_view)
+            return await (interaction.response.edit_message(embed=embed, attachments=files, view=c_view) if edit else interaction.response.send_message(embed=embed, files=files, view=c_view))
 
-        elif len(towns) > 3:
+        elif len(towns) > 3 and not edit:
             
             files.append(discord.File(s.waiting_bg_path, "map_waiting.jpg"))
             embed.set_image(url="attachment://map_waiting.jpg")
 
-            await interaction.response.send_message(embed=embed, files=files, view=c_view)
+        await (
+            (
+                interaction.response.edit_message(embed=embed, attachments=files, view=c_view) if len(files) > 0 else interaction.response.edit_message(embed=embed, view=c_view)
+            ) if edit else interaction.response.send_message(embed=embed, files=files, view=c_view)
+        )
         
         graph = discord.File(graphs.plot_towns([capital]+towns, plot_spawn=True, dimmed_towns=borders[1], cache_name=cache_name, cache_id=cache_id, outposts="retain"), filename="map.png")
         embed.set_image(url="attachment://map.png")
@@ -249,11 +264,13 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         if len(towns) > 3:
             await interaction.edit_original_response(embed=embed, attachments=[graph])
         else:
-            await interaction.response.send_message(embed=embed, view=c_view, file=graph)
+            await (interaction.response.edit_message(embed=embed, view=c_view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=c_view, file=graph))
         
     @app_commands.command(name="culture", description="Get information about a culture")
     @app_commands.autocomplete(culture_name=autocompletes.culture_autocomplete)
     async def _culture(self, interaction : discord.Interaction, culture_name : str):
+
+        edit = interaction.extras.get("edit")
         
         culture = self.client.world.get_culture(culture_name, True)
         towns = culture.towns
@@ -275,6 +292,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Nation Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in nation_make_up.items()][:5]) if len(nation_make_up) > 0 else 'None')
 
         c_view = commands_view.CommandsView(self)
+        c_view.add_item(commands_view.RefreshButton(self.client, "get culture", (culture.name,), row=2))
 
         cmds = []
         for i, town in enumerate(towns):
@@ -286,8 +304,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         if len(towns) > 3:
             embed.set_image(url="attachment://map_waiting.jpg")
-
-            await interaction.response.send_message(embed=embed, view=c_view, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"))
+            f = discord.File(s.waiting_bg_path, "map_waiting.jpg")
+            await (interaction.response.edit_message(embed=embed, view=c_view, attachments=[f]) if edit else interaction.response.send_message(embed=embed, view=c_view, file=f))
         
         graph = discord.File(graphs.plot_towns(towns, plot_spawn=False), filename="graph.png")
         embed.set_image(url="attachment://graph.png")
@@ -295,11 +313,13 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         if len(towns) > 3:
             await interaction.edit_original_response(attachments=[graph], embed=embed)
         else:
-            await interaction.response.send_message(embed=embed, view=c_view, file=graph)
+            await (interaction.response.edit_message(embed=embed, view=c_view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=c_view, file=graph))
     
     @app_commands.command(name="religion", description="Get information about a religion")
     @app_commands.autocomplete(religion_name=autocompletes.religion_autocomplete)
     async def _religion(self, interaction : discord.Interaction, religion_name : str):
+
+        edit = interaction.extras.get("edit")
         
         religion = self.client.world.get_religion(religion_name, True)
         towns = religion.towns
@@ -321,6 +341,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Nation Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in nation_make_up.items()][:5]) if len(nation_make_up) > 0 else 'None')
 
         c_view = commands_view.CommandsView(self)
+        c_view.add_item(commands_view.RefreshButton(self.client, "get religion", (religion.name,), row=2))
 
         cmds = []
         for i, town in enumerate(towns):
@@ -332,8 +353,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         if len(towns) > 3:
             embed.set_image(url="attachment://map_waiting.jpg")
-
-            await interaction.response.send_message(embed=embed, view=c_view, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"))
+            f = discord.File(s.waiting_bg_path, "map_waiting.jpg")
+            await (interaction.response.edit_message(embed=embed, view=c_view, attachments=[f]) if edit else interaction.response.send_message(embed=embed, view=c_view, file=f))
         
         graph = discord.File(graphs.plot_towns(towns, plot_spawn=False), filename="graph.png")
         embed.set_image(url="attachment://graph.png")
@@ -341,10 +362,12 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         if len(towns) > 3:
             await interaction.edit_original_response(attachments=[graph], embed=embed)
         else:
-            await interaction.response.send_message(embed=embed, view=c_view, file=graph)
+            await (interaction.response.edit_message(embed=embed, view=c_view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=c_view, file=graph))
     
     @app_commands.command(name="world", description="Get information about the world as a whole")
     async def _world(self, interaction : discord.Interaction):
+
+        edit = interaction.extras.get("edit")
         
         world = self.client.world
         towns = world.towns
@@ -361,11 +384,13 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Town Value", value=f"${world.total_value:,.2f}")
         embed.add_field(name="Claimed Area", value=f"{area:,} plots ({area*64:,}km²)")
         embed.add_field(name="Total Residents", value=f"{world.total_residents:,} ({len(world.players):,} known)")
+        embed.add_field(name="Total player activity", value=total_activity.str_no_timestamp())
         embed.add_field(name="Average online players", value=f"{total_activity.total/total_tracked.total:,.2f}")
 
         embed.set_footer(text=f"Bot has been tracking for {total_tracked.str_no_timestamp()}")
 
         c_view = commands_view.CommandsView(self)
+        c_view.add_item(commands_view.RefreshButton(self.client, "get world", [], 2))
         c_view.add_command(commands_view.Command("history global towns", "Town History", (), button_style=discord.ButtonStyle.secondary, emoji="🗾", row=2))
         c_view.add_command(commands_view.Command("history global residents", "Resident History", (), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
         c_view.add_command(commands_view.Command("history global nations", "Nation History", (), button_style=discord.ButtonStyle.secondary, emoji="👑", row=2))
@@ -373,14 +398,18 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         cache_id = f"{len(world.towns)}+{len(world.nations)}"
         im = graphs.check_cache(cache_name="Earth", cache_id=cache_id)
         files=[]
+        embed.set_image(url="attachment://graph.png")
         if im:
             files.append(discord.File(im, "graph.png"))
-            embed.set_image(url="attachment://graph.png")
-        else:
+        elif not edit:
             files.append(discord.File(s.waiting_bg_path, "map_waiting.jpg"))
             embed.set_image(url="attachment://map_waiting.jpg")
 
-        await interaction.response.send_message(embed=embed, files=files, view=c_view)
+        await (
+            (
+                interaction.response.edit_message(embed=embed, attachments=files, view=c_view) if len(files) > 0 else interaction.response.edit_message(embed=embed, view=c_view)
+            ) if edit else interaction.response.send_message(embed=embed, files=files, view=c_view)
+        )
 
         if not im:
             graph = discord.File(graphs.plot_towns(towns, plot_spawn=False, whole=True, cache_name="Earth", cache_id=cache_id, cache_checked=im), filename="graph.png")
@@ -390,6 +419,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
     @app_commands.command(name="online", description="List online players")
     async def _online(self, interaction : discord.Interaction):
+
+        edit = interaction.extras.get("edit")
         
         online_players = self.client.world.online_players
         log = ""
@@ -403,15 +434,19 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed = discord.Embed(title=f"Online players ({len(online_players)})", color=s.embed)
         embed.set_image(url="attachment://map_waiting.jpg")
 
-        view = paginator.PaginatorView(embed, log, skip_buttons=False)
+        view = paginator.PaginatorView(embed, log, skip_buttons=False, index=interaction.extras.get("page"))
+        view.add_item(commands_view.RefreshButton(self.client, "get online", [], 0))
         if len(cmds) > 0:
             view.add_item(commands_view.CommandSelect(self, list(reversed(cmds))[:25], "Get Player Info...", 2))
 
         im = graphs.check_cache(cache_name="Earth", cache_id=f"{len(self.client.world.towns)}+{len(self.client.world.nations)}")
         
-        await interaction.response.send_message(embed=embed, view=view, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"))
+        f = discord.File(s.waiting_bg_path, "map_waiting.jpg")
+        if edit:
+            embed.set_image(url="attachment://graph.png")
+        await (interaction.response.edit_message(embed=embed, view=view) if edit else interaction.response.send_message(embed=embed, view=view, file=f))
 
-        graph = discord.File(graphs.plot_towns(self.client.world.towns, players=self.client.world.players, plot_spawn=False, whole=True, cache_checked=im, cache_name="Earth", cache_id=f"{len(self.client.world.towns)}+{len(self.client.world.nations)}"), filename="graph.png")
+        graph = discord.File(graphs.plot_towns(self.client.world.towns, players=self.client.world.players, plot_spawn=False, whole=True, cache_checked=im, cache_name="Earth", cache_id=f"{len(self.client.world.towns)}+{len(self.client.world.nations)}", dot_size=5), filename="graph.png")
         embed.set_image(url="attachment://graph.png")
 
         await interaction.edit_original_response(attachments=[graph], embed=embed)

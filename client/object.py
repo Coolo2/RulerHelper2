@@ -80,7 +80,7 @@ class Object():
     def __total(self, arr : list, attr : str):
         t = 0
         for o in arr:
-            t += getattr(o, attr)
+            t += getattr(o, attr) or 0
         return t
 
     def to_record(self):
@@ -694,7 +694,7 @@ class Player():
 
         for guild in self.__world.client.bot.guilds:
             for member in guild.members:
-                if self.name.lower().replace("_", " ") in member.display_name.lower().replace("_", " "):
+                if str(self.name).lower().replace("_", " ") in member.display_name.lower().replace("_", " "):
                     return member 
         
     @property 
@@ -761,7 +761,7 @@ class Player():
             join=db.CreationTableJoin(self.__world.client.towns_table, "visited_towns.town", "towns.name") # Remove towns which don't exist anymore
         )
 
-        if r.attribute("residents") != 1: # If town has one resident and player is not mayor they cannot be a resident
+        if r and r.attribute("residents") != 1: # If town has one resident and player is not mayor they cannot be a resident
             return self.__world.get_town(r.attribute("town"))
     
     @property 
@@ -840,12 +840,15 @@ class Player():
         )
         return r
     
-    def to_record_history(self) -> list:
+    async def to_record_history(self) -> list:
+        likely = await self.likely_residency
         return [
             self.name, 
             datetime.date.today(), 
             db.CreationField.external_query(self.__world.client.players_table, "duration", db.CreationCondition("name", self.name)), 
-            db.CreationField.external_query(self.__world.client.visited_towns_table, "visited_towns", [db.CreationCondition("player", self.name)], query_attribute="COUNT(*)")
+            db.CreationField.external_query(self.__world.client.visited_towns_table, "visited_towns", [db.CreationCondition("player", self.name)], query_attribute="COUNT(*)"),
+            likely.name if likely else None,
+            likely.nation.name if likely and likely.nation else None
         ]
     
     def to_record_activity(self) -> list:
@@ -961,8 +964,8 @@ class World():
     def search_culture(self, nation_name : str, max : int = 25) -> list[Nation]: return self.search(self.get_culture, nation_name, max)
     def search_religion(self, nation_name : str, max : int = 25) -> list[Nation]: return self.search(self.get_religion, nation_name, max)
 
-    def to_record_history(self) -> list:
-        return [datetime.date.today(), len(self.towns), self.total_residents, len(self.nations), self.total_value, self.total_area, len(self.players)]
+    async def to_record_history(self) -> list:
+        return [datetime.date.today(), len(self.towns), self.total_residents, len(self.nations), self.total_value, self.total_area, len(self.players), (await self.total_activity).total]
 
     @property 
     def towns(self) -> list[Town]:
@@ -999,7 +1002,7 @@ class World():
     def __total(self, arr : list, attr : str):
         t = 0
         for o in arr:
-            t += getattr(o, attr)
+            t += getattr(o, attr) or 0
         return t
 
     @property 
@@ -1016,6 +1019,19 @@ class World():
     @property 
     async def total_tracked(self) -> Activity:
         return Activity((await self.client.global_table.get_record([db.CreationCondition("name", "total_tracked")], ["value"])).attribute("value"))
+    
+    @property 
+    async def linked_discords(self) -> list[tuple[Player, discord.Member]]:
+        discords = []
+        members = {}
+        for guild in self.client.bot.guilds:
+            for member in guild.members:
+                members[member.display_name] = member 
+        for player in self.players:
+            for member_name, member in members.items():
+                if str(player.name).lower().replace("_", " ") in member_name.lower().replace("_", " "):
+                    discords.append((player, member))
+        return discords
 
     def _remove_player(self, player_name : str):
         del self.__players[player_name]
@@ -1060,10 +1076,7 @@ class World():
                 continue
 
         await self.__update_town_list(areas, markers)
-
         await self.__update_global()
-        
-
         if player_list: # Has to be done after towns are found
             self.towns_with_players = await self.__update_player_list(player_list)
         
@@ -1071,34 +1084,31 @@ class World():
         await self.__update_town_tracking()
         await self.__update_nations()
         
-
         self.last_refreshed = datetime.datetime.now()
 
     async def __update_objects(self):
         new_records = []
         add_object_history = []
 
+        objects_table_records = [r.attribute("type")+r.attribute("name") for r in await self.client.objects_table.get_records(attributes=["type", "name"])]
+        object_history_table_records = [r.attribute("object")+str(r.attribute("date")) for r in await self.client.object_history_table.get_records(attributes=["object", "date"], conditions=[db.CreationCondition("type", "nation", "!=")])]
+
         for object_type, objects in self._objects.items():
             for object in objects:
                 if object_type == "nations" and not object.capital:
                     continue 
-                    
-                cond = [db.CreationCondition("type", object.object_type), db.CreationCondition("name", object.name)]
-                exists = await self.client.objects_table.record_exists(cond)
 
-                if not exists:
+                if object.object_type+object.name not in objects_table_records:
                     new_records.append(object.to_record())
                 else:
-                    await self.client.objects_table.update_record(cond, *object.to_record())
+                    await self.client.objects_table.update_record([db.CreationCondition("type", object.object_type), db.CreationCondition("name", object.name)], *object.to_record())
 
                 if object_type in ["cultures", "religions"]: # Culture/religion history
-                    cond2 = [db.CreationCondition("object", object.name), db.CreationCondition("date", datetime.date.today())]
-                    exists = await self.client.object_history_table.record_exists(cond2)
                     try:
-                        if not exists:
+                        if object.name+str(datetime.date.today()) not in object_history_table_records:
                             add_object_history.append(object.to_record_history())
                         else:
-                            await self.client.object_history_table.update_record(cond2, *object.to_record_history())
+                            await self.client.object_history_table.update_record([db.CreationCondition("object", object.name), db.CreationCondition("date", datetime.date.today())], *object.to_record_history())
                     except Exception as e:
                         # Nation needs to be removed! Should be removed on next pass from Client.cull_db()
                         await self.client.bot.get_channel(setup.alert_channel).send(f"{object.name} Object Tracking Update Error! `{e}`"[:2000])
@@ -1149,29 +1159,34 @@ class World():
         cond = [db.CreationCondition("date", datetime.date.today())]
         exists = await self.client.global_history_table.record_exists(cond)
         if not exists:
-            await self.client.global_history_table.add_record(self.to_record_history())
+            await self.client.global_history_table.add_record(await self.to_record_history())
         else:
-            await self.client.global_history_table.update_record(cond, *self.to_record_history())
+            await self.client.global_history_table.update_record(cond, *await self.to_record_history())
 
     async def __update_town_list(self, areas : dict[str, dict], markers : dict[str, dict]):
         
         for area_name, area in areas.items():
             if area.get("set") != "siegewar.markerset":
                 try:
+                    
                     if area["label"] in setup.DONT_TRACK_TOWNS:
                         continue 
 
                     if area["label"] not in self.__towns:
-                        t = Town(self)
-                        self.__towns[area["label"]] = t
                         
+                        t = Town(self)
                         await t.add_area(area_name, area)
-                        await t.set_marker(markers[f"{t.name}__home"])
+                        if markers.get(f"{t.name}__home"):
+                            self.__towns[area["label"]] = t
+                            await t.set_marker(markers[f"{t.name}__home"])
                     else:
                         t = self.get_town(area["label"])
                         await t.add_area(area_name, area)
-                        await t.set_marker(markers[f"{t.name}__home"])
-                    await asyncio.sleep(0.01) # Allow "parallel" processing
+                        if markers.get(f"{t.name}__home"):
+                            
+                            await t.set_marker(markers[f"{t.name}__home"])
+                    #await asyncio.sleep(0.001) # Allow "parallel" processing
+                    
                 except Exception as e:
                     # Error with town add. Town may need to be removed!
                     await self.client.bot.get_channel(setup.alert_channel).send(f"{area.get('label')} Town Update Error! `{e}`"[:2000])
@@ -1192,13 +1207,14 @@ class World():
                 else:
                     await self.client.activity_table.update_record(cond3, *town.to_record_activity_update(self.towns_with_players.get(town.name) or []))
 
+                
                 cond = db.CreationCondition(self.client.towns_table.primary_key, town.name)
                 exists = await self.client.towns_table.record_exists(cond)
                 if not exists:
                     new_records.append(town.to_record())
                 else:
                     await self.client.towns_table.update_record([cond], *town.to_record_update())
-                
+            
                 # Add town history
                 cond2 = [db.CreationCondition("town", town.name), db.CreationCondition("date", datetime.date.today())]
                 exists = await self.client.town_history_table.record_exists(cond2)
@@ -1206,7 +1222,6 @@ class World():
                     add_town_history.append(town.to_record_history())
                 else:
                     await self.client.town_history_table.update_record(cond2, *town.to_record_history())
-                
                 
             except Exception as e:
                 # Error with town add. Town may need to be removed!
@@ -1225,7 +1240,7 @@ class World():
         for player in players:
             p = Player(self)
 
-            p.name : str = player.attribute("name")
+            p.name : str = str(player.attribute("name"))
             p.location = Point(float(c) for c in player.attribute("location").split(","))
             p.armor : int = player.attribute("armor")
             p.health : int = player.attribute("health")
@@ -1243,7 +1258,7 @@ class World():
         towns_with_players : dict[str, list[Player]] = {}
 
         for player_data in players:
-            await asyncio.sleep(0.1) # Allow "parallel" processing
+            await asyncio.sleep(0.001) # Allow "parallel" processing
 
             online_players.append(player_data["account"])
 
@@ -1275,10 +1290,9 @@ class World():
             cond2 = [db.CreationCondition("player", p.name), db.CreationCondition("date", datetime.date.today())]
             exists = await self.client.player_history_table.record_exists(cond2)
             if not exists:
-                add_player_history.append(p.to_record_history())
+                add_player_history.append(await p.to_record_history())
             else:
-                await self.client.player_history_table.update_record(cond2, *p.to_record_history())
-            
+                await self.client.player_history_table.update_record(cond2, *(await p.to_record_history()))
             
             town = p._town_cache
             if town:
@@ -1290,7 +1304,7 @@ class World():
                 exists = await self.client.visited_towns_table.record_exists(conds)
 
                 if not exists:
-                    add_visited_towns.append([p.name, town.name, setup.refresh_period, datetime.datetime.now()])
+                    add_visited_towns.append([p.name, town.name, self.client.refresh_period, datetime.datetime.now()])
                 else:
                     await self.client.visited_towns_table.update_record(conds, *[p.name, town.name, db.CreationField.add("duration", self.client.refresh_period), datetime.datetime.now()])
         

@@ -6,7 +6,7 @@ import discord
 import traceback
 import dotenv 
 import datetime 
-import db
+import math
 
 dotenv.load_dotenv()
 
@@ -36,7 +36,7 @@ async def _refresh():
     c.refresh_no += 1
 
     t = datetime.datetime.now()
-    print("Refreshing")
+    print("Refreshing", c.refresh_period)
     w = False
     try:
         w = await c.fetch_world()
@@ -56,7 +56,11 @@ async def _refresh():
         print(e)
         await bot.get_channel(s.alert_channel).send(f"Refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
 
-    print("Refreshed", datetime.datetime.now()-t)
+    c.last_refreshed = datetime.datetime.now()
+    refresh_time = c.last_refreshed-t
+    c.refresh_period = math.ceil((refresh_time.total_seconds()+1) / 10) * 10
+    _refresh.change_interval(seconds=c.refresh_period)
+    print("Refreshed", refresh_time)
     #await funcs.activity_to_json(c)
     await bot.change_presence(activity=discord.CustomActivity(name=f"{c.world.player_count} online | v{s.version} | /changelog"))
 
@@ -66,7 +70,7 @@ async def setup_hook():
     if s.commands:
         for extension in extensions:
             await bot.load_extension(f"cmds.{extension}")
-    
+    await bot.load_extension("cogs.events")
     if s.PRODUCTION_MODE:
         await bot.load_extension("cogs.errors")
 

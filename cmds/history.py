@@ -28,34 +28,38 @@ def generate_command(
             is_religion=False, 
             attname : str = None, 
             y : str = None, 
-            y_formatter = None
+            y_formatter = None,
+            start_at : datetime.date = None
 ):
     async def cmd_uni(interaction : discord.Interaction, town : str = None, player : str = None, nation : str = None, culture : str = None, religion : str = None):
 
-        
+        edit = interaction.extras.get("edit")
+        conditions = []
+        if start_at: conditions.append(db.CreationCondition("date", start_at, ">="))
+
         if town:
             o = c.world.get_town(town, True)
             if not o: raise client.errors.MildError("Nothing found!")
-            rs = await c.town_history_table.get_records([db.CreationCondition("town", o.name)], ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
+            rs = await c.town_history_table.get_records([db.CreationCondition("town", o.name)]+conditions, ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
         elif player:
             o = c.world.get_player(player, True)
             if not o: raise client.errors.MildError("Nothing found!")
-            rs = await c.player_history_table.get_records([db.CreationCondition("player", o.name)], ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
+            rs = await c.player_history_table.get_records([db.CreationCondition("player", o.name)]+conditions, ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
         elif nation:
             o = c.world.get_nation(nation, True)
             if not o: raise client.errors.MildError("Nothing found!")
-            rs = await c.nation_history_table.get_records([db.CreationCondition("nation", o.name)], ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
+            rs = await c.nation_history_table.get_records([db.CreationCondition("nation", o.name)]+conditions, ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
         elif culture:
             o = c.world.get_culture(culture, True)
             if not o: raise client.errors.MildError("Nothing found!")
-            rs = await c.object_history_table.get_records([db.CreationCondition("object", o.name), db.CreationCondition("type", o.object_type)], ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
+            rs = await c.object_history_table.get_records([db.CreationCondition("object", o.name), db.CreationCondition("type", o.object_type)]+conditions, ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
         elif religion:
             o = c.world.get_religion(religion, True)
             if not o: raise client.errors.MildError("Nothing found!")
-            rs = await c.object_history_table.get_records([db.CreationCondition("object", o.name), db.CreationCondition("type", o.object_type)], ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
+            rs = await c.object_history_table.get_records([db.CreationCondition("object", o.name), db.CreationCondition("type", o.object_type)]+conditions, ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
         else:
             o = None
-            rs = await c.global_history_table.get_records(attributes=["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
+            rs = await c.global_history_table.get_records(attributes=["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending), conditions=conditions)
 
         name = o.name_formatted + "'s" if o else 'Global'
         attnameformat = attname.replace('_', ' ')
@@ -88,14 +92,17 @@ def generate_command(
         embed = discord.Embed(title=f"{name} {attnameformat} history", color=s.embed)
         embed.set_image(url="attachment://graph.png")
 
+        o_type = "town" if town else "player" if player else "nation" if nation else "culture" if culture else "religion" if religion else "global"
         if s.see_more_footer:
-            embed.set_footer(text=f"See more with /history {'town' if town else 'nation' if nation else 'player' if player else ''} ... !" + (f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}" if attribute == "duration" else ""))
+            embed.set_footer(text=f"See more with /history {o_type} ... !" + (f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}" if attribute == "duration" else ""))
         elif attribute == "duration":
             embed.set_footer(text=f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
 
-        view = paginator.PaginatorView(embed, log)
+        view = paginator.PaginatorView(embed, log, index=interaction.extras.get("page"))
         
-        return await interaction.response.send_message(embed=embed, view=view, file=graph)
+        view.add_item(commands_view.RefreshButton(c, f"history {o_type} {attname}", [o.name] if o else [], row=0 if len(view.children) < 5 else 1))
+        
+        return await (interaction.response.edit_message(embed=embed, view=view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=view, file=graph))
 
     if is_town:
         async def cmd(interaction : discord.Interaction, town : str):
@@ -119,6 +126,8 @@ def generate_command(
 
 def generate_visited_command(cog, c : client.Client, is_town=False, is_player=False):
     async def cmd_uni(interaction : discord.Interaction, town : str = None, player : str = None):
+
+        edit = interaction.extras.get("edit")
 
         objects : list[client.object.Activity] = []
         if town:
@@ -150,7 +159,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
                 if str(likely_residency) == str(obj.town):
                     prefix = s.likely_residency_prefix_history
             
-            if datetime.datetime.now() - obj.last <= datetime.timedelta(seconds=s.refresh_period+5):
+            if datetime.datetime.now() - obj.last <= datetime.timedelta(seconds=c.refresh_period+5):
                 fmt = "**"
 
             format = fmt if is_known else "`"
@@ -178,7 +187,8 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             if i >= 25: break 
             cmds.append(commands_view.Command(f"get {opp}", f"{i+1}. {object_name}", (object_name,), emoji=None))
 
-        view = paginator.PaginatorView(embed, log, skip_buttons=False)
+        view = paginator.PaginatorView(embed, log, skip_buttons=False, index=interaction.extras.get("page"))
+        view.add_item(commands_view.RefreshButton(c, f"history {'town' if town else 'player'} visited_{opp}s", (o.name,), row=0))
         if len(cmds) > 0:
             view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {opp.title()} Info...", 2))
         
@@ -199,7 +209,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             button.callback = map_button(towns, view)
             view.add_item(button)
         
-        await interaction.response.send_message(embed=embed, view=view, files=[graph])
+        await (interaction.response.edit_message(embed=embed, view=view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=view, files=[graph]))
 
     if is_town:
         async def cmd(interaction : discord.Interaction, town : str):
@@ -220,55 +230,44 @@ class History(commands.Cog):
         super().__init__()
     
         history = app_commands.Group(name="history", description="History commands")
-        global_ = app_commands.Group(name="global", description="Get history for global attributes", parent=history)
         town = app_commands.Group(name="town", description="Get history for a town's attributes", parent=history)
         player = app_commands.Group(name="player", description="Get history for a player's attributes", parent=history)
-        nation = app_commands.Group(name="nation", description="Get history for a nation's attributes", parent=history)
-        culture = app_commands.Group(name="culture", description="Get history for a culture's attributes", parent=history)
-        religion = app_commands.Group(name="religion", description="Get history for a religion's attributes", parent=history)
 
+        command_types = [
+            {"name":"global", "group":app_commands.Group(name="global", description="Get history for global attributes", parent=history), "parameters":[]},
+            {"name":"town", "group":town, "parameters":[{"name":"town", "autocomplete":autocompletes.town_autocomplete}]},
+            {"name":"player", "group":player, "parameters":[{"name":"player", "autocomplete":autocompletes.player_autocomplete}]},
+            {"name":"nation", "group":app_commands.Group(name="nation", description="Get history for a nation's attributes", parent=history), "parameters":[{"name":"nation", "autocomplete":autocompletes.nation_autocomplete}]},
+            {"name":"culture", "group":app_commands.Group(name="culture", description="Get history for a culture's attributes", parent=history), "parameters":[{"name":"culture", "autocomplete":autocompletes.culture_autocomplete}], "attributes":s.history_commands["object"]},
+            {"name":"religion", "group":app_commands.Group(name="religion", description="Get history for a religion's attributes", parent=history), "parameters":[{"name":"religion", "autocomplete":autocompletes.religion_autocomplete}], "attributes":s.history_commands["object"]},
+        ]
 
-        for attribute in s.history_commands["town"]:
-            name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"History for town {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("qualitative"), attribute.get("formatter") or str, attribute.get("parser"), True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
-            command.autocomplete("town")(autocompletes.town_autocomplete)
-            town.add_command(command)
+        for command_type in command_types:
+            for attribute in command_type.get("attributes") or s.history_commands[command_type["name"]]:
+                name = attribute.get("name") or attribute.get("attribute")
+                cmd_type_name = command_type['name']
+                name = "followers" if name == "residents" and cmd_type_name == "religion" else name
 
-        for attribute in s.history_commands["player"]:
-            name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"History for player {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("qualitative"), attribute.get("formatter") or str, attribute.get("parser"), is_player=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
-            command.autocomplete("player")(autocompletes.player_autocomplete)
-            player.add_command(command)
+                command = app_commands.command(name=name, description=f"History for {cmd_type_name} {name}")(generate_command(
+                    self.client, 
+                    attribute.get("attribute"), 
+                    attribute.get("qualitative"), 
+                    attribute.get("formatter") or str, attribute.get("parser"), 
+                    is_town=cmd_type_name == "town", is_nation = cmd_type_name == "nation", is_player=cmd_type_name == "player", is_culture=cmd_type_name == "culture", is_religion=cmd_type_name == "religion",
+                    attname=name, 
+                    y=attribute.get("y"), y_formatter=attribute.get("y_formatter"),
+                    start_at=attribute.get("start_at")
+                ))
+                for parameter in command_type["parameters"]:
+                    if parameter.get("autocomplete"):
+                        command.autocomplete(parameter["name"])(parameter["autocomplete"])
+                command_type["group"].add_command(command)
         
-        for attribute in s.history_commands["nation"]:
-            name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"History for nation {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("qualitative"), attribute.get("formatter") or str, attribute.get("parser"), is_nation=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
-            command.autocomplete("nation")(autocompletes.nation_autocomplete)
-            nation.add_command(command)
-        
-        for attribute in s.history_commands["global"]:
-            name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"History for global {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("qualitative"), attribute.get("formatter") or str, attribute.get("parser"), attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
-            global_.add_command(command)
-        
-        for attribute in s.history_commands["object"]:
-            name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"History for culture {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("qualitative"), attribute.get("formatter") or str, attribute.get("parser"), is_culture=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
-            command.autocomplete("culture")(autocompletes.culture_autocomplete)
-            culture.add_command(command)
-            name = attribute.get("name") or attribute.get("attribute")
-            name = "followers" if name == "residents" else name
-            command = app_commands.command(name=name, description=f"History for religion {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("qualitative"), attribute.get("formatter") or str, attribute.get("parser"), is_religion=True, attname=name, y=attribute.get("y"), y_formatter=attribute.get("y_formatter")))
-            command.autocomplete("religion")(autocompletes.religion_autocomplete)
-            religion.add_command(command)
-        
-        command = app_commands.command(name="visited_towns", description="History for player's visited towns")(generate_visited_command(self, self.client, is_player=True))
-        command.autocomplete("player")(autocompletes.player_autocomplete)
-        player.add_command(command)
-
-        command = app_commands.command(name="visited_players", description="History for town's visited players")(generate_visited_command(self, self.client, is_town=True))
-        command.autocomplete("town")(autocompletes.town_autocomplete)
-        town.add_command(command)
+        cmds = [["player", "town", player, autocompletes.player_autocomplete], ["town", "player", town, autocompletes.town_autocomplete]]
+        for cmd in cmds:
+            command = app_commands.command(name=f"visited_{cmd[1]}s", description=f"History for {cmd[0]}'s visited {cmd[1]}s")(generate_visited_command(self, self.client, is_player=cmd[0] == "player", is_town=cmd[0] == "town"))
+            command.autocomplete(cmd[0])(cmd[3])
+            cmd[2].add_command(command)
 
         self.bot.tree.add_command(history)
 

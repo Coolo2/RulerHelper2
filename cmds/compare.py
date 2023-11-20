@@ -25,7 +25,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
     @app_commands.autocomplete(town_name_1=autocompletes.town_autocomplete, town_name_2=autocompletes.town_autocomplete, town_name_3=autocompletes.town_autocomplete, town_name_4=autocompletes.town_autocomplete, town_name_5=autocompletes.town_autocomplete)
     async def _towns(self, interaction : discord.Interaction, town_name_1 : str, town_name_2 : str, town_name_3 : str = None, town_name_4 : str = None, town_name_5 : str = None):
         
-        await interaction.response.defer()
+        edit = interaction.extras.get("edit")
 
         image_generators = []
         town_names = [tn for tn in [town_name_1, town_name_2, town_name_3, town_name_4, town_name_5] if tn != None] # COmbine and remove None
@@ -89,17 +89,26 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 else:
                     image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Town", y, bar, None, attribute.get("y_formatter"), None, None, s.compare_line_colors)))
         
-        view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False)
+        nations = list(dict.fromkeys([t.nation.name if t.nation else None for t in towns]))
+
+        view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False, temp_img_url="attachment://paginator_image.png" if edit else "attachment://map_waiting.jpg", render_image_after=True, index=interaction.extras.get("page"))
         view.add_item(commands_view.CommandButton(self, commands_view.Command("compare players", "Compare Mayors", parameters=[t._mayor_raw for t in towns], emoji="👤", row=2)))
-        view.add_item(commands_view.CommandButton(self, commands_view.Command("compare nations", "Compare Nations", parameters=[t.nation.name if t.nation else None for t in towns], emoji="🗾", row=2)))
+        if len(nations) > 1: view.add_item(commands_view.CommandButton(self, commands_view.Command("compare nations", "Compare Nations", parameters=nations, emoji="🗾", row=2)))
         
-        return await interaction.followup.send(embed=embed, view=view, file=view.attachment)
+        view.add_item(commands_view.RefreshButton(self.client, "compare towns", town_names, row=0))
+        
+        f = discord.File(s.waiting_bg_path, "map_waiting.jpg")
+        await (interaction.response.edit_message(embed=embed, view=view) if edit else interaction.response.send_message(embed=embed, view=view, file=f))
+
+        view.render_initial_image()
+
+        await interaction.edit_original_response(embed=view.embed, attachments=[view.attachment], view=view)
 
     @app_commands.command(name="nations", description="Compare attributes for two (or more) nations")
     @app_commands.autocomplete(nation_name_1=autocompletes.nation_autocomplete, nation_name_2=autocompletes.nation_autocomplete, nation_name_3=autocompletes.nation_autocomplete, nation_name_4=autocompletes.nation_autocomplete, nation_name_5=autocompletes.nation_autocomplete)
     async def _nations(self, interaction : discord.Interaction, nation_name_1 : str, nation_name_2 : str, nation_name_3 : str = None, nation_name_4 : str = None, nation_name_5 : str = None):
         
-        await interaction.response.defer()
+        edit = interaction.extras.get("edit")
 
         image_generators = []
         nation_names = [tn for tn in [nation_name_1, nation_name_2, nation_name_3, nation_name_4, nation_name_5] if tn != None] # COmbine and remove None
@@ -167,17 +176,24 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 else:
                     image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Nation", y, bar, None, attribute.get("y_formatter"), None, None, s.compare_line_colors)))
         
-        view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False)
+        view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False, temp_img_url="attachment://paginator_image.png" if edit else "attachment://map_waiting.jpg", render_image_after=True, index=interaction.extras.get("page"))
         view.add_item(commands_view.CommandButton(self, commands_view.Command("compare players", "Compare Leaders", parameters=[n.capital._mayor_raw for n in nations], emoji="👤", row=2)))
         view.add_item(commands_view.CommandButton(self, commands_view.Command("compare towns", "Compare Capitals", parameters=[n.capital.name for n in nations], emoji="🏛️", row=2)))
         
-        return await interaction.followup.send(embed=embed, view=view, file=view.attachment)
+        view.add_item(commands_view.RefreshButton(self.client, "compare nations", nation_names, row=0))
+        
+        f = discord.File(s.waiting_bg_path, "map_waiting.jpg")
+        await (interaction.response.edit_message(embed=embed, view=view) if edit else interaction.response.send_message(embed=embed, view=view, file=f))
+
+        view.render_initial_image()
+
+        await interaction.edit_original_response(embed=view.embed, attachments=[view.attachment], view=view)
 
     @app_commands.command(name="players", description="Compare attributes for two (or more) players")
     @app_commands.autocomplete(player_name_1=autocompletes.player_autocomplete, player_name_2=autocompletes.player_autocomplete, player_name_3=autocompletes.player_autocomplete, player_name_4=autocompletes.player_autocomplete, player_name_5=autocompletes.player_autocomplete)
     async def _players(self, interaction : discord.Interaction, player_name_1 : str, player_name_2 : str, player_name_3 : str = None, player_name_4 : str = None, player_name_5 : str = None):
         
-        await interaction.response.defer()
+        edit = interaction.extras.get("edit")
 
         image_generators = []
         player_names = [tn for tn in [player_name_1, player_name_2, player_name_3, player_name_4, player_name_5] if tn != None] # COmbine and remove None
@@ -202,7 +218,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         image_generators.append((graphs.plot_towns, ([], False, "auto", True, 5, False, players, None, None, None, [], players)))
         history_days = [str(r.attribute("date")) for r in await self.client.player_history_table.get_records(attributes=["date"], order=db.CreationOrder("date", db.types.OrderAscending), group=["date"])]
         for _, attribute in enumerate(attributes):
-            display_name : str = (attribute.get("name") or attribute.get("attribute")).title()
+            display_name : str = (attribute.get("name") or attribute.get("attribute")).title().replace("_", " ")
             history_name = attribute.get("history_attribute") or attribute.get("attribute")
             formatter = attribute.get("formatter") or str
             values = [getattr(t, attribute.get("attribute")) for t in players]
@@ -240,11 +256,18 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 else:
                     image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Player", y, bar, None, attribute.get("y_formatter"), None, None, s.compare_line_colors)))
         
-        view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False)
-        view.add_item(commands_view.CommandButton(self, commands_view.Command("compare towns", "Compare Likely Residencies", parameters=[(await p.likely_residency).name if (await p.likely_residency) else None for p in players], emoji="🗾", row=2)))
+        likely_residencies = list(dict.fromkeys([(await p.likely_residency).name if (await p.likely_residency) else None for p in players]))
+
+        view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False, temp_img_url="attachment://paginator_image.png" if edit else "attachment://map_waiting.jpg", render_image_after=True, index=interaction.extras.get("page"))
+        if len(likely_residencies) > 1: view.add_item(commands_view.CommandButton(self, commands_view.Command("compare towns", "Compare Likely Residencies", parameters=likely_residencies, emoji="🗾", row=2)))
+        view.add_item(commands_view.RefreshButton(self.client, "compare players", player_names, row=0))
         
-        return await interaction.followup.send(embed=embed, view=view, file=view.attachment)
-    
+        f = discord.File(s.waiting_bg_path, "map_waiting.jpg")
+        await (interaction.response.edit_message(embed=embed, view=view) if edit else interaction.response.send_message(embed=embed, view=view, file=f))
+
+        view.render_initial_image()
+
+        await interaction.edit_original_response(embed=view.embed, attachments=[view.attachment], view=view)
 
 
 
