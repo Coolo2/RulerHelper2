@@ -36,6 +36,7 @@ class Client():
 
     async def init_db(self, update_coro = None):
         await self.database.connect()
+        await self.database.connection.execute("PRAGMA auto_vacuum = FULL")
 
         if update_coro:
             await update_coro
@@ -137,6 +138,7 @@ class Client():
                     db.CreationAttribute("area", db.types.Int),
                     db.CreationAttribute("duration", db.types.Int),
                     db.CreationAttribute("visited_players", db.types.Int),
+                    db.CreationAttribute("current_name", db.types.String)
                 ]
             )
         )
@@ -167,7 +169,8 @@ class Client():
                     db.CreationAttribute("capital", db.types.String),
                     db.CreationAttribute("leader", db.types.String),
                     db.CreationAttribute("area", db.types.Int),
-                    db.CreationAttribute("duration", db.types.Int)
+                    db.CreationAttribute("duration", db.types.Int),
+                    db.CreationAttribute("current_name", db.types.String)
                 ]
             )
         )
@@ -242,6 +245,7 @@ class Client():
 
         #await self.database.connection.execute('PRAGMA synchronous = OFF')
         await self.database.connection.execute('PRAGMA journal_mode = WAL')
+        
 
     async def create_session(self):
         if not self.session:
@@ -264,17 +268,19 @@ class Client():
     
     async def cull_db(self):
 
-        await self.town_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
-        await self.player_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
-        await self.global_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
-        await self.nation_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
-        await self.visited_towns_table.delete_records([db.CreationCondition("last", datetime.date.today()-s.cull_history_from, "<")])
+        #await self.town_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
+        #await self.player_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
+        #await self.global_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
+        #await self.nation_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
+        #await self.visited_towns_table.delete_records([db.CreationCondition("last", datetime.date.today()-s.cull_history_from, "<")])
 
         await self.players_table.delete_records([db.CreationCondition("last", datetime.datetime.now()-s.cull_players_from, "<")])
         await self.towns_table.delete_records([db.CreationCondition("last_seen", datetime.datetime.now()-s.cull_objects_after, "<")])
         
 
         await self.flags_table.delete_records([db.CreationCondition("object_type", "nation"), db.CreationField.external_query(self.objects_table, "object_name", db.CreationCondition("type", "nation"), operator="NOT IN")])
+
+        sent = 0
 
         for player in self.world.players.copy():
             if not await player.exists_in_db:
@@ -285,7 +291,8 @@ class Client():
                 self.world._remove_town(town.name)
                 for t in self.world.towns:
                     if t.spawn.x == town.spawn.x and t.spawn.z == town.spawn.z:
-                        await self.bot.get_channel(s.alert_channel).send(f"Is this town the same as  {t.name}?")
+                        sent += 1
+                        if sent <= 10: await self.bot.get_channel(s.alert_channel).send(f"Is this town the same as  {t.name}?")
                         await self.merge_objects("town", town.name, t.name)
                 
                 
@@ -293,17 +300,33 @@ class Client():
             
             if not nation.capital:
                 nation_info = await self.nation_history_table.get_record([db.CreationCondition("nation", nation.name)], order=db.CreationOrder("date", db.types.OrderDescending))
+                if not nation_info:
+                    nation_info = await self.objects_table.get_record([db.CreationCondition("name", nation.name), db.CreationCondition("type", "nation")])
                 self.world._remove_nation(nation.name)
-                await self.bot.get_channel(s.alert_channel).send(f"Removed nation {nation.name} {nation_info.attribute('towns')} {nation_info.attribute('residents')}")
+                sent += 1
+                if sent <= 10:
+                    if not nation_info:
+                        return await self.bot.get_channel(s.alert_channel).send(f"Removed nation {nation.name}. Couldn't find history info")
+                    await self.bot.get_channel(s.alert_channel).send(f"Removed nation {nation.name} {nation_info.attribute('towns')} {nation_info.attribute('residents')}")
                 
                 for n in self.world.nations:
-                    if len(n.towns) == nation_info.attribute("towns") and n.total_residents == nation_info.attribute("residents") and n.capital and n.capital.name == nation_info.attribute("capital"):
-                        await self.bot.get_channel(s.alert_channel).send(f"Is this nation the same as  {n.name}?")
+                    if len(n.towns) == nation_info.attribute("towns") and n.total_residents == nation_info.attribute("residents") and n.capital and (n.capital.name == nation_info.attribute("capital") or n.total_area == nation_info.attribute("area")):
+                        sent += 1
+                        if sent <= 10: await self.bot.get_channel(s.alert_channel).send(f"Is this nation the same as  {n.name}?")
                         await self.merge_objects("nation", nation.name, n.name)
                         break
+        
+        if sent > 10:
+            await self.bot.get_channel(s.alert_channel).send("... + more")
 
         # Must be done after because accesssed in cull
         await self.objects_table.delete_records([db.CreationCondition("last", datetime.datetime.now()-s.cull_objects_after, "<")])
+    
+    async def test(self):
+
+        for i in range(15):
+            num = (i+1)*32
+            await self.database.connection.execute(f"INSERT INTO town_history(town, date, nation, religion, culture, mayor, resident_count, resident_tax, bank, public, peaceful, area, duration, visited_players, current_name) SELECT town, DATE(date, '+{num} days'), nation, religion, culture, mayor, resident_count, resident_tax, bank, public, peaceful, area, duration, visited_players, current_name FROM town_history WHERE date <= ?", (datetime.date.today(),))
     
     async def backup_db_if_not(self):
         epoch = datetime.date(2022, 1, 1)
@@ -424,7 +447,7 @@ class Client():
             
             await self.town_history_table.update_records([db.CreationCondition("nation", old_object_name)], db.CreationField("nation", obj.name))
             await self.player_history_table.update_records([db.CreationCondition("likely_nation", old_object_name)], db.CreationField("likely_nation", obj.name))
-                
+
     
 class NotificationChannel():
     def __init__(self):

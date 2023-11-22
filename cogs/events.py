@@ -30,11 +30,17 @@ class Events(commands.Cog):
                 if custom_id.startswith("refresh"):
                     command_string = custom_id.replace("refresh_", "")
                     interaction.extras["edit"] = True
+
+                    if len(interaction.message.embeds) > 0 and "Page" in str(interaction.message.embeds[0].footer.text):
+                        page_no = interaction.message.embeds[0].footer.text.split("Page")[1].split("/")[0].split(" ")[-1].strip()
+                        if page_no.isnumeric():
+                            interaction.extras["page"] = int(page_no)-1
                 else:
                     # Don't check if refresh
-                    can_send_messages = interaction.channel.permissions_for(interaction.guild.get_member(interaction.user.id)).send_messages
-                    if not can_send_messages:
-                        raise client.errors.MildError("You do not have permissions to send here!")
+                    if interaction.guild:
+                        can_send_messages = interaction.channel.permissions_for(interaction.guild.get_member(interaction.user.id)).send_messages
+                        if not can_send_messages:
+                            raise client.errors.MildError("You do not have permissions to send here!")
                     
                     command_string = custom_id.replace("command_", "")
                 
@@ -43,10 +49,7 @@ class Events(commands.Cog):
                 if "" in parameters:
                     parameters.remove("")
                 
-                if len(interaction.message.embeds) > 0 and "Page" in str(interaction.message.embeds[0].footer.text):
-                    page_no = interaction.message.embeds[0].footer.text.split("Page")[1].split("/")[0].split(" ")[-1].strip()
-                    if page_no.isnumeric():
-                        interaction.extras["page"] = int(page_no)-1
+                
                     
                 
                 callback = commands_view.get_command_callback(self.bot.tree, command_name)

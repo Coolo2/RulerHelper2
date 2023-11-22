@@ -15,6 +15,8 @@ from client.funcs import generate_time
 
 import datetime
 
+import numpy as np
+
 def generate_command(
             c : client.Client, 
             attribute : str, 
@@ -35,31 +37,40 @@ def generate_command(
 
         edit = interaction.extras.get("edit")
         conditions = []
+
+        o_type = "town" if town else "player" if player else "nation" if nation else "culture" if culture else "religion" if religion else "global"
+        table_name = "town_history" if town else "player_history" if player else "nation_history" if nation else "object_history" if culture or religion else "global_history"
+
         if start_at: conditions.append(db.CreationCondition("date", start_at, ">="))
 
         if town:
             o = c.world.get_town(town, True)
-            if not o: raise client.errors.MildError("Nothing found!")
-            rs = await c.town_history_table.get_records([db.CreationCondition("town", o.name)]+conditions, ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
         elif player:
             o = c.world.get_player(player, True)
-            if not o: raise client.errors.MildError("Nothing found!")
-            rs = await c.player_history_table.get_records([db.CreationCondition("player", o.name)]+conditions, ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
         elif nation:
             o = c.world.get_nation(nation, True)
-            if not o: raise client.errors.MildError("Nothing found!")
-            rs = await c.nation_history_table.get_records([db.CreationCondition("nation", o.name)]+conditions, ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
         elif culture:
             o = c.world.get_culture(culture, True)
-            if not o: raise client.errors.MildError("Nothing found!")
-            rs = await c.object_history_table.get_records([db.CreationCondition("object", o.name), db.CreationCondition("type", o.object_type)]+conditions, ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
+            conditions.append(db.CreationCondition("type", o.object_type))
         elif religion:
             o = c.world.get_religion(religion, True)
-            if not o: raise client.errors.MildError("Nothing found!")
-            rs = await c.object_history_table.get_records([db.CreationCondition("object", o.name), db.CreationCondition("type", o.object_type)]+conditions, ["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending))
+            conditions.append(db.CreationCondition("type", o.object_type))
         else:
             o = None
             rs = await c.global_history_table.get_records(attributes=["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending), conditions=conditions)
+
+        table = await c.database.get_table(table_name)
+
+        if o_type != "global":
+            if not o: raise client.errors.MildError("Nothing found!")
+            conditions.append(db.CreationCondition(table.attributes[0].name, o.name))
+        display_days = 60
+
+        rs = await table.get_records(
+            conditions, 
+            ["date", attribute], 
+            order=db.CreationOrder("date", db.types.OrderAscending)
+        )
 
         name = o.name_formatted + "'s" if o else 'Global'
         attnameformat = attname.replace('_', ' ')
@@ -67,32 +78,64 @@ def generate_command(
         log = ""
         last = None
         values = {}
+        parsed_values = {}
+        (max, max_i), (min, min_i) = (0, 0), (9999999999, 0)
+        i = 0
         for record in rs:
             if not record.attribute(attribute) and not qualitative:
                 continue
             parsed = parser(record.attribute(attribute)) if parser else record.attribute(attribute)
+            parsed_values[str(record.attribute('date'))] = parsed
+
             val = formatter(parsed)
             if qualitative and last == val:
                 continue
             log = f"**{record.attribute('date').strftime('%b %d %Y')}**: {discord.utils.escape_markdown(str(val))}\n" + log
             last = val
 
-            values[str(record.attribute('date'))] = str(parsed) if qualitative else int(parsed)
+            if not qualitative:
+                if parsed > max:
+                    max, max_i = parsed, i 
+                if parsed < min:
+                    min, min_i = parsed, i 
+            i += 1
+        
+        if not qualitative:
+
+            idx = np.round(np.linspace(0, len(parsed_values.values()) - 1, display_days)).astype(int)
+            
+            if max_i not in idx: idx= np.append(idx, max_i)
+            if min_i not in idx: idx = np.append(idx, min_i)
+        
+            idx = sorted(idx)
+        
+        else:
+            prev = None 
+            idx = []
+            for i, (date, parsed) in enumerate(parsed_values.items()):
+                if parsed != prev:
+                    prev = parsed 
+                    idx.append(i)
+
+        for i in idx:
+            date, parsed = list(parsed_values.items())[i]
+            values[date] = str(parsed) if qualitative else int(parsed)
 
         td = datetime.date.today().strftime("%Y-%m-%d")
-        if td not in values and len(values) > 0:
+        if td not in values and len(values) > 0 and datetime.datetime.strptime(list(values)[-1], "%Y-%m-%d").date() < datetime.date.today():
             values[td] = values[list(values)[-1]]
 
         if not qualitative:
             file = graphs.save_graph(values, f"{name} {attnameformat} history", "Date", y or "Value", plot, y_formatter = y_formatter)
         else:
             file = graphs.save_timeline(values, f"{name} {attnameformat} history", booly=parser==bool)
+
         graph = discord.File(file, filename="graph.png")
 
         embed = discord.Embed(title=f"{name} {attnameformat} history", color=s.embed)
         embed.set_image(url="attachment://graph.png")
 
-        o_type = "town" if town else "player" if player else "nation" if nation else "culture" if culture else "religion" if religion else "global"
+        
         if s.see_more_footer:
             embed.set_footer(text=f"See more with /history {o_type} ... !" + (f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}" if attribute == "duration" else ""))
         elif attribute == "duration":
@@ -135,12 +178,14 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             if not o: raise client.errors.MildError("Nothing found!")
             objects = await o.visited_players
             total = await c.visited_towns_table.total_column("duration", conditions=[db.CreationCondition("town", o.name)])
+            l = [p.name for p in c.world.players]
         elif player:
             o = c.world.get_player(player, True)
             if not o: raise client.errors.MildError("Nothing found!")
             objects = await o.visited_towns
             likely_residency = await o.likely_residency
             total = await c.visited_towns_table.total_column("duration", conditions=[db.CreationCondition("player", o.name)])
+            l = [t.name for t in c.world.towns]
 
         log = ""
         values = {}
@@ -174,42 +219,49 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             values[name] = obj.total
 
         opp = "player" if town else "town"
-        file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"{str(o)}'s visited {opp} history ({len(objects)})", opp.title(), "Time (minutes)", bar, y_formatter=generate_time)
-        graph = discord.File(file, filename="graph.png")
-
+        
         embed = discord.Embed(title=f"{str(o)} visited history ({len(objects)})", color=s.embed)
-        embed.set_image(url="attachment://graph.png")
-        
-        embed.set_footer(text=f"Bot has been tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
+        embed.set_footer(text=f"Bot has been tracking for {(await c.world.total_tracked).str_no_timestamp()}")
 
-        cmds = []
-        for i, object_name in enumerate(reversed(values.keys())):
-            if i >= 25: break 
-            cmds.append(commands_view.Command(f"get {opp}", f"{i+1}. {object_name}", (object_name,), emoji=None))
+        files = []
+        if len(objects) > 0:
+            file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"{str(o)}'s visited {opp} history ({len(objects)})", opp.title(), "Time (minutes)", bar, y_formatter=generate_time)
+            files.append(discord.File(file, filename="graph.png"))
+            embed.set_image(url="attachment://graph.png")
 
-        view = paginator.PaginatorView(embed, log, skip_buttons=False, index=interaction.extras.get("page"))
+            cmds = []
+            added = 0
+            for i, object_name in enumerate(reversed(values.keys()) ):
+                if object_name.replace(" ", "_") in l and added < 25:
+                    added += 1
+                    cmds.append(commands_view.Command(f"get {opp}", f"{i+1}. {object_name}", (object_name,), emoji=None))
+
+            view = paginator.PaginatorView(embed, log, skip_buttons=False, index=interaction.extras.get("page"))
+            if len(cmds) > 0:
+                view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {opp.title()} Info...", 2))
+            
+            if player:
+                button = discord.ui.Button(label="Map", emoji="🗺️", row=0)
+                def map_button(towns : list[client.object.Town], view : discord.ui.View):
+                    async def map_button_callback(interaction : discord.Interaction):
+                        await interaction.response.defer()
+
+                        for item in view.children:
+                            if hasattr(item, "label") and item.label == "Map":
+                                item.disabled = True 
+                        
+                        map = discord.File(graphs.plot_towns(towns, plot_spawn=False, whole=True), filename="graph.png")
+                        
+                        await interaction.followup.edit_message(embed=embed, attachments=[map], message_id=interaction.message.id, view=view)
+                    return map_button_callback
+                button.callback = map_button(towns, view)
+                view.add_item(button)
+        else:
+            view = discord.ui.View()
+            embed.description = "No one has visited."
         view.add_item(commands_view.RefreshButton(c, f"history {'town' if town else 'player'} visited_{opp}s", (o.name,), row=0))
-        if len(cmds) > 0:
-            view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {opp.title()} Info...", 2))
         
-        if player:
-            button = discord.ui.Button(label="Map", emoji="🗺️", row=0)
-            def map_button(towns : list[client.object.Town], view : discord.ui.View):
-                async def map_button_callback(interaction : discord.Interaction):
-                    await interaction.response.defer()
-
-                    for item in view.children:
-                        if hasattr(item, "label") and item.label == "Map":
-                            item.disabled = True 
-                    
-                    map = discord.File(graphs.plot_towns(towns, plot_spawn=False, whole=True), filename="graph.png")
-                    
-                    await interaction.followup.edit_message(embed=embed, attachments=[map], message_id=interaction.message.id, view=view)
-                return map_button_callback
-            button.callback = map_button(towns, view)
-            view.add_item(button)
-        
-        await (interaction.response.edit_message(embed=embed, view=view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=view, files=[graph]))
+        await (interaction.response.edit_message(embed=embed, view=view, attachments=files) if edit else interaction.response.send_message(embed=embed, view=view, files=files))
 
     if is_town:
         async def cmd(interaction : discord.Interaction, town : str):

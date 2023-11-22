@@ -84,8 +84,9 @@ def generate_command(
             perc = (attval/total)*100 if type(attval) != datetime.date else (parsed/total)*100
             perc_str = f" ({perc:,.1f}%)" if type(attval) != datetime.date else ""
             name = str(record.attribute('name')).replace("_", " ") if not is_player else str(record.attribute('name'))
+            fmt = "**" if record.attribute("name") in l else "`"
 
-            log =  f"{len(rs)-i}. **{discord.utils.escape_markdown(name)}**: {val}{perc_str}\n" + log
+            log =  f"{len(rs)-i}. {fmt}{discord.utils.escape_markdown(name)}{fmt}: {val}{perc_str}\n" + log
 
             values[name] = int(parsed)
         
@@ -98,9 +99,12 @@ def generate_command(
         embed.set_image(url="attachment://graph.png")
 
         cmds = []
-        for i, object_name in enumerate(o for o in reversed(values.keys()) if o.replace(" ", "_") in l):
+        added = 0
+        for i, object_name in enumerate(reversed(values.keys())):
             if i >= 25: continue 
-            cmds.append(commands_view.Command(f"get {o_type}", f"{i+1}. {object_name}", (object_name,), emoji=None))
+            if object_name.replace(" ", "_") in l and added < 25:
+                added += 1
+                cmds.append(commands_view.Command(f"get {o_type}", f"{i+1}. {object_name}", (object_name,), emoji=None))
         
         if attribute == "duration":
             embed.set_footer(text=f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")

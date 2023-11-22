@@ -248,6 +248,11 @@ class Nation(Object):
     async def activity(self) -> Activity:
         return Activity.from_record(await self.world.client.activity_table.get_record([db.CreationCondition("object_type", "nation"), db.CreationCondition("object_name", self.name)], ["duration", "last"]))
 
+    @property 
+    async def previous_names(self) -> list[str]:
+        rs = await self.world.client.nation_history_table.get_records([db.CreationCondition("nation", self.name), db.CreationCondition("current_name", self.name, "!=")], ["current_name"], group=["current_name"], order=db.CreationOrder("date", db.types.OrderDescending))
+        return [r.attribute("current_name") for r in rs]
+
     def to_record_history(self):
         return [
             self.name, 
@@ -262,7 +267,8 @@ class Nation(Object):
                     self.world.client.activity_table, 
                     "duration", 
                     [db.CreationCondition("object_type", "nation"), db.CreationCondition("object_name", self.name)]
-            )
+            ),
+            self.name
         ]
     
     def to_record_activity(self) -> list:
@@ -521,6 +527,11 @@ class Town():
     @property 
     async def total_visited_players(self) -> int:
         return await self.__world.client.visited_towns_table.count_rows([db.CreationCondition("town", self.name)])
+    
+    @property 
+    async def previous_names(self) -> list[str]:
+        rs = await self.__world.client.town_history_table.get_records([db.CreationCondition("town", self.name), db.CreationCondition("current_name", self.name, "!=")], ["current_name"], group=["current_name"], order=db.CreationOrder("date", db.types.OrderDescending))
+        return [r.attribute("current_name") for r in rs]
 
     def to_record(self) -> list:
 
@@ -576,7 +587,8 @@ class Town():
                     "duration", 
                     [db.CreationCondition("object_type", "town"), db.CreationCondition("object_name", self.name)]
             ),
-            db.CreationField.external_query(self.__world.client.visited_towns_table, "visited_players", [db.CreationCondition("town", self.name)], query_attribute="COUNT(*)")
+            db.CreationField.external_query(self.__world.client.visited_towns_table, "visited_players", [db.CreationCondition("town", self.name)], query_attribute="COUNT(*)"),
+            self.name
         ]
     
     def to_record_activity(self) -> list:

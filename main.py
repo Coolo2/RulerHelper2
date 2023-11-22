@@ -44,6 +44,7 @@ async def _refresh():
         if w != False:
         
             await c.cull_db()
+            
             await c.database.commit()
 
             try:
@@ -52,6 +53,7 @@ async def _refresh():
                 await bot.get_channel(s.alert_channel).send(f"Notifications refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
             
             await c.backup_db_if_not()
+            
     except Exception as e:
         print(e)
         await bot.get_channel(s.alert_channel).send(f"Refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
@@ -83,6 +85,7 @@ async def setup_hook():
 
 
     await c.init_db(client.funcs.update_db(c))
+    #await c.test()
     
     
     await c.world.initialise_player_list()

@@ -80,6 +80,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         borders = town.borders
         area = town.area
         visited_players_total = await town.total_visited_players
+        previous_names = await town.previous_names
 
         notable_rankings_str = client.funcs.top_rankings_to_text(await town.top_rankings, town.name_formatted)
         notable_statistics = town.notable_statistics
@@ -101,6 +102,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Activity", value=str(await town.activity))
         embed.add_field(name="Visited Players", value=f"{visited_players_total} ({(visited_players_total/len(self.client.world.players))*100:.1f}%)")
         embed.add_field(name="Public", value="Yes" if town.public else "No")
+        embed.add_field(name="Previous names", value=", ".join(previous_names) if len(previous_names) > 0 else "None")
+
         embed.add_field(name=f"Borders ({len(borders)})", value="`" + ("`, `".join(t.name_formatted for t in borders) + "`") if len(borders) > 0 else "None", inline=False) 
         #embed.add_field(name="Peaceful", value="Yes" if town.peaceful else "No")
         embed.add_field(name="Notable Statistics", value=notable_statistics_str + notable_rankings_str, inline=False)
@@ -167,6 +170,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         flags = await nation.flags
         total_residents = nation.total_residents
         area = nation.total_area
+        previous_names = await nation.previous_names
         
         borders = nation.borders
 
@@ -190,6 +194,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Population Density", value=f"{int(nation.total_area/total_residents):,} plots/resident")
         embed.add_field(name="Activity", value=str(await nation.activity))
         embed.add_field(name="Discord", value=flags.get("server") or "None set.")
+        embed.add_field(name="Previous names", value=", ".join(previous_names) if len(previous_names) > 0 else "None")
+        
         embed.add_field(name=f"Borders ({len(borders[0])})", value="`" + ("`, `".join(n.name_formatted for n in borders[0]) + "`") if len(borders[1]) > 0 else "None", inline=False if len(borders[1]) > 0 else True) 
         embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in [capital]+towns)) + "`", inline=False)
         embed.add_field(name="Culture Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in culture_make_up.items()][:5]) if len(culture_make_up) > 0 else 'None')
@@ -252,11 +258,11 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             files.append(discord.File(s.waiting_bg_path, "map_waiting.jpg"))
             embed.set_image(url="attachment://map_waiting.jpg")
 
-        await (
-            (
-                interaction.response.edit_message(embed=embed, attachments=files, view=c_view) if len(files) > 0 else interaction.response.edit_message(embed=embed, view=c_view)
-            ) if edit else interaction.response.send_message(embed=embed, files=files, view=c_view)
-        )
+            await (
+                (
+                    interaction.response.edit_message(embed=embed, attachments=files, view=c_view) if len(files) > 0 else interaction.response.edit_message(embed=embed, view=c_view)
+                ) if edit else interaction.response.send_message(embed=embed, files=files, view=c_view)
+            )
         
         graph = discord.File(graphs.plot_towns([capital]+towns, plot_spawn=True, dimmed_towns=borders[1], cache_name=cache_name, cache_id=cache_id, outposts="retain"), filename="map.png")
         embed.set_image(url="attachment://map.png")
@@ -421,13 +427,16 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
     async def _online(self, interaction : discord.Interaction):
 
         edit = interaction.extras.get("edit")
-        
-        online_players = self.client.world.online_players
         log = ""
         cmds = []
+        
+        # Sort online players
+        online_players = self.client.world.online_players
+        for player in online_players: player.today = await player.get_activity_today()
+        online_players = sorted(online_players, key=lambda x: x.today.total)
+
         for i, player in enumerate(online_players):
-            today = await player.get_activity_today()
-            log = f"**{discord.utils.escape_markdown(player.name)}**: [{int(player.location.x)}, {int(player.location.y)}, {int(player.location.z)}]({self.client.url}?x={int(player.location.x)}&z={int(player.location.z)}&zoom={s.map_link_zoom}) ({client.funcs.generate_time(today.total)} today)\n" + log
+            log = f"**{discord.utils.escape_markdown(player.name)}**: [{int(player.location.x)}, {int(player.location.y)}, {int(player.location.z)}]({self.client.url}?x={int(player.location.x)}&z={int(player.location.z)}&zoom={s.map_link_zoom}) ({client.funcs.generate_time(player.today.total)} today)\n" + log
 
             if i <= 25: cmds.append(commands_view.Command("get player", player.name, (player.name,), emoji=None))
 

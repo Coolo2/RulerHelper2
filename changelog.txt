@@ -1,3 +1,30 @@
+## 2.6.1
+- Emergency fixes for /history commands not working for certain objects 
+- Comma seperation added to y axis in bar charts and graphs
+- Lines are now displayed as a dot if there is only one data point 
+- History commands with no data will now properly show a message
+- Fixed a bug where "command" buttons would copy paginator location
+# 2.6.0
+- /get online list is now sorted by online time today
+- Objects in /top now highlight if they do not exist anymore
+- Fixed numbering in select menus in /top and /history visited
+- Removed objects that don't exist from select menus on /history visited
+- Name tracking
+ - New commands /history nation name, /history town name 
+ - New "previous names" field in /get town and /get nation
+- History commands will now show history forever, it will not be culled after 45d 
+ - Over time, graphs will display a lower and lower resolution of values. This has been tested for up to 4 years of data!
+ - May be adjusted slightly as time goes on 
+- Graphs are now wider and so can fit more data 
+ - /top commands now show 40 objects on the bar charts 
+- Fixed a couple caching issues
+- A few database size optimisations
+newpage
+# 2.5.1 (Nov 20 2023)
+- Some fixes to refreshes
+- Fixed nation maps not displaying when first generated 
+- Fixed /compare commands and /bot info not working 
+- Fixed issues with paginator refreshes
 # 2.5.0 (Nov 20 2023)
 - Added "refresh" buttons to many commands which refresh the data in fields
  - This button works permanently, even after bot refreshes. 

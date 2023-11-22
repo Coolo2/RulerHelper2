@@ -11,7 +11,7 @@ Setup file!
 
 """
 
-version = "2.5.0"
+version = "2.6.1"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
@@ -49,11 +49,11 @@ map_url = "https://map.rulercraft.com" # Base map URL
 default_refresh_period = 20 # Duration in seconds to refresh
 map_link_zoom = 10 # Zoom level for map links. Eg "Location" in /get player
 
-cull_history_from = timedelta(days=60) # Duration of time to remove history from the database after
+#cull_history_from = timedelta(days=60) # Duration of time to remove history from the database after
 cull_players_from = timedelta(days=45) # Duration of time to remove players from the database after
 cull_objects_after = timedelta(minutes=1) # Duration of time to remove deleted towns/nations from the database after. Does not clear history, just concurrent data used in /top etc
 
-top_graph_object_count = 25 # Number of towns/players/nations to display in "/top" bar charts
+top_graph_object_count = 40 # Number of towns/players/nations to display in "/top" bar charts
 history_skip_if_object_unknown = False # If True and an object (town/player) is not known, ignore it completely in history commands. If False will still display but with diff. format
 see_more_footer = True # Show a footer saying "see more with /command..." under certain commands. useful when bot is new for button calls
 
@@ -108,7 +108,8 @@ history_commands = {
             {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":None, "parser":None, "y":"plots"},
             {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
             {"attribute":"area/resident_count", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident"},
-            {"attribute":"visited_players", "qualitative":False, "formatter":None, "name":"visited_player_count", "parser":None, "y":"Players"}
+            {"attribute":"visited_players", "qualitative":False, "formatter":None, "name":"visited_player_count", "parser":None, "y":"Players"},
+            {"attribute":"current_name", "qualitative":True, "formatter":None, "name":None, "parser":lambda x: str(x).replace("_", " "), "name":"name"},
     ],
     "player":[
             {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
@@ -125,6 +126,7 @@ history_commands = {
             {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":"area", "parser":None, "y":"Area (plots)"},
             {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
             {"attribute":"area/residents", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident"},
+            {"attribute":"current_name", "qualitative":True, "formatter":None, "name":None, "parser":lambda x: str(x).replace("_", " "), "name":"name"},
     ],
     "object":[ # Religion and Culture
             {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},

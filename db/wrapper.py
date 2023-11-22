@@ -254,6 +254,14 @@ class Table():
         
         return (await self.db.get_record(self, conditions, [f"SUM({str(attribute)})"], join, group=group)).fields[0].value or 0
 
+    async def min_column(
+                self, 
+                attribute : typing.Union[str, Attribute], 
+                conditions : typing.List[typing.Union[creation.CreationAttribute, str]] = None,
+                join : typing.Union[creation.CreationTableJoin, typing.List[creation.CreationTableJoin]] = None,
+        ) -> typing.Any:
+        return (await self.db.get_record(self, conditions, [f"MIN({str(attribute)})"], join)).fields[0].value
+
     async def max_column(
                 self, 
                 attribute : typing.Union[str, Attribute], 
@@ -530,19 +538,21 @@ class Database(database.RawDatabase):
         
         group = [group] if type(group) in [str, Attribute] else None if not group else group
 
+        join_type = "JOIN"
         if join:
             if type(join) != list:
                 join = [join]
             for j in join:
                 tables.append(j.table)
+                join_type = j.type+" JOIN"
 
                 found = False 
                 for attribute in attrs:
-                    if j.table.name in str(attribute):
+                    if (j.table if type(j.table) == str else j.table.name)in str(attribute):
                         found = True 
                 if not found and len(attrs) == 0:
                     attrs += j.table.attributes
-        join_command = (" JOIN " + " , ".join(str(j) for j in join)) if join else ""
+        join_command = (f" {join_type} " + " , ".join(str(j) for j in join)) if join else ""
         order_command = str(order) if order else ""
         limit_command = f" LIMIT {limit}" if limit else ""
         group_command = f" GROUP BY {', '.join(str(a) for a in group)}" if group and len(group) > 0 else ""

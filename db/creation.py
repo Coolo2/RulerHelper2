@@ -70,10 +70,11 @@ class CreationCondition():
         return f"<Condition {str(self.attribute)} {self.operator} {self.value}>"
 
 class CreationTableJoin(CreationCondition):
-    def __init__(self, table : typing.Union[str, wrapper.Table], attribute1 : typing.Union[str, wrapper.Attribute], attribute2 : typing.Union[str, wrapper.Attribute]):
+    def __init__(self, table : typing.Union[str, wrapper.Table], attribute1 : typing.Union[str, wrapper.Attribute], attribute2 : typing.Union[str, wrapper.Attribute], type=""):
         self.attribute1 = attribute1 
         self.attribute2 = attribute2
         self.table = table
+        self.type = type
     
     def __str__(self):
         return f"{str(self.table)} ON {str(self.attribute1)} = {str(self.attribute2)}"

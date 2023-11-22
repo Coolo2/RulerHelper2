@@ -21,10 +21,9 @@ import client
 import os
 
 from shapely import Point
-
 import math
-
 import itertools
+import numpy as np
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -39,14 +38,14 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
     
     color = "silver"
 
+    plt.rcParams["figure.figsize"] = [6.4*1.6, 4.8]
+
     matplotlib.rcParams['text.color'] = color
     matplotlib.rcParams['axes.labelcolor'] = color
     matplotlib.rcParams['xtick.color'] = color
     matplotlib.rcParams['ytick.color'] = color
     matplotlib.rcParams["axes.edgecolor"] = color
     matplotlib.rcParams["xtick.labelsize"] = 7
-    #matplotlib.rcParams['figure.facecolor'] = '#2B2D31'
-    #matplotlib.rcParams['axes.facecolor'] = '#2B2D31'
 
     if chartType == plt.pie:
         def my_autopct(pct):
@@ -56,10 +55,7 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
         
         for label, pct_text in zip(labels, pct_texts):
             pct_text.set_rotation(label.get_rotation())
-        
-        
     else:
-    
         # Add ticks if not pie
         start_date : datetime.date = None
         xticks = {}
@@ -88,8 +84,16 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
         if not multi_data or len(multi_data) == 0:
             multi_data = {"default":data.values()}
         
+        
+        
         for i, (name, plot) in enumerate(multi_data.items()):
-            barlist : list[Rectangle] = chartType(keys, plot, color=((colors if colors else s.bar_color) if chartType == gnt.bar else s.line_color) if data else colors[i%len(colors)] if colors else None, label=name, alpha=0.75 if colors else 1)
+            color_i = ((colors if colors else s.bar_color) if chartType == gnt.bar else s.line_color) if data else colors[i%len(colors)] if colors else None
+            plot_nonan = [p for p in plot if p and p == p]
+            if len(plot_nonan) == 1: # Remove nan and count
+                
+                gnt.scatter(x=keys[-1] if len(keys) > 0 else 0, y=list(plot_nonan)[0], color=color_i, label=name)
+            else:
+                barlist : list[Rectangle] = chartType(keys, plot, color=color_i, label=name, alpha=0.75 if colors else 1)
         
         if len(multi_data) > 1:
             plt.legend(bbox_to_anchor=(0, 1.05, 1, 0.2), loc="lower left", prop={'size':10}, frameon=False, mode="expand", borderaxespad=0, ncol=3)
@@ -98,12 +102,11 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
         gnt.set_xticklabels(list(xticks.keys()))
 
         gnt.axes.yaxis.set_major_locator(MaxNLocator(integer=True))
-
-        if y_formatter:
-            y_ticks = []
-            for tick in gnt.get_yticks():
-                y_ticks.append(y_formatter(tick))
-            gnt.set_yticklabels(y_ticks)
+        
+        y_ticks = []
+        for tick in gnt.get_yticks():
+            y_ticks.append((y_formatter or (lambda x: f"{int(x):,}" if type(x) != str else x))(tick))
+        gnt.set_yticklabels(y_ticks)
         
         if highlight:
             highlight = highlight.replace("_", " ").title()
@@ -129,7 +132,8 @@ def save_timeline(data : dict, title : str, booly=False):
     # Convert to date ranges
     ranges : dict[str, list[datetime.date, datetime.date]] = {}
     start_date = datetime.datetime.strptime(list(data.keys())[0], "%Y-%m-%d").date() if len(data) > 0 else datetime.date.today()
-    end_date = datetime.date.today()
+    
+    end_date = datetime.datetime.strptime(list(data.keys())[-1], "%Y-%m-%d").date() if len(data) > 0 else datetime.date.today()
 
     xticks = {start_date.strftime("%Y-%m-%d"):0, end_date.strftime("%Y-%m-%d"):(end_date-start_date).days}
 
@@ -141,6 +145,7 @@ def save_timeline(data : dict, title : str, booly=False):
     matplotlib.rcParams['ytick.color'] = color
     matplotlib.rcParams["axes.edgecolor"] = color
     matplotlib.rcParams["xtick.labelsize"] = 7
+    plt.rcParams["figure.figsize"] = [6.4*1.6, 4.8]
 
     last_date = None
     last_str = None
@@ -163,7 +168,7 @@ def save_timeline(data : dict, title : str, booly=False):
         if i == len(data)-1:
             if data[date_str] not in ranges:
                 ranges[data[date_str]] = []
-            ranges[data[date_str]].append([(date-start_date).days, (datetime.date.today()-date).days])
+            ranges[data[date_str]].append([(date-start_date).days, (end_date-date).days])
         
         last_date = date
         last_str = date_str

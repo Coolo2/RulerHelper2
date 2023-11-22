@@ -24,6 +24,12 @@ class PaginatorView(discord.ui.View):
         self.page_image_generators = page_image_generators
         self.attachment = None
 
+        if not text or text == "":
+            if not embed.description:
+                embed.description = "_ _"
+            text = (embed.description + split_character) * len(page_image_generators) if embed.description else split_character.join(["_ _"]*len(page_image_generators))
+            per_page = embed.description.count(split_character)+1
+
         pages = text.split(split_character)
         if "" in pages:
             pages.remove("")
@@ -47,11 +53,7 @@ class PaginatorView(discord.ui.View):
                 else:
                     embed.set_image(url=temp_img_url)
 
-        if not text or text == "":
-            if not embed.description:
-                embed.description = "_ _"
-            text = (embed.description + split_character) * len(page_image_generators) if embed.description else split_character.join(["_ _"]*len(page_image_generators))
-            per_page = embed.description.count(split_character)+1
+        
         
         
         self.embed.description = self.pages[self.index] if len(pages) > 0 else "_ _"
