@@ -1,10 +1,13 @@
-## 2.6.1
+## 2.6.2 (Nov 23 2023)
+- 0 values now display properly in history graphs 
+- Slightly improved search algorithm for incomplete queries
+## 2.6.1 (Nov 22 2023)
 - Emergency fixes for /history commands not working for certain objects 
 - Comma seperation added to y axis in bar charts and graphs
 - Lines are now displayed as a dot if there is only one data point 
 - History commands with no data will now properly show a message
 - Fixed a bug where "command" buttons would copy paginator location
-# 2.6.0
+# 2.6.0 (Nov 21 2023)
 - /get online list is now sorted by online time today
 - Objects in /top now highlight if they do not exist anymore
 - Fixed numbering in select menus in /top and /history visited

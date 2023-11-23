@@ -19,6 +19,8 @@ import discord
 from client import funcs
 import traceback
 
+import random
+
 class Activity():
     def __init__(self, total : int = 0, last : datetime.datetime = datetime.datetime.now(), town : client_pre.object.Town|str = None, player : client_pre.object.Player|str = None):
         self.total = total 
@@ -900,62 +902,50 @@ class World():
     def get_object(self, array : list, name : str, search=False, multiple=False, max=25):
         multi = []
 
-        if not multiple and search:
-            for o in array:
-                if str(o).lower().replace("_", " ") == name.lower().replace("_", " "):
-                    return o
-
         i=0
-        for o in array:
+        for o in sorted(array, key= lambda x:len(str(x))):
             if (not search and str(o) == name) or (search and name.replace(" ", "_").lower() in str(o).replace(" ", "_").lower() ):
-                if not multiple:
-                    return o 
+                if not multiple: return o 
                 i += 1
                 multi.append(o)
-                if i >= max:
-                    break
+                if i >= max:break
         if multiple:
+            if len(multi) == max: random.shuffle(multi)
             return multi
 
     def get_town(self, town_name : str, search=False, multiple=False, max=25) -> Town:
-        if not multiple:
-            t = self.__towns.get(town_name)
-            if not search or t:
-                return t
+        if not search and not multiple:
+            return self.__towns.get(town_name)
         
         multi = []
 
         i=0
-        for town in self.__towns:
+        for town in sorted(self.__towns, key=lambda x:len(x)):
             if town_name.replace(" ", "_").lower() in str(town).replace(" ", "_").lower():
-                if not multiple:
-                    return self.__towns[town]
+                if not multiple: return self.__towns[town]
                 i+=1
                 multi.append(self.__towns[town])
-                if i >= max:
-                    break
+                if i >= max: break
         
         if multiple:
-            return multi
+            if len(multi) == max: random.shuffle(multi)
+            return multi 
 
     def get_player(self, player_name : str, search=True, multiple=False, max=25) -> Player:
-        if not multiple:
-            p = self.__players.get(player_name)
-            if not search or p:
-                return p
+        if not search:
+            return self.__players.get(player_name)
         
         multi = []
         i=0
-        for player in self.__players:
+        for player in sorted(self.__players, key=lambda x:len(x)):
             if player_name.replace(" ", "_").lower() in str(player).replace(" ", "_").lower():
-                if not multiple:
-                    return self.__players[player]
+                if not multiple: return self.__players[player]
                 i += 1
                 multi.append(self.__players[player])
-                if i >= max:
-                    break
+                if i >= max: break
 
         if multiple:
+            if len(multi) == max: random.shuffle(multi)
             return multi
 
     def get_nation(self, nation_name : str, search=False, multiple=False, max=25) -> Nation:

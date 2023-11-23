@@ -88,7 +88,7 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
         
         for i, (name, plot) in enumerate(multi_data.items()):
             color_i = ((colors if colors else s.bar_color) if chartType == gnt.bar else s.line_color) if data else colors[i%len(colors)] if colors else None
-            plot_nonan = [p for p in plot if p and p == p]
+            plot_nonan = [p for p in plot if p != None and p == p]
             if len(plot_nonan) == 1: # Remove nan and count
                 
                 gnt.scatter(x=keys[-1] if len(keys) > 0 else 0, y=list(plot_nonan)[0], color=color_i, label=name)

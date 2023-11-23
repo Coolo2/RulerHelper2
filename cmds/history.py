@@ -81,9 +81,12 @@ def generate_command(
         parsed_values = {}
         (max, max_i), (min, min_i) = (0, 0), (9999999999, 0)
         i = 0
+        
         for record in rs:
-            if not record.attribute(attribute) and not qualitative:
+            
+            if record.attribute(attribute) == None and not qualitative:
                 continue
+            
             parsed = parser(record.attribute(attribute)) if parser else record.attribute(attribute)
             parsed_values[str(record.attribute('date'))] = parsed
 
