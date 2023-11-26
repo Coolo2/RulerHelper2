@@ -31,18 +31,26 @@ class Events(commands.Cog):
                     command_string = custom_id.replace("refresh_", "")
                     interaction.extras["edit"] = True
 
-                    if len(interaction.message.embeds) > 0 and "Page" in str(interaction.message.embeds[0].footer.text):
-                        page_no = interaction.message.embeds[0].footer.text.split("Page")[1].split("/")[0].split(" ")[-1].strip()
-                        if page_no.isnumeric():
-                            interaction.extras["page"] = int(page_no)-1
+                    if len(interaction.message.embeds) > 0:
+                        interaction.extras["author"] = interaction.message.embeds[0]._author if interaction.message.embeds[0].author else None
+
+                        if "Page" in str(interaction.message.embeds[0].footer.text):
+                            page_no = interaction.message.embeds[0].footer.text.split("Page")[1].split("/")[0].split(" ")[-1].strip()
+                            if page_no.isnumeric():
+                                interaction.extras["page"] = int(page_no)-1
+                        
                 else:
-                    # Don't check if refresh
+                    # Don't check if refresh button
                     if interaction.guild:
                         can_send_messages = interaction.channel.permissions_for(interaction.guild.get_member(interaction.user.id)).send_messages
                         if not can_send_messages:
                             raise client.errors.MildError("You do not have permissions to send here!")
                     
                     command_string = custom_id.replace("command_", "")
+                    interaction.extras["author"] = {
+                        "name":f"Requested by {interaction.user}",
+                        "icon_url":interaction.user.display_avatar.url if interaction.user.display_avatar else None
+                    }
                 
                 command_name, parameters = command_string.split("+") 
                 parameters : list[str] = parameters.split("_&_")

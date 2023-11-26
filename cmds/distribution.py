@@ -54,6 +54,7 @@ def generate_command(c : client.Client, attribute : str, formatter = str, parser
         graph = discord.File(file, filename="graph.png")
 
         embed = discord.Embed(title=f"{o.name_formatted}'s distribution of {attnameformat} ({len(rs)} towns)", color=s.embed)
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         embed.set_image(url="attachment://graph.png")
 
         if s.see_more_footer:

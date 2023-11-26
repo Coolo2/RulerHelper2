@@ -96,6 +96,7 @@ def generate_command(
         graph = discord.File(file, filename="graph.png")
 
         embed = discord.Embed(title=title, color=s.embed)
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         embed.set_image(url="attachment://graph.png")
 
         cmds = []
@@ -155,7 +156,7 @@ class Top(commands.Cog):
                     y_formatter=attribute.get("y_formatter"), 
                     not_in_history=attribute.get("not_in_history")
                 ))
-                command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper(cmd_type_name))
+                command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper("object" if cmd_type_name in ["culture", "religion"] else cmd_type_name))
                 for parameter in command_type["parameters"]:
                     if parameter.get("autocomplete"):
                         command.autocomplete(parameter["name"])(parameter["autocomplete"])

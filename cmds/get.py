@@ -39,7 +39,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         online = f"🟢  {discord.utils.escape_markdown(player.name)} is **online**" if player.online else f"🔴 {discord.utils.escape_markdown(player.name)} is **offline**"
 
         embed = discord.Embed(title=f"Player: {discord.utils.escape_markdown(player.name)}", description=f"{online}\n\n{health}\n{armor}", color=s.embed)
-        
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
+            
         embed.add_field(name="Location", value=f"[{int(player.location.x)}, {int(player.location.y)}, {int(player.location.z)}]({self.client.url}?x={int(player.location.x)}&z={int(player.location.z)}&zoom={s.map_link_zoom})")
         embed.add_field(name="Town", value=f"{town.name_formatted} {'('+str(town.nation.name_formatted)+')' if town.nation else ''}" if town else "None")
         embed.add_field(name="Likely Residency", value=f"{likely_residency.name_formatted} {'('+likely_residency.nation.name_formatted+')' if likely_residency.nation and likely_residency != town else ''}" if likely_residency else "None")
@@ -87,6 +88,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         notable_statistics_str = "- " + "\n- ".join(notable_statistics) if len(notable_statistics) > 0 else ""
 
         embed = discord.Embed(title=f"Town: {town.name_formatted}", description=town.geography_description, color=s.embed)
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         embed.set_thumbnail(url="attachment://graph.png")
 
         embed.add_field(name="Nation", value=town.nation.name_formatted if town.nation else "None")
@@ -148,7 +150,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         cache_name = f"Town+{town.name}"
         cache_id = f"{town.vertex_count}_{area}"
         
-        graph = discord.File(graphs.plot_towns([town], outposts="retain", dimmed_towns=borders, show_earth=False, cache_name=cache_name, cache_id=cache_id), filename="graph.png")
+        graph = discord.File(graphs.plot_towns([town], outposts="retain", dimmed_towns=borders, show_earth=False, cache_name=cache_name, cache_id=cache_id, maintain_aspect=False), filename="graph.png")
         
 
         return await interaction.response.edit_message(embed=embed, attachments=[graph], view=c_view) if edit else await interaction.response.send_message(embed=embed, file=graph, view=c_view)
@@ -184,6 +186,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         culture_make_up = nation.culture_make_up
 
         embed = discord.Embed(title=f"Nation: {nation.name_formatted}", description=f"[Visit on map]({self.client.url}?x={int(nation.capital.spawn.x)}&z={int(nation.capital.spawn.z)}&zoom={s.map_link_zoom})", color=s.embed)
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         embed.set_thumbnail(url=self.client.url + "/" + nation.capital.flag_url)
         
         embed.add_field(name="Leader", value=discord.utils.escape_markdown(str(leader)))
@@ -289,6 +292,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         total_residents = culture.total_residents
 
         embed = discord.Embed(title=f"Culture: {culture.name_formatted}", color=s.embed)
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         
         embed.add_field(name="Residents", value=f"{total_residents:,}")
         embed.add_field(name="Area", value=f"{area:,} plots ({area*64:,}km²)")
@@ -338,6 +342,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         total_residents = religion.total_residents
 
         embed = discord.Embed(title=f"Religion: {religion.name_formatted}", color=s.embed)
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         
         embed.add_field(name="Followers", value=f"{total_residents:,}")
         embed.add_field(name="Area", value=f"{area:,} plots ({area*64:,}km²)")
@@ -382,6 +387,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         total_tracked = await world.total_tracked
 
         embed = discord.Embed(title="RulerCraft Earth", description=f"[View Map]({self.client.url})", color=s.embed)
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         
         embed.add_field(name="Towns", value=str(len(world.towns)))
         embed.add_field(name="Nations", value=str(len(world.nations)))
@@ -438,9 +444,10 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         for i, player in enumerate(online_players):
             log = f"**{discord.utils.escape_markdown(player.name)}**: [{int(player.location.x)}, {int(player.location.y)}, {int(player.location.z)}]({self.client.url}?x={int(player.location.x)}&z={int(player.location.z)}&zoom={s.map_link_zoom}) ({client.funcs.generate_time(player.today.total)} today)\n" + log
 
-            if i <= 25: cmds.append(commands_view.Command("get player", player.name, (player.name,), emoji=None))
+            cmds.append(commands_view.Command("get player", player.name, (player.name,), emoji=None))
 
         embed = discord.Embed(title=f"Online players ({len(online_players)})", color=s.embed)
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         embed.set_image(url="attachment://map_waiting.jpg")
 
         view = paginator.PaginatorView(embed, log, skip_buttons=False, index=interaction.extras.get("page"))

@@ -34,7 +34,7 @@ def floor(num, zoomed_scale):
 def ceil(num, zoomed_scale):
     return zoomed_scale * math.ceil(num / zoomed_scale)
 
-def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight : int = None, y_formatter = None, multi_data : dict[str, list] = None, ticks : list[str]= None, colors : list[str] = None):
+def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight : int = None, y_formatter = None, multi_data : dict[str, list] = None, ticks : list[str]= None, colors : list[str] = None, adjust_missing=False):
     
     color = "silver"
 
@@ -56,11 +56,36 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
         for label, pct_text in zip(labels, pct_texts):
             pct_text.set_rotation(label.get_rotation())
     else:
+
+        dates = ticks or list(data.keys())
+        date_idx = list(np.round(np.linspace(0, len(dates) - 1, len(dates) if len(dates) < 60 else 60 )).astype(int))
+        added_i = []
+        
+        for _, data_group in enumerate([list(data.values())]) if data != None else enumerate(multi_data.values()): 
+            max_i = data_group.index(max(data_group))
+            min_i = data_group.index(min(data_group))
+
+            if max_i not in date_idx: 
+                to_remove = min(date_idx, key=lambda x:abs(x-max_i))
+                to_remove = to_remove if to_remove not in added_i else date_idx[date_idx.index(to_remove)+(1 if date_idx[date_idx.index(to_remove)] < max_i and date_idx.index(to_remove)+1 < len(date_idx) else -1)]
+                date_idx.remove(to_remove)
+                date_idx.append(max_i)
+                added_i.append(max_i)
+            if min_i not in date_idx: 
+                to_remove = min(date_idx, key=lambda x:abs(x-min_i))
+                to_remove = to_remove if to_remove not in added_i else date_idx[date_idx.index(to_remove)+(1 if date_idx[date_idx.index(to_remove)] < min_i else -1)]
+                date_idx.remove(to_remove)
+                date_idx.append(min_i)
+                added_i.append(min_i)
+       
+        
+
         # Add ticks if not pie
         start_date : datetime.date = None
         xticks = {}
         keys = []
-        for i, tick_raw in enumerate(ticks or data.keys()):
+        added_dates = []
+        for i, tick_raw in enumerate(dates):
             try:
                 date = datetime.datetime.strptime(tick_raw, "%Y-%m-%d").date()
             except:
@@ -69,11 +94,39 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
                 if i == 0:
                     start_date = date
 
-                xticks[date.strftime('%b %d %Y')] = (date-start_date).days
-                keys.append(xticks[date.strftime('%b %d %Y')])
+                date_str = date.strftime('%b %d %Y')
+                xticks[date_str] = (date-start_date).days
+                keys.append(xticks[date_str])
+
+                if adjust_missing and xticks[date_str] -1 not in keys and xticks[date_str]-1 > 0:
+                    date = date-datetime.timedelta(days=1)
+                    date_str = date.strftime('%b %d %Y')
+                    added_dates.append(date)
+                    keys.append((date-start_date).days)
+                    date_idx.append(i-1)
+
             else:
                 xticks[tick_raw] = i
                 keys.append(i)
+        
+        date_idx = sorted(date_idx)
+
+        dates = [dates[i] for i in date_idx]
+
+        if adjust_missing and len(added_dates) > 0:
+            xticks = dict(sorted(xticks.items(), key=lambda x: x[1]))
+            keys = sorted(keys)
+            # Add in days where there is a gap so that slope isn't gradual
+            last_date = None
+            for date in data.copy().keys():
+                d = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+                for added_date in added_dates.copy():
+                    if last_date and added_date+datetime.timedelta(days=1) == d:
+                        data[added_date.strftime('%Y-%m-%d')] = data[last_date.strftime('%Y-%m-%d')]
+                        added_dates.remove(added_date)
+
+                last_date = d
+            data = dict(sorted(data.items(), key=lambda x: datetime.datetime.strptime(x[0], "%Y-%m-%d").date()))
 
         fig, gnt = plt.subplots()
         if chartType == plt.bar:
@@ -85,15 +138,27 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
             multi_data = {"default":data.values()}
         
         
+        keys = [list(keys)[i] for i in date_idx]
+        xticks = {list(xticks)[i]:xticks[list(xticks)[i]] for i in date_idx}
         
         for i, (name, plot) in enumerate(multi_data.items()):
-            color_i = ((colors if colors else s.bar_color) if chartType == gnt.bar else s.line_color) if data else colors[i%len(colors)] if colors else None
+            plot = [list(plot)[i] for i in date_idx]
+            
+            prev = None 
+            for i_, v in enumerate(plot):
+                if v != v and prev:
+                    plot[i_] = prev 
+                else:
+                    prev = v
+
+            color_i = ((colors if colors else s.bar_color) if chartType == gnt.bar else s.line_color) if data != None else colors[i%len(colors)] if colors else None
             plot_nonan = [p for p in plot if p != None and p == p]
             if len(plot_nonan) == 1: # Remove nan and count
-                
                 gnt.scatter(x=keys[-1] if len(keys) > 0 else 0, y=list(plot_nonan)[0], color=color_i, label=name)
             else:
+                
                 barlist : list[Rectangle] = chartType(keys, plot, color=color_i, label=name, alpha=0.75 if colors else 1)
+                
         
         if len(multi_data) > 1:
             plt.legend(bbox_to_anchor=(0, 1.05, 1, 0.2), loc="lower left", prop={'size':10}, frameon=False, mode="expand", borderaxespad=0, ncol=3)
@@ -112,18 +177,19 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
             highlight = highlight.replace("_", " ").title()
             if highlight in list(xticks):
                 barlist[list(xticks).index(highlight)].set_color('r')
-
+    
     plt.title(title, y=1.2 if chartType == plt.pie else 1)
     plt.xlabel(x)
     plt.ylabel(y)
 
     plt.xticks(rotation=270)
-
+    d = datetime.datetime.now()
     buf = io.BytesIO()
     plt.savefig(buf, dpi=s.IMAGE_DPI_GRAPH, transparent=True, bbox_inches="tight")
     buf.seek(0)
 
     plt.close()
+    print(datetime.datetime.now()-d)
 
     return buf
 
@@ -219,7 +285,7 @@ def check_cache(cache_name : str, cache_id : str):
     
     return n
 
-def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="auto", plot_spawn=True, dot_size=None, whole=False, players : list[client.object.Player] = None, cache_name : str = None, cache_id : int = None, cache_checked=False, dimmed_towns : list[client.object.Town]=[], connect_spawns:list[client.object.Town]=False):
+def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="auto", plot_spawn=True, dot_size=None, whole=False, players : list[client.object.Player] = None, cache_name : str = None, cache_id : int = None, cache_checked=False, dimmed_towns : list[client.object.Town]=[], connect_spawns:list[client.object.Town]=False, maintain_aspect=True):
 
     # Cache_checked can be False if not checked, None if doesn't exists, str if does exist
     d = datetime.datetime.now()
@@ -324,12 +390,18 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
         plt.imshow(img, extent=[0-xw, xw, 0-yw, yw], origin='lower')
         
     
-    if not whole and connect_spawns:
-        ax.set_xlim(x_lim[1]-((x_lim[1]-x_lim[0])*1.25), x_lim[1])
-        ax.set_ylim(y_lim[0], (y_lim[0]+((0.92+(0.08*len(connect_spawns)))*(y_lim[1]-y_lim[0]))))
-    elif not whole:
-        ax.set_xlim(x_lim)
-        ax.set_ylim(y_lim)
+    if not whole:
+        if maintain_aspect and (x_lim[1]-x_lim[0]) < 2*(y_lim[1]-y_lim[0]) :
+            x_lim_centre = (x_lim[1]+x_lim[0])/2
+            y_lim_mag_from_centre = (y_lim[1]-y_lim[0])/2
+
+            x_lim = (x_lim_centre-y_lim_mag_from_centre*2, x_lim_centre+y_lim_mag_from_centre*2)
+        if connect_spawns:
+            ax.set_xlim(x_lim[1]-((x_lim[1]-x_lim[0])*1.25), x_lim[1])
+            ax.set_ylim(y_lim[0], (y_lim[0]+((0.92+(0.08*len(connect_spawns)))*(y_lim[1]-y_lim[0]))))
+        else:
+            ax.set_xlim(x_lim)
+            ax.set_ylim(y_lim)
     
     if plot_spawn and towns:
         if not dot_size:
@@ -340,7 +412,8 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
         biggest_boundary = max(x_lim[1]-x_lim[0], y_lim[1]-y_lim[0])
         
         for town in towns:
-            plt.scatter([town.spawn.x], [town.spawn.z], color=town.border_color, zorder=3, s=(2000/biggest_boundary)*dot_size)
+            plt.scatter([town.spawn.x], [town.spawn.z], color=town.border_color, zorder=3, s=(min(1000/biggest_boundary, 1))*dot_size)
+    
 
     ax.invert_yaxis()
 

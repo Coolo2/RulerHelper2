@@ -100,11 +100,13 @@ class PaginatorView(discord.ui.View):
             if type(generator) == str:
                 self.embed.set_image(url=generator)
             else:
+                await interaction.response.defer()
+                
                 image = generator[0](*generator[1])
                 graph = discord.File(image, filename="paginator_image.png")
                 self.embed.set_image(url="attachment://paginator_image.png")
 
-                return await interaction.response.edit_message(embed=self.embed, view=self, attachments=[graph])
+                return await interaction.followup.edit_message(embed=self.embed, view=self, attachments=[graph], message_id=interaction.message.id)
             
         await interaction.response.edit_message(embed=self.embed, view=self)
     

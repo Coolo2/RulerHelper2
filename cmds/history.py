@@ -40,6 +40,7 @@ def generate_command(
 
         o_type = "town" if town else "player" if player else "nation" if nation else "culture" if culture else "religion" if religion else "global"
         table_name = "town_history" if town else "player_history" if player else "nation_history" if nation else "object_history" if culture or religion else "global_history"
+        name_attribute = "town" if town else "player" if player else "nation" if nation else "object" if culture or religion else None
 
         if start_at: conditions.append(db.CreationCondition("date", start_at, ">="))
 
@@ -63,9 +64,8 @@ def generate_command(
 
         if o_type != "global":
             if not o: raise client.errors.MildError("Nothing found!")
-            conditions.append(db.CreationCondition(table.attributes[0].name, o.name))
-        display_days = 60
-
+            conditions.append(db.CreationCondition(name_attribute, o.name))
+        
         rs = await table.get_records(
             conditions, 
             ["date", attribute], 
@@ -79,38 +79,28 @@ def generate_command(
         last = None
         values = {}
         parsed_values = {}
-        (max, max_i), (min, min_i) = (0, 0), (9999999999, 0)
-        i = 0
-        
         for record in rs:
             
             if record.attribute(attribute) == None and not qualitative:
                 continue
             
             parsed = parser(record.attribute(attribute)) if parser else record.attribute(attribute)
+            if qualitative and last == parsed:
+                continue
+            
             parsed_values[str(record.attribute('date'))] = parsed
 
-            val = formatter(parsed)
-            if qualitative and last == val:
-                continue
-            log = f"**{record.attribute('date').strftime('%b %d %Y')}**: {discord.utils.escape_markdown(str(val))}\n" + log
-            last = val
-
             if not qualitative:
-                if parsed > max:
-                    max, max_i = parsed, i 
-                if parsed < min:
-                    min, min_i = parsed, i 
-            i += 1
+                change = parsed-last if last else None
+                change = (("+" if change >= 0 else "-") + formatter(change).replace("-", "")) if change not in [None, 0] else ""
+            val = formatter(parsed)
+            
+            log = f"**{record.attribute('date').strftime('%b %d %Y')}**: {discord.utils.escape_markdown(str(val))}" + (f" (`{change}`)\n" if last and not qualitative and len(change)>0 else "\n") + log
+            last = parsed
         
         if not qualitative:
 
-            idx = np.round(np.linspace(0, len(parsed_values.values()) - 1, display_days)).astype(int)
-            
-            if max_i not in idx: idx= np.append(idx, max_i)
-            if min_i not in idx: idx = np.append(idx, min_i)
-        
-            idx = sorted(idx)
+            idx = range(len(parsed_values))
         
         else:
             prev = None 
@@ -127,15 +117,16 @@ def generate_command(
         td = datetime.date.today().strftime("%Y-%m-%d")
         if td not in values and len(values) > 0 and datetime.datetime.strptime(list(values)[-1], "%Y-%m-%d").date() < datetime.date.today():
             values[td] = values[list(values)[-1]]
-
+        
         if not qualitative:
-            file = graphs.save_graph(values, f"{name} {attnameformat} history", "Date", y or "Value", plot, y_formatter = y_formatter)
+            file = graphs.save_graph(values, f"{name} {attnameformat} history", "Date", y or "Value", plot, y_formatter = y_formatter, adjust_missing=len(values) < 60)
         else:
             file = graphs.save_timeline(values, f"{name} {attnameformat} history", booly=parser==bool)
 
         graph = discord.File(file, filename="graph.png")
 
         embed = discord.Embed(title=f"{name} {attnameformat} history", color=s.embed)
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         embed.set_image(url="attachment://graph.png")
 
         
@@ -224,6 +215,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
         opp = "player" if town else "town"
         
         embed = discord.Embed(title=f"{str(o)} visited history ({len(objects)})", color=s.embed)
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         embed.set_footer(text=f"Bot has been tracking for {(await c.world.total_tracked).str_no_timestamp()}")
 
         files = []

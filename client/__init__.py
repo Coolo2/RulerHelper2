@@ -325,7 +325,7 @@ class Client():
     async def test(self):
 
         for i in range(15):
-            num = (i+1)*32
+            num = (i+1)*35
             await self.database.connection.execute(f"INSERT INTO town_history(town, date, nation, religion, culture, mayor, resident_count, resident_tax, bank, public, peaceful, area, duration, visited_players, current_name) SELECT town, DATE(date, '+{num} days'), nation, religion, culture, mayor, resident_count, resident_tax, bank, public, peaceful, area, duration, visited_players, current_name FROM town_history WHERE date <= ?", (datetime.date.today(),))
     
     async def backup_db_if_not(self):
@@ -547,7 +547,7 @@ class Notifications():
                             continue
                 
                         likely_residency = await player.likely_residency
-                        likely_residency_nation = likely_residency.nation if likely_residency else "None"
+                        likely_residency_nation = likely_residency.nation.name_formatted if likely_residency and likely_residency.nation else "None"
 
                         
                         if channel.ignore_if_resident and likely_residency and likely_residency.nation == town.nation:

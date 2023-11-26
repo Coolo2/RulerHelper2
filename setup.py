@@ -11,7 +11,7 @@ Setup file!
 
 """
 
-version = "2.6.1"
+version = "2.6.4"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
@@ -23,7 +23,7 @@ alert_channel = 1155439092423733359 # Channel ID to send heavy error messages to
 request_channel = 985590035556479017 # Channel ID to send /request stuff
 mods = [368071242189897728] # List of User IDs who are "bot moderators". They can accept requests. First member of this list should be bot owner
 
-DEFAULT_TOWNS = ["RulerSpawn", "Sea", "Unclaimed", "Europe_Quarry", "North_America_Quarry", "Asia-Pacific_Quarry", "South_America_Quarry", "Africa_Quarry"] # Ignore these towns in certain commands. Will still be tracked and can still be seen with /get
+DEFAULT_TOWNS = ["RulerSpawn", "Sea", "Unclaimed", "Europe_Quarry", "North_America_Quarry", "Asia-Pacific_Quarry", "South_America_Quarry", "Africa_Quarry", "NAmericaTradingPost", "Europe_Trading_Post"] # Ignore these towns in certain commands. Will still be tracked and can still be seen with /get
 DONT_TRACK_TOWNS = ["Sea", "RulerSpawn", "Unclaimed"] # Ignore these towns while tracking.
 
 IMAGE_DPI_GRAPH = 100 # DPI (image quality) for graphs (bar charts, pie charts, line graphs)
@@ -32,7 +32,7 @@ IMAGE_DPI_DRAWING_BIG = 500 # DPI (image quality) for big drawings (maps)
 IMAGE_DPI_RENDER = 600
 timeline_colors = ["red", "green", "brown", "orange", "purple", "yellow"] # Colours for timelines 
 compare_emojis = [":red_square:", ":orange_square:", ":yellow_square:", ":green_square:", ":blue_square:"] # Emojis for compare commands
-compare_line_colors = ["red", "orange", "yellow", "green", "blue"]
+compare_line_colors = ["red", "orange", "yellow", "green", "cyan"]
 connection_line_colours = ["red", "orange", "yellow", "green", "blue", "aqua", "purple", "grey", "black", "white", "cyan", "olive", "pink", "chocolate"] 
 timeline_colors_bool = ["green", "red"] # True, False bool colours for timeline
 bar_color = "#1F1F1F" # Colour of bars in images in commands such as /top
@@ -82,7 +82,8 @@ compare_attributes = {
         {"attribute":"total_area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":None, "y":"Area (plots)", "inline":True, "history_attribute":"area"},
         {"attribute":"total_value", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Town Value ($)", "inline":True, "history_attribute":"town_balance"},
         {"attribute":"leader", "qualitative":True, "inline":True, "formatter":lambda x: escape_markdown(x.name if hasattr(x, 'name') else x)},
-        {"attribute":"capital", "qualitative":True, "inline":True}
+        {"attribute":"capital", "qualitative":True, "inline":True},
+        {"attribute":"average_town_balance", "qualitative":False, "inline":True, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Town Value ($)", "history_attribute":"town_balance/towns"}
     ],
     "player":[
         {"attribute":"activity", "qualitative":False, "y_formatter":generate_time, "history_attribute":"duration"},
@@ -127,6 +128,7 @@ history_commands = {
             {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
             {"attribute":"area/residents", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident"},
             {"attribute":"current_name", "qualitative":True, "formatter":None, "name":None, "parser":lambda x: str(x).replace("_", " "), "name":"name"},
+            {"attribute":"town_balance/towns", "qualitative":False, "formatter":lambda x: f"${x:.2f}/town", "name":"average_town_balance", "parser":None, "y":"$/town"},
     ],
     "object":[ # Religion and Culture
             {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},
@@ -167,6 +169,7 @@ top_commands = {
         {"attribute":"area", "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":"area", "parser":None, "y":"Area (plots)"},
         {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
         {"attribute":"area/residents", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident", "reverse_notable":True},
+        {"attribute":"town_balance/towns", "qualitative":False, "formatter":lambda x: f"${x:,.2f}/town", "name":"average_town_balance", "parser":None, "y":"$/town"},
     ],
     "object":[#Culture and Religion
         {"attribute":"towns", "formatter":None, "name":"towns", "parser":None},

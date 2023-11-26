@@ -63,6 +63,7 @@ class Object():
         self.world = world
         self.object_type = object_type
         self.last_seen = datetime.datetime.now() 
+        self.search_boost = 0
 
         if self.name not in world._objects[self.object_type + "s"]:
             world._objects[self.object_type + "s"].append(self)
@@ -86,12 +87,14 @@ class Object():
         return t
 
     def to_record(self):
+        res_count = self.total_residents
+        self.search_boost = res_count
         return [
             self.object_type, 
             self.name, 
             len(self.towns), 
             self.total_value, 
-            self.total_residents, 
+            res_count, 
             self.total_area, 
             db.CreationField.external_query(
                     self.world.client.activity_table, 
@@ -244,7 +247,12 @@ class Nation(Object):
         detached_area_perc = (self.total_detached_area / self.total_area) * 100
         if detached_area_perc > 0:
             stats.append(f"Detached territories make up **{detached_area_perc:,.2f}%** of {self.name_formatted}'s claims")
+            stats.append(f"The average town balance in {self.name_formatted} is **{self.average_town_balance:,.2f}**")
         return stats
+    
+    @property
+    def average_town_balance(self) -> float:
+        return self.total_value/self.total_towns
 
     @property 
     async def activity(self) -> Activity:
@@ -301,9 +309,9 @@ class Culture(Object):
         d = {}
         for town in self.towns:
             if town.nation:
-                if town.nation.name not in d:
-                    d[town.nation.name] = 0
-                d[town.nation.name] += town.resident_count
+                if town.nation.name_formatted not in d:
+                    d[town.nation.name_formatted] = 0
+                d[town.nation.name_formatted] += town.resident_count
         d = dict(sorted(d.items(), key=lambda x: x[1], reverse=True))
         return d
 
@@ -320,9 +328,9 @@ class Religion(Object):
         d = {}
         for town in self.towns:
             if town.nation:
-                if town.nation.name not in d:
-                    d[town.nation.name] = 0
-                d[town.nation.name] += town.resident_count
+                if town.nation.name_formatted not in d:
+                    d[town.nation.name_formatted] = 0
+                d[town.nation.name_formatted] += town.resident_count
         d = dict(sorted(d.items(), key=lambda x: x[1], reverse=True))
         return d
 
@@ -359,6 +367,8 @@ class Town():
         self.__locs = {}
         self.__built = False
         self.__desc = None
+
+        self.search_boost = 0
 
         self.spawn : Point = None
         self.name : str = None 
@@ -537,6 +547,8 @@ class Town():
 
     def to_record(self) -> list:
 
+        area = self.search_boost = self.area
+
         return [
             self.name, 
             self.flag_url, 
@@ -550,7 +562,7 @@ class Town():
             self.bank, 
             int(self.public), 
             int(self.peaceful), 
-            self.area,
+            area,
             0,
             db.CreationField.external_query(
                     self.__world.client.activity_table, 
@@ -672,6 +684,8 @@ class Player():
         self.health : int = None
         self.online = False
         self.donator : bool = None
+
+        self.search_boost = 0
 
         self._town_cache = None
 
@@ -903,14 +917,14 @@ class World():
         multi = []
 
         i=0
-        for o in sorted(array, key= lambda x:len(str(x))):
+        for o in array:
             if (not search and str(o) == name) or (search and name.replace(" ", "_").lower() in str(o).replace(" ", "_").lower() ):
                 if not multiple: return o 
                 i += 1
                 multi.append(o)
                 if i >= max:break
         if multiple:
-            if len(multi) == max: random.shuffle(multi)
+            multi.sort(key = lambda x: x.search_boost, reverse=True)
             return multi
 
     def get_town(self, town_name : str, search=False, multiple=False, max=25) -> Town:
@@ -920,7 +934,7 @@ class World():
         multi = []
 
         i=0
-        for town in sorted(self.__towns, key=lambda x:len(x)):
+        for town in self.__towns:
             if town_name.replace(" ", "_").lower() in str(town).replace(" ", "_").lower():
                 if not multiple: return self.__towns[town]
                 i+=1
@@ -928,7 +942,7 @@ class World():
                 if i >= max: break
         
         if multiple:
-            if len(multi) == max: random.shuffle(multi)
+            multi.sort(key = lambda x: x.search_boost, reverse=True)
             return multi 
 
     def get_player(self, player_name : str, search=True, multiple=False, max=25) -> Player:
@@ -937,7 +951,7 @@ class World():
         
         multi = []
         i=0
-        for player in sorted(self.__players, key=lambda x:len(x)):
+        for player in self.__players:
             if player_name.replace(" ", "_").lower() in str(player).replace(" ", "_").lower():
                 if not multiple: return self.__players[player]
                 i += 1
@@ -945,7 +959,7 @@ class World():
                 if i >= max: break
 
         if multiple:
-            if len(multi) == max: random.shuffle(multi)
+            multi.sort(key = lambda x: x.search_boost, reverse=True)
             return multi
 
     def get_nation(self, nation_name : str, search=False, multiple=False, max=25) -> Nation:

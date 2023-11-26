@@ -81,12 +81,9 @@ async def setup_hook():
         await bot.tree.sync(guild=s.mod_guild)
     
     # Add column if needed
-    
-
 
     await c.init_db(client.funcs.update_db(c))
     #await c.test()
-    
     
     await c.world.initialise_player_list()
     #await c.fetch_world()

@@ -45,6 +45,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
             description="\n".join(f"### {s.compare_emojis[i]} - {t.name_formatted}" for i, t in enumerate(towns)),
             color=s.embed
         )
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
 
         attributes = s.compare_attributes["town"]
         image_generators.append((graphs.plot_towns, (towns, "retain", "auto", True, 5, False, None, None, None, None, [], towns)))
@@ -78,8 +79,10 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                     history_values_per_town[str(town.name_formatted)] = []
                     for date in history_days:
                         history_values_per_town[str(town.name_formatted)].append(vals_dict.get(date) or np.NaN)
-                    
-            embed.add_field(name=f"{display_name} {('('+str(total if type(total) == int else round(total, 2))+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
+
+            total = total if type(total) == int else round(total, 2)
+            total_str = f"{total:,}" if type(total) in [int, float] else str(total)
+            embed.add_field(name=f"{display_name} {('('+total_str+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
         
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name
@@ -89,7 +92,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 else:
                     image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Town", y, bar, None, attribute.get("y_formatter"), None, None, s.compare_line_colors)))
         
-        nations = list(dict.fromkeys([t.nation.name if t.nation else None for t in towns]))
+        nations = list(dict.fromkeys([t.nation.name for t in towns if t.nation]))
 
         view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False, temp_img_url="attachment://paginator_image.png" if edit else "attachment://map_waiting.jpg", render_image_after=True, index=interaction.extras.get("page"))
         view.add_item(commands_view.CommandButton(self, commands_view.Command("compare players", "Compare Mayors", parameters=[t._mayor_raw for t in towns], emoji="👤", row=2)))
@@ -132,6 +135,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
             description="\n".join(f"### {s.compare_emojis[i]} - {n.name_formatted}" for i, n in enumerate(nations)),
             color=s.embed
         )
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
 
         attributes = s.compare_attributes["nation"]
         image_generators.append((graphs.plot_towns, (twns, "retain", "auto", True, 5, False, None, None, None, None, [], capitals)))
@@ -166,7 +170,9 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                     for date in history_days:
                         history_values_per_nation[str(nation.name_formatted)].append(vals_dict.get(date) or np.NaN)
 
-            embed.add_field(name=f"{display_name} {('('+str(total if type(total) == int else round(total, 2))+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
+            total = total if type(total) == int else round(total, 2)
+            total_str = f"{total:,}" if type(total) in [int, float] else str(total)
+            embed.add_field(name=f"{display_name} {('('+total_str+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
         
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name
@@ -213,6 +219,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
             description="\n".join(f"### {s.compare_emojis[i]} - {p.name}" for i, p in enumerate(players)),
             color=s.embed
         )
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
 
         attributes = s.compare_attributes["player"]
         image_generators.append((graphs.plot_towns, ([], False, "auto", True, 5, False, players, None, None, None, [], players)))
@@ -246,7 +253,10 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                     history_values_per_player[str(player.name_formatted)] = []
                     for date in history_days:
                         history_values_per_player[str(player.name_formatted)].append(vals_dict.get(date) or np.NaN)
-            embed.add_field(name=f"{display_name} {('('+str(total if type(total) == int else round(total, 2))+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
+            
+            total = total if type(total) == int else round(total, 2)
+            total_str = f"{total:,}" if type(total) in [int, float] else str(total)
+            embed.add_field(name=f"{display_name} {('('+total_str+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
         
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name
@@ -256,7 +266,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 else:
                     image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Player", y, bar, None, attribute.get("y_formatter"), None, None, s.compare_line_colors)))
         
-        likely_residencies = list(dict.fromkeys([(await p.likely_residency).name if (await p.likely_residency) else None for p in players]))
+        likely_residencies = [i for i in list(dict.fromkeys([(await p.likely_residency).name if (await p.likely_residency) else None for p in players])) if i != None]
 
         view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False, temp_img_url="attachment://paginator_image.png" if edit else "attachment://map_waiting.jpg", render_image_after=True, index=interaction.extras.get("page"))
         if len(likely_residencies) > 1: view.add_item(commands_view.CommandButton(self, commands_view.Command("compare towns", "Compare Likely Residencies", parameters=likely_residencies, emoji="🗾", row=2)))
