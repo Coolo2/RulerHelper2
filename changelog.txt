@@ -1,4 +1,15 @@
-# 2.7.0
+# 2.8.0 (Nov 28 2023)
+- New /history_today
+ - Sub-commands /history_today town,nation,player,global 
+ - Shows object attribute history throughout the day (every 20 minutes!)
+ - Only shows 24h of data 
+- Notifications now display time spent inside town
+## 2.7.1 (Nov 27 2023)
+- Various fixes to graph positioning and resolution 
+- Small changes to likely residency calculation
+- "Requested by" now shows display name rather than unique username
+- Search is now lines up with autocomplete if command is run with an unfinished search query
+# 2.7.0 (Nov 26 2023)
 - Nation average town balance data 
  - New commands /history nation average_town balance, /top nations average_town_balance 
  - New average town balance notable statistic in /get nation
@@ -15,7 +26,7 @@
 - Fixed /compare players if a player was missing a likely residency
 - Fixed /history culture and /history religion
 newpage
-## 2.6.3 
+## 2.6.3 (Nov 24 2023)
 - /get online select list is now ordered correctly
 - Fixed a bug causing /compare towns not to work if a town wasn't in a nation
 - Map spawn dots now max out in size (only noticeable for small towns)

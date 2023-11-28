@@ -143,6 +143,22 @@ class Client():
             )
         )
 
+        self.town_day_history_table = await self.database.create_or_get_table(
+            db.CreationTable(
+                "town_day_history",
+                [
+                    db.CreationAttribute("town", db.types.String),
+                    db.CreationAttribute("time", db.types.Datetime),
+                    db.CreationAttribute("resident_count", db.types.Int),
+                    db.CreationAttribute("resident_tax", db.types.Float),
+                    db.CreationAttribute("bank", db.types.Float),
+                    db.CreationAttribute("area", db.types.Int),
+                    db.CreationAttribute("duration", db.types.Int),
+                    db.CreationAttribute("visited_players", db.types.Int)
+                ]
+            )
+        )
+
         self.player_history_table = await self.database.create_or_get_table(
             db.CreationTable(
                 "player_history",
@@ -153,6 +169,18 @@ class Client():
                     db.CreationAttribute("visited_towns", db.types.Int),
                     db.CreationAttribute("likely_town", db.types.String),
                     db.CreationAttribute("likely_nation", db.types.String),
+                ]
+            )
+        )
+
+        self.player_day_history_table = await self.database.create_or_get_table(
+            db.CreationTable(
+                "player_day_history",
+                [
+                    db.CreationAttribute("player", db.types.String),
+                    db.CreationAttribute("time", db.types.Datetime),
+                    db.CreationAttribute("duration", db.types.Int),
+                    db.CreationAttribute("visited_towns", db.types.Int)
                 ]
             )
         )
@@ -175,11 +203,42 @@ class Client():
             )
         )
 
+        self.nation_day_history_table = await self.database.create_or_get_table(
+            db.CreationTable(
+                "nation_day_history",
+                [
+                    db.CreationAttribute("nation", db.types.String),
+                    db.CreationAttribute("time", db.types.Datetime),
+                    db.CreationAttribute("towns", db.types.Int),
+                    db.CreationAttribute("town_balance", db.types.Float),
+                    db.CreationAttribute("residents", db.types.Int),
+                    db.CreationAttribute("area", db.types.Int),
+                    db.CreationAttribute("duration", db.types.Int),
+                ]
+            )
+        )
+
         self.global_history_table = await self.database.create_or_get_table(
             db.CreationTable(
                 "global_history",
                 [
                     db.CreationAttribute("date", db.types.Date),
+                    db.CreationAttribute("towns", db.types.Int),
+                    db.CreationAttribute("residents", db.types.Int),
+                    db.CreationAttribute("nations", db.types.Int),
+                    db.CreationAttribute("town_value", db.types.Float),
+                    db.CreationAttribute("area", db.types.Int),
+                    db.CreationAttribute("known_players", db.types.Int),
+                    db.CreationAttribute("activity", db.types.Int)
+                ]
+            )
+        )
+
+        self.global_day_history_table = await self.database.create_or_get_table(
+            db.CreationTable(
+                "global_day_history",
+                [
+                    db.CreationAttribute("time", db.types.Datetime),
                     db.CreationAttribute("towns", db.types.Int),
                     db.CreationAttribute("residents", db.types.Int),
                     db.CreationAttribute("nations", db.types.Int),
@@ -268,11 +327,10 @@ class Client():
     
     async def cull_db(self):
 
-        #await self.town_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
-        #await self.player_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
-        #await self.global_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
-        #await self.nation_history_table.delete_records([db.CreationCondition("date", datetime.date.today()-s.cull_history_from, "<")])
-        #await self.visited_towns_table.delete_records([db.CreationCondition("last", datetime.date.today()-s.cull_history_from, "<")])
+        await self.player_day_history_table.delete_records([db.CreationCondition("time", datetime.datetime.now()-datetime.timedelta(days=1), "<")])
+        await self.town_day_history_table.delete_records([db.CreationCondition("time", datetime.datetime.now()-datetime.timedelta(days=1), "<")])
+        await self.nation_day_history_table.delete_records([db.CreationCondition("time", datetime.datetime.now()-datetime.timedelta(days=1), "<")])
+        await self.global_day_history_table.delete_records([db.CreationCondition("time", datetime.datetime.now()-datetime.timedelta(days=1), "<")])
 
         await self.players_table.delete_records([db.CreationCondition("last", datetime.datetime.now()-s.cull_players_from, "<")])
         await self.towns_table.delete_records([db.CreationCondition("last_seen", datetime.datetime.now()-s.cull_objects_after, "<")])
@@ -472,7 +530,7 @@ class Notifications():
     def __init__(self, client: Client):
         self.client = client
 
-        self._players_ignore : dict[str, list[object.Player]] = {}# "town":Player, Player
+        self._players_ignore : dict[str, dict[str, int]] = {}# "town":{"player":[0, msg]}
 
     async def add_notification_channel(self, channel : discord.TextChannel, notification_type : str, nation_name : str, ignore_if_resident : bool):
         await self.client.notifications_table.add_record(
@@ -536,14 +594,14 @@ class Notifications():
         for town_name, players in self.client.world.towns_with_players.items():
             
             town = self.client.world.get_town(town_name)
-            ignore_players = self._players_ignore.get(town_name) or []
+            ignore_players = self._players_ignore.get(town_name) or {}
             if not town:
                 continue
 
             for channel in channels:
                 if town.nation and channel.notification_type == "territory_enter" and channel.nation_name == town.nation.name:
                     for player in players:
-                        if player in ignore_players:
+                        if player.name in ignore_players:
                             continue
                 
                         likely_residency = await player.likely_residency
@@ -558,26 +616,43 @@ class Notifications():
                         embed.add_field(name="Coordinates", value=f"[{int(player.location.x)}, {int(player.location.y)}, {int(player.location.z)}]({self.client.url}?x={int(player.location.x)}&z={int(player.location.z)}&zoom={s.map_link_zoom})")
                         embed.add_field(name="Town", value=town.name_formatted)
                         embed.add_field(name="Likely residency", value=f"{likely_residency} ({likely_residency_nation})" if likely_residency else "Unknown")
+                        embed.add_field(name="Time spent", value="This will be edited when they exit")
                         embed.set_thumbnail(url=await player.face_url)
 
                         try:
-                            await channel.channel.send(embed=embed)
+                            msg = await channel.channel.send(embed=embed)
                         except:
-                            pass
+                            msg = None
 
                         if town_name not in self._players_ignore:
-                            self._players_ignore[town_name] = []
+                            self._players_ignore[town_name] = {}
                         
-                        if player not in self._players_ignore[town_name]:
-                            self._players_ignore[town_name].append(player)
+                        if player.name not in self._players_ignore[town_name]:
+                            self._players_ignore[town_name][player.name] = [0, msg]
+                        
+                        self._players_ignore[town_name][player.name][0] += self.client.refresh_period
         
         for town_name, players in self._players_ignore.copy().items():
-            if town_name not in self.client.world.towns_with_players:
+
+            for player in players.copy():
+                time : int = self._players_ignore[town_name][player][0]
+                msg : discord.Message = self._players_ignore[town_name][player][1]
+                    
+                if not self.client.world.towns_with_players.get(town_name) or player not in self.client.world.towns_with_players[town_name]:
+                    if msg:
+                        embed = msg.embeds[0]
+                        embed.set_field_at(4, name="Time spent", value=f"In town for {funcs.generate_time(time)}")
+                        try:
+                            await msg.edit(embed=embed)
+                        except Exception as e:
+                            print(e)
+
+                    del self._players_ignore[town_name][player]
+            
+            if len(self._players_ignore[town_name]) == 0:
                 del self._players_ignore[town_name]
-            else:
-                for player in players:
-                    if player not in self.client.world.towns_with_players[town_name]:
-                        self._players_ignore[town_name].remove(player)
+            
+
 
 
 

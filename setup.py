@@ -11,10 +11,10 @@ Setup file!
 
 """
 
-version = "2.6.4"
+version = "2.8.0"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
-PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
+PRODUCTION_MODE = True # Enables error handling and stuff. Set to False during testing, True during release
 
 commands = True # Whether to listen for commands
 
@@ -25,6 +25,9 @@ mods = [368071242189897728] # List of User IDs who are "bot moderators". They ca
 
 DEFAULT_TOWNS = ["RulerSpawn", "Sea", "Unclaimed", "Europe_Quarry", "North_America_Quarry", "Asia-Pacific_Quarry", "South_America_Quarry", "Africa_Quarry", "NAmericaTradingPost", "Europe_Trading_Post"] # Ignore these towns in certain commands. Will still be tracked and can still be seen with /get
 DONT_TRACK_TOWNS = ["Sea", "RulerSpawn", "Unclaimed"] # Ignore these towns while tracking.
+
+today_tracking_period = datetime.timedelta(minutes=20)
+production_today_tracking_minutes = [0, 20, 40]
 
 IMAGE_DPI_GRAPH = 100 # DPI (image quality) for graphs (bar charts, pie charts, line graphs)
 IMAGE_DPI_DRAWING = 300 # DPI (image quality) for drawings (maps)
@@ -145,6 +148,14 @@ history_commands = {
             {"attribute":"known_players", "qualitative":False, "formatter":lambda x: f"{x:,}", "name":None, "parser":None},
             {"attribute":"activity", "qualitative":False, "formatter":generate_time, "name":"total_player_activity", "y":"Time", "y_formatter":generate_time}
     ]
+}
+
+# Uses history settings 
+history_today_commands = {
+    "player":["activity", "visited_town_count"],
+    "town":["residents", "tax", "bank", "area", "activity"],
+    "nation":["towns", "town_value", "residents", "area", "activity"],
+    "global":["towns", "town_value", "residents", "area", "nations", "known_players", "total_player_activity"]
 }
 
 top_commands = {

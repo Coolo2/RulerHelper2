@@ -34,7 +34,7 @@ def floor(num, zoomed_scale):
 def ceil(num, zoomed_scale):
     return zoomed_scale * math.ceil(num / zoomed_scale)
 
-def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight : int = None, y_formatter = None, multi_data : dict[str, list] = None, ticks : list[str]= None, colors : list[str] = None, adjust_missing=False):
+def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight : int = None, y_formatter = None, multi_data : dict[str, list] = None, ticks : list[str]= None, colors : list[str] = None, adjust_missing=False, jump=True):
     
     color = "silver"
 
@@ -57,76 +57,98 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
             pct_text.set_rotation(label.get_rotation())
     else:
 
-        dates = ticks or list(data.keys())
-        date_idx = list(np.round(np.linspace(0, len(dates) - 1, len(dates) if len(dates) < 60 else 60 )).astype(int))
+        times = ticks or list(data.keys())
+        time_idx = list(np.round(np.linspace(0, len(times) - 1, len(times) if len(times) < 60 else 60 )).astype(int))
         added_i = []
         
         for _, data_group in enumerate([list(data.values())]) if data != None else enumerate(multi_data.values()): 
             max_i = data_group.index(max(data_group))
             min_i = data_group.index(min(data_group))
 
-            if max_i not in date_idx: 
-                to_remove = min(date_idx, key=lambda x:abs(x-max_i))
-                to_remove = to_remove if to_remove not in added_i else date_idx[date_idx.index(to_remove)+(1 if date_idx[date_idx.index(to_remove)] < max_i and date_idx.index(to_remove)+1 < len(date_idx) else -1)]
-                date_idx.remove(to_remove)
-                date_idx.append(max_i)
+            if max_i not in time_idx: 
+                to_remove = min(time_idx, key=lambda x:abs(x-max_i))
+                to_remove = to_remove if to_remove not in added_i else time_idx[time_idx.index(to_remove)+(1 if time_idx[time_idx.index(to_remove)] < max_i and time_idx.index(to_remove)+1 < len(time_idx) else -1)]
+                time_idx.remove(to_remove)
+                time_idx.append(max_i)
                 added_i.append(max_i)
-            if min_i not in date_idx: 
-                to_remove = min(date_idx, key=lambda x:abs(x-min_i))
-                to_remove = to_remove if to_remove not in added_i else date_idx[date_idx.index(to_remove)+(1 if date_idx[date_idx.index(to_remove)] < min_i else -1)]
-                date_idx.remove(to_remove)
-                date_idx.append(min_i)
+            if min_i not in time_idx: 
+                to_remove = min(time_idx, key=lambda x:abs(x-min_i))
+                to_remove = to_remove if to_remove not in added_i else time_idx[time_idx.index(to_remove)+(1 if time_idx[time_idx.index(to_remove)] < min_i else -1)]
+                time_idx.remove(to_remove)
+                time_idx.append(min_i)
                 added_i.append(min_i)
        
+        times = [times[i] for i in time_idx]
         
-
         # Add ticks if not pie
-        start_date : datetime.date = None
+        start_time : datetime.datetime = None
         xticks = {}
         keys = []
-        added_dates = []
-        for i, tick_raw in enumerate(dates):
+        added_times = []
+        for i, tick_raw in enumerate(times):
+            is_date = False
             try:
-                date = datetime.datetime.strptime(tick_raw, "%Y-%m-%d").date()
+                time = datetime.datetime.strptime(tick_raw, "%Y-%m-%d")
+                is_date = True 
             except:
-                date = None
-            if date:
+                try:
+                    time = datetime.datetime.fromisoformat(tick_raw)
+                except:
+                    time = None
+            if time:
                 if i == 0:
-                    start_date = date
+                    start_time = time
 
-                date_str = date.strftime('%b %d %Y')
-                xticks[date_str] = (date-start_date).days
-                keys.append(xticks[date_str])
+                time_str = time.strftime('%b %d %Y') if is_date else time.strftime('%b %d %Y %H:%M')
+                xticks[time_str] = int((time-start_time).total_seconds()/60)
+                keys.append(xticks[time_str])
 
-                if adjust_missing and xticks[date_str] -1 not in keys and xticks[date_str]-1 > 0:
-                    date = date-datetime.timedelta(days=1)
-                    date_str = date.strftime('%b %d %Y')
-                    added_dates.append(date)
-                    keys.append((date-start_date).days)
-                    date_idx.append(i-1)
+                if jump and adjust_missing and xticks[time_str] -1 not in keys and xticks[time_str]-1 > 0:
+                    time = time-datetime.timedelta(minutes=s.today_tracking_period.seconds//60, days=1 if is_date else 0)
+                    if time > start_time:
+                        time_str = time.strftime('%b %d %Y') if is_date else time.strftime('%b %d %Y %H:%M')
+                        added_times.append(time)
+                        keys.append(int((time-start_time).total_seconds()/60))
+                        time_idx.append(i-1)
 
             else:
                 xticks[tick_raw] = i
                 keys.append(i)
         
-        date_idx = sorted(date_idx)
-
-        dates = [dates[i] for i in date_idx]
-
-        if adjust_missing and len(added_dates) > 0:
-            xticks = dict(sorted(xticks.items(), key=lambda x: x[1]))
-            keys = sorted(keys)
+        time_idx = sorted(time_idx)
+        
+        dates_start = [str(d)[:16] for d in data]
+        if jump and adjust_missing and len(added_times) > 0:
             # Add in days where there is a gap so that slope isn't gradual
-            last_date = None
-            for date in data.copy().keys():
-                d = datetime.datetime.strptime(date, "%Y-%m-%d").date()
-                for added_date in added_dates.copy():
-                    if last_date and added_date+datetime.timedelta(days=1) == d:
-                        data[added_date.strftime('%Y-%m-%d')] = data[last_date.strftime('%Y-%m-%d')]
-                        added_dates.remove(added_date)
+            last_time = None
+            for i, time in enumerate(data.copy().keys()):
+                is_date = False
+                try:
+                    t = datetime.datetime.strptime(tick_raw, "%Y-%m-%d")
+                    is_date = True 
+                except:
+                    t = datetime.datetime.fromisoformat(tick_raw)
 
-                last_date = d
-            data = dict(sorted(data.items(), key=lambda x: datetime.datetime.strptime(x[0], "%Y-%m-%d").date()))
+                for added_time in added_times.copy():
+                    
+                    if last_time and added_time+datetime.timedelta(minutes=s.today_tracking_period.seconds//60, days=1 if is_date else 0) == t:
+                        copy_to = str(added_time.date()) if is_date else str(added_time)
+                        copy_from = str(last_time.date()) if is_date else str(last_time)
+                        
+                        if str(t)[:16] in dates_start:
+                            continue
+                        
+                        data[copy_to] = data[copy_from]
+                        added_times.remove(added_time)
+
+                last_time = t
+            
+            def sort(x):
+                if client.funcs.validate_datetime(x[0], "%Y-%m-%d"):
+                    return datetime.datetime.strptime(x[0], "%Y-%m-%d")
+                else:
+                    return datetime.datetime.fromisoformat(x[0])
+            data = dict(sorted(data.items(), key=sort))
 
         fig, gnt = plt.subplots()
         if chartType == plt.bar:
@@ -138,11 +160,11 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
             multi_data = {"default":data.values()}
         
         
-        keys = [list(keys)[i] for i in date_idx]
-        xticks = {list(xticks)[i]:xticks[list(xticks)[i]] for i in date_idx}
+        xticks = dict(sorted(xticks.items(), key = lambda x:x[1]))
+        keys = sorted(keys)
         
         for i, (name, plot) in enumerate(multi_data.items()):
-            plot = [list(plot)[i] for i in date_idx]
+            plot = [list(plot)[i] for i in time_idx]
             
             prev = None 
             for i_, v in enumerate(plot):
@@ -183,13 +205,11 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
     plt.ylabel(y)
 
     plt.xticks(rotation=270)
-    d = datetime.datetime.now()
     buf = io.BytesIO()
     plt.savefig(buf, dpi=s.IMAGE_DPI_GRAPH, transparent=True, bbox_inches="tight")
     buf.seek(0)
 
     plt.close()
-    print(datetime.datetime.now()-d)
 
     return buf
 

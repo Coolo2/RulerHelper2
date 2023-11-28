@@ -34,7 +34,13 @@ async def religion_autocomplete(interaction : discord.Interaction, current : str
 
     return [app_commands.Choice(name=n.name_formatted[:100], value=n.name[:100]) for n in c.world.search_religion(current)]
 
-#
+async def players_today_autocomplete(interaction : discord.Interaction, current : str):
+
+    c : client.Client = interaction.client.client
+
+    rs = [r.attribute("player") for r in await c.player_day_history_table.get_records([db.CreationCondition("player", f"%{current}%", "LIKE")], attributes=["player"], group=["player"])]
+
+    return [app_commands.Choice(name=r, value=r) for r in rs][:25]
 
 async def offline_players_autocomplete(interaction : discord.Interaction, current : str):
 
@@ -75,3 +81,5 @@ def history_date_autocomplete_wrapper(object_type : str):
         ][:25]
     
     return history_date_autocomplete
+
+

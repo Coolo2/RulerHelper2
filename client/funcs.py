@@ -100,3 +100,11 @@ async def update_db(c):
                 if custom: await c.database.connection.execute(custom)
                 await c.database.connection.execute(f"DROP TABLE {table_name};")
                 await c.database.connection.execute(f"ALTER TABLE temp{table_name} RENAME TO {table_name};")
+
+def validate_datetime(date_text, format):
+    try:
+        if date_text != datetime.datetime.strptime(date_text, format).strftime(format):
+            raise ValueError
+        return True
+    except ValueError:
+        return False

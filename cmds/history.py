@@ -58,7 +58,7 @@ def generate_command(
             conditions.append(db.CreationCondition("type", o.object_type))
         else:
             o = None
-            rs = await c.global_history_table.get_records(attributes=["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending), conditions=conditions)
+            #rs = await c.global_history_table.get_records(attributes=["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending), conditions=conditions)
 
         table = await c.database.get_table(table_name)
 
@@ -156,6 +156,109 @@ def generate_command(
     elif is_religion:
         async def cmd(interaction : discord.Interaction, religion : str):
             await cmd_uni(interaction, religion=religion)
+    else:
+        async def cmd(interaction : discord.Interaction):
+            await cmd_uni(interaction)
+    return cmd
+
+
+def generate_command_today(
+            c : client.Client, 
+            attribute : str, 
+            formatter = str, 
+            parser = None, 
+            is_town : bool = False, 
+            is_player : bool = False, 
+            is_nation=False, 
+            attname : str = None, 
+            y : str = None, 
+            y_formatter = None
+):
+    async def cmd_uni(interaction : discord.Interaction, town : str = None, player : str = None, nation : str = None, culture : str = None, religion : str = None):
+
+        edit = interaction.extras.get("edit")
+        conditions = []
+
+        o_type = "town" if town else "player" if player else "nation" if nation else "global"
+        table_name = "town_day_history" if town else "player_day_history" if player else "nation_day_history" if nation else "global_day_history"
+        name_attribute = "town" if town else "player" if player else "nation" if nation else None
+
+        if town:
+            o = c.world.get_town(town, True)
+        elif player:
+            o = c.world.get_player(player, True)
+        elif nation:
+            o = c.world.get_nation(nation, True)
+        else:
+            o = None
+
+        table = await c.database.get_table(table_name)
+
+        if o_type != "global":
+            if not o: raise client.errors.MildError("Nothing found!")
+            conditions.append(db.CreationCondition(name_attribute, o.name))
+        
+        rs = await table.get_records(
+            conditions, 
+            ["time", attribute], 
+            order=db.CreationOrder("time", db.types.OrderAscending)
+        )
+
+        if len(rs) == 0:
+            raise client.errors.MildError(f"No data to show yet! Wait until some is available (max 20 minutes)")
+
+        name = o.name_formatted + "'s" if o else 'Global'
+        attnameformat = attname.replace('_', ' ')
+
+        log = ""
+        last = None
+        values = {}
+        parsed_values = {}
+        for record in rs:
+            
+            if record.attribute(attribute) == None:
+                continue
+            
+            parsed = parser(record.attribute(attribute)) if parser else record.attribute(attribute)
+            
+            parsed_values[str(record.attribute('time'))] = parsed
+
+            change = parsed-last if last else None
+            change = (("+" if change >= 0 else "-") + formatter(change).replace("-", "")) if change not in [None, 0] else ""
+            val = formatter(parsed)
+            
+            log = f"**<t:{int(record.attribute('time').timestamp())}:f>**: {discord.utils.escape_markdown(str(val))}" + (f" (`{change}`)\n" if last and len(change)>0 else "\n") + log
+            last = parsed
+        
+            values[str(record.attribute('time'))] = int(parsed)
+        
+
+        file = graphs.save_graph(values, f"{name} {attnameformat} history today", "Date (GMT)", y or "Value", plot, y_formatter = y_formatter, adjust_missing=len(values) < 60)
+
+        graph = discord.File(file, filename="graph.png")
+
+        embed = discord.Embed(title=f"{name} {attnameformat} history today", color=s.embed)
+        if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
+        embed.set_image(url="attachment://graph.png")
+
+        if s.see_more_footer:
+            embed.set_footer(text=f"See more with /history_today {o_type} ... !")
+
+        view = paginator.PaginatorView(embed, log, index=interaction.extras.get("page"))
+        
+        view.add_item(commands_view.RefreshButton(c, f"history_today {o_type} {attname}", [o.name] if o else [], row=0 if len(view.children) < 5 else 1))
+        
+        return await (interaction.response.edit_message(embed=embed, view=view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=view, file=graph))
+
+    if is_town:
+        async def cmd(interaction : discord.Interaction, town : str):
+            await cmd_uni(interaction, town=town)
+    elif is_player:
+        async def cmd(interaction : discord.Interaction, player : str):
+            await cmd_uni(interaction, player=player)
+    elif is_nation:
+        async def cmd(interaction : discord.Interaction, nation : str):
+            await cmd_uni(interaction, nation=nation)
     else:
         async def cmd(interaction : discord.Interaction):
             await cmd_uni(interaction)
@@ -277,14 +380,21 @@ class History(commands.Cog):
         super().__init__()
     
         history = app_commands.Group(name="history", description="History commands")
+        today = app_commands.Group(name="history_today", description="History for just today")
+
         town = app_commands.Group(name="town", description="Get history for a town's attributes", parent=history)
         player = app_commands.Group(name="player", description="Get history for a player's attributes", parent=history)
+        
 
         command_types = [
-            {"name":"global", "group":app_commands.Group(name="global", description="Get history for global attributes", parent=history), "parameters":[]},
-            {"name":"town", "group":town, "parameters":[{"name":"town", "autocomplete":autocompletes.town_autocomplete}]},
-            {"name":"player", "group":player, "parameters":[{"name":"player", "autocomplete":autocompletes.player_autocomplete}]},
-            {"name":"nation", "group":app_commands.Group(name="nation", description="Get history for a nation's attributes", parent=history), "parameters":[{"name":"nation", "autocomplete":autocompletes.nation_autocomplete}]},
+            {"name":"global", "group":app_commands.Group(name="global", description="Get history for global attributes", parent=history), 
+                "group_today":app_commands.Group(name="global", description="Get history for global attributes today", parent=today), "parameters":[]},
+            {"name":"town", "group":town, 
+                "group_today":app_commands.Group(name="town", description="Get history for a town's attributes today", parent=today), "parameters":[{"name":"town", "autocomplete":autocompletes.town_autocomplete}]},
+            {"name":"player", "group":player, 
+                "group_today":app_commands.Group(name="player", description="Get history for a player's attributes today", parent=today), "parameters":[{"name":"player", "autocomplete":autocompletes.player_autocomplete}]},
+            {"name":"nation", "group":app_commands.Group(name="nation", description="Get history for a nation's attributes", parent=history), 
+                "group_today":app_commands.Group(name="nation", description="Get history for a nation's attributes today", parent=today), "parameters":[{"name":"nation", "autocomplete":autocompletes.nation_autocomplete}]},
             {"name":"culture", "group":app_commands.Group(name="culture", description="Get history for a culture's attributes", parent=history), "parameters":[{"name":"culture", "autocomplete":autocompletes.culture_autocomplete}], "attributes":s.history_commands["object"]},
             {"name":"religion", "group":app_commands.Group(name="religion", description="Get history for a religion's attributes", parent=history), "parameters":[{"name":"religion", "autocomplete":autocompletes.religion_autocomplete}], "attributes":s.history_commands["object"]},
         ]
@@ -309,6 +419,20 @@ class History(commands.Cog):
                     if parameter.get("autocomplete"):
                         command.autocomplete(parameter["name"])(parameter["autocomplete"])
                 command_type["group"].add_command(command)
+
+                if command_type.get("group_today") and name in s.history_today_commands[command_type["name"]]:
+                    command_day = app_commands.command(name=name, description=f"Today's history for {cmd_type_name} {name}")(generate_command_today(
+                        self.client, 
+                        attribute.get("attribute"), 
+                        attribute.get("formatter") or str, attribute.get("parser"), 
+                        is_town=cmd_type_name == "town", is_nation = cmd_type_name == "nation", is_player=cmd_type_name == "player",
+                        attname=name, 
+                        y=attribute.get("y"), y_formatter=attribute.get("y_formatter")
+                    ))
+                    for parameter in command_type["parameters"]:
+                        if parameter.get("autocomplete"):
+                            command_day.autocomplete(parameter["name"])(parameter["autocomplete"] if parameter["autocomplete"] != autocompletes.player_autocomplete else autocompletes.players_today_autocomplete)
+                    command_type["group_today"].add_command(command_day)
         
         cmds = [["player", "town", player, autocompletes.player_autocomplete], ["town", "player", town, autocompletes.town_autocomplete]]
         for cmd in cmds:
@@ -317,6 +441,7 @@ class History(commands.Cog):
             cmd[2].add_command(command)
 
         self.bot.tree.add_command(history)
+        self.bot.tree.add_command(today)
 
 
 async def setup(bot : commands.Bot):

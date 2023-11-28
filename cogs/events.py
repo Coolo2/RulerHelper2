@@ -48,7 +48,7 @@ class Events(commands.Cog):
                     
                     command_string = custom_id.replace("command_", "")
                     interaction.extras["author"] = {
-                        "name":f"Requested by {interaction.user}",
+                        "name":f"Requested by {interaction.user.display_name}",
                         "icon_url":interaction.user.display_avatar.url if interaction.user.display_avatar else None
                     }
                 
