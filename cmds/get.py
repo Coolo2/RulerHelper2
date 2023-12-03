@@ -256,16 +256,18 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
             return await (interaction.response.edit_message(embed=embed, attachments=files, view=c_view) if edit else interaction.response.send_message(embed=embed, files=files, view=c_view))
 
-        elif len(towns) > 3 and not edit:
+        elif len(towns) > 3:
             
-            files.append(discord.File(s.waiting_bg_path, "map_waiting.jpg"))
-            embed.set_image(url="attachment://map_waiting.jpg")
+            if not edit:
+                files.append(discord.File(s.waiting_bg_path, "map_waiting.jpg"))
+                embed.set_image(url="attachment://map_waiting.jpg")
 
             await (
                 (
-                    interaction.response.edit_message(embed=embed, attachments=files, view=c_view) if len(files) > 0 else interaction.response.edit_message(embed=embed, view=c_view)
+                    interaction.response.edit_message(embed=embed, view=c_view) if len(files) > 0 else interaction.response.edit_message(embed=embed, view=c_view)
                 ) if edit else interaction.response.send_message(embed=embed, files=files, view=c_view)
             )
+    
         
         graph = discord.File(graphs.plot_towns([capital]+towns, plot_spawn=True, dimmed_towns=borders[1], cache_name=cache_name, cache_id=cache_id, outposts="retain"), filename="map.png")
         embed.set_image(url="attachment://map.png")

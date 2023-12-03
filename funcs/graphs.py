@@ -117,10 +117,11 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
         
         time_idx = sorted(time_idx)
         
-        dates_start = [str(d)[:16] for d in data]
-        if jump and adjust_missing and len(added_times) > 0:
+        
+        if jump and adjust_missing and len(added_times) > 0 and data:
             # Add in days where there is a gap so that slope isn't gradual
             last_time = None
+            dates_start = [str(d)[:16] for d in data]
             for i, time in enumerate(data.copy().keys()):
                 is_date = False
                 try:
@@ -132,10 +133,11 @@ def save_graph(data : dict, title : str, x : str, y : str, chartType, highlight 
                 for added_time in added_times.copy():
                     
                     if last_time and added_time+datetime.timedelta(minutes=s.today_tracking_period.seconds//60, days=1 if is_date else 0) == t:
+                        
                         copy_to = str(added_time.date()) if is_date else str(added_time)
                         copy_from = str(last_time.date()) if is_date else str(last_time)
                         
-                        if str(t)[:16] in dates_start:
+                        if str(copy_to)[:16] in dates_start:
                             continue
                         
                         data[copy_to] = data[copy_from]
@@ -305,12 +307,10 @@ def check_cache(cache_name : str, cache_id : str):
     
     return n
 
-def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="auto", plot_spawn=True, dot_size=None, whole=False, players : list[client.object.Player] = None, cache_name : str = None, cache_id : int = None, cache_checked=False, dimmed_towns : list[client.object.Town]=[], connect_spawns:list[client.object.Town]=False, maintain_aspect=True):
+def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="auto", plot_spawn=True, dot_size=None, whole=False, players : list[client.object.Player] = None, cache_name : str = None, cache_id : int = None, cache_checked=False, dimmed_towns : list[client.object.Town]=[], connect_spawns:list[client.object.Town]=False, maintain_aspect=True, journey:list[list[int]]=None):
 
     # Cache_checked can be False if not checked, None if doesn't exists, str if does exist
-    d = datetime.datetime.now()
     matplotlib.rcParams['text.color'] = "silver"
-    #matplotlib.rcParams['path.simplify_threshold'] = 0.0
 
     bg_path = s.earth_bg_path
     if cache_name and cache_id and cache_checked == False:
@@ -336,20 +336,37 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
     if towns:
         for town in towns:
             for i, polygon in enumerate(town.locations.geoms):
-                if not polygon.contains(Point(town.spawn.x, town.spawn.z)):
-                    continue
+                if journey:
+                    add = False 
+                    for p_raw in journey:
+                        if polygon.contains(Point(p_raw[0], p_raw[1])):
+                            add = True
+                else:
+                    add = True
 
-                plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.2 if whole == True else 0.5, animated=True)
+                if polygon.contains(Point(town.spawn.x, town.spawn.z)) and add == True:
+                    plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.2 if whole == True else 0.5, animated=True)
         
-        if outposts:
-            if outposts == "retain":
-                x_lim = ax.get_xlim()
-                y_lim = ax.get_ylim()
+        if outposts == "retain":
+            x_lim = ax.get_xlim()
+            y_lim = ax.get_ylim()
+            
 
-            for town in towns:
+        for town in towns:
+            if outposts or journey:
+                
                 det = town.detached_locations
                 for polygon in det.geoms if hasattr(det, "geoms") else [det]:
-                    plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.2 if whole == True else 0.5, animated=True)
+                    if journey:
+                        add = False 
+                        for p_raw in journey:
+                            if polygon.contains(Point(p_raw[0], p_raw[1])):
+                                add = True
+                    else:
+                        add = True
+                    
+                    if add:
+                        plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.2 if whole == True else 0.5, animated=True)
     
 
     if players:
@@ -370,25 +387,11 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
         plt.scatter(x_online, z_online, color="white", s=dot_size or 10, zorder=6)
         plt.scatter(x_offline, z_offline, color="#707070", s=dot_size/10 or 1, zorder=5)
 
-    
-    if outposts != "retain":
-        x_lim = ax.get_xlim()
-        y_lim = ax.get_ylim()
-
     if dimmed_towns:
         for town in dimmed_towns:
             for i, polygon in enumerate(town.locations.geoms):
 
                 plt.fill(*polygon.exterior.xy, fc=s.map_bordering_town_fill_colour + f"{s.map_bordering_town_opacity:02}", ec=town.border_color + f"{s.map_bordering_town_opacity//2:02}", zorder=2, rasterized=True, lw=0.5)
-
-    dpi = s.IMAGE_DPI_DRAWING
-    if whole or (show_earth == "auto" and (x_lim[1]-x_lim[0] > s.show_earth_bg_if_over or y_lim[1]-y_lim[0] > s.show_earth_bg_if_over)):
-        show_earth = True
-        
-        if (whole or (x_lim[1]-x_lim[0] > xw*1.7 or y_lim[1]-y_lim[0] > yw*1.5)):
-            if bg_path == s.earth_bg_path:
-                bg_path = s.earth_bg_path_whole
-            dpi = s.IMAGE_DPI_DRAWING_BIG
 
     if plot_spawn:
 
@@ -403,6 +406,30 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
                 done.append([ts[0].name, ts[1].name])
                 done.append([ts[1].name, ts[0].name])
             plt.legend(loc="upper left", prop={'size':5}, frameon=False)
+        
+        if journey:
+            for i in range(len(journey)):
+                if i == 0:
+                    continue 
+                
+                prev, current = journey[i-1], journey[i]
+                d = [current[0]-prev[0], current[1]-prev[1]]
+
+                plt.arrow(prev[0], prev[1], d[0], d[1], length_includes_head=True, head_width=5, head_length=10, color="#FFFFFFB4", zorder=5, lw=0.5, linestyle='dashed')
+    
+    if outposts != "retain" or journey:
+        x_lim = ax.get_xlim()
+        y_lim = ax.get_ylim()
+    
+    dpi = s.IMAGE_DPI_DRAWING
+
+    if whole or (show_earth == "auto" and (x_lim[1]-x_lim[0] > s.show_earth_bg_if_over or y_lim[1]-y_lim[0] > s.show_earth_bg_if_over)):
+        show_earth = True
+        
+        if (whole or (x_lim[1]-x_lim[0] > xw*1.7 or y_lim[1]-y_lim[0] > yw*1.5)):
+            if bg_path == s.earth_bg_path:
+                bg_path = s.earth_bg_path_whole
+            dpi = s.IMAGE_DPI_DRAWING_BIG
 
     if show_earth == True:
         
@@ -416,12 +443,25 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
             y_lim_mag_from_centre = (y_lim[1]-y_lim[0])/2
 
             x_lim = (x_lim_centre-y_lim_mag_from_centre*2, x_lim_centre+y_lim_mag_from_centre*2)
+
+            shift_x = ((xw-x_lim[1]) if x_lim[1] > xw else 0) + (0-((0-xw)-(0-x_lim[0])) if x_lim[0] < 0-xw else 0)
+            x_lim = x_lim[0]+shift_x, x_lim[1]+shift_x
+        
+        if maintain_aspect and (y_lim[1]-y_lim[0]) < 0.3*(x_lim[1]-x_lim[0]) :
+            y_lim_centre = (y_lim[1]+y_lim[0])/2
+            x_lim_mag_from_centre = (x_lim[1]-x_lim[0])/2
+
+            y_lim = (y_lim_centre-x_lim_mag_from_centre*0.3, y_lim_centre+x_lim_mag_from_centre*0.3)
+
+            shift_y = ((yw-y_lim[1]) if y_lim[1] > yw else 0) + (0-((0-yw)-(0-y_lim[0])) if y_lim[0] < 0-yw else 0)
+            y_lim = y_lim[0]+shift_y, y_lim[1]+shift_y
+        
         if connect_spawns:
-            ax.set_xlim(x_lim[1]-((x_lim[1]-x_lim[0])*1.25), x_lim[1])
-            ax.set_ylim(y_lim[0], (y_lim[0]+((0.92+(0.08*len(connect_spawns)))*(y_lim[1]-y_lim[0]))))
-        else:
-            ax.set_xlim(x_lim)
-            ax.set_ylim(y_lim)
+            x_lim = x_lim[1]-((x_lim[1]-x_lim[0])*1.25), x_lim[1]
+            y_lim = y_lim[0], (y_lim[0]+((0.92+(0.08*len(connect_spawns)))*(y_lim[1]-y_lim[0])))
+
+        ax.set_xlim(x_lim)
+        ax.set_ylim(y_lim)
     
     if plot_spawn and towns:
         if not dot_size:

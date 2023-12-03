@@ -269,7 +269,7 @@ class Nation(Object):
         return [
             self.name, 
             datetime.date.today(), 
-            db.CreationField.external_query(self.world.client.objects_table, "area", cond_objects),
+            db.CreationField.external_query(self.world.client.objects_table, "towns", cond_objects),
             db.CreationField.external_query(self.world.client.objects_table, "town_balance", cond_objects),
             db.CreationField.external_query(self.world.client.objects_table, "residents", cond_objects),
             str(self.capital), 
@@ -285,11 +285,7 @@ class Nation(Object):
     
     def to_record_day_history(self):
         r = self.to_record_history()
-        return [r[0], datetime.datetime.now(), r[2], r[3], db.CreationField.external_query(
-                    self.world.client.objects_table, 
-                    "area", 
-                    [db.CreationCondition("type", "nation"), db.CreationCondition("name", self.name)]
-            ), r[8]]
+        return [r[0], datetime.datetime.now(), r[2], r[3], r[4], r[7], r[8]]
     
     def to_record_activity(self) -> list:
         return ["nation", self.name, 0, datetime.datetime.now()]

@@ -3,6 +3,8 @@ import aiohttp
 from client import object, funcs, errors
 import json
 
+
+
 import datetime
 import setup as s
 
@@ -588,7 +590,7 @@ class Notifications():
         
         return notification_channels
     
-    async def refresh(self):
+    async def refresh(self, graphs):
         channels = await self.client.notifications.get_notification_channels()
 
         for town_name, players in self.client.world.towns_with_players.items():
@@ -602,6 +604,11 @@ class Notifications():
                 if town.nation and channel.notification_type == "territory_enter" and channel.nation_name == town.nation.name:
                     for player in players:
                         if player.name in ignore_players:
+                            l = [player.location.x, player.location.z]
+                            ig = self._players_ignore[town_name][player.name]
+                            if len(ig[2]) == 0 or ig[2][-1] != l:
+                                ig[2].append(l)
+                            ig[0] += self.client.refresh_period
                             continue
                 
                         likely_residency = await player.likely_residency
@@ -628,22 +635,32 @@ class Notifications():
                             self._players_ignore[town_name] = {}
                         
                         if player.name not in self._players_ignore[town_name]:
-                            self._players_ignore[town_name][player.name] = [0, msg]
+                            self._players_ignore[town_name][player.name] = [self.client.refresh_period, msg, []]
                         
-                        self._players_ignore[town_name][player.name][0] += self.client.refresh_period
+                        
         
         for town_name, players in self._players_ignore.copy().items():
 
             for player in players.copy():
                 time : int = self._players_ignore[town_name][player][0]
                 msg : discord.Message = self._players_ignore[town_name][player][1]
+                journey : list[list[int]] = self._players_ignore[town_name][player][2]
                     
                 if not self.client.world.towns_with_players.get(town_name) or player not in self.client.world.towns_with_players[town_name]:
                     if msg:
+
                         embed = msg.embeds[0]
                         embed.set_field_at(4, name="Time spent", value=f"In town for {funcs.generate_time(time)}")
+
+                        t = self.client.world.get_town(town_name)
+                        if t:
+                            attachments = [discord.File(graphs.plot_towns([t], outposts=False, show_earth=False, maintain_aspect=True, journey=journey), filename="journey.png")]
+                            embed.set_image(url="attachment://journey.png")
+                        else:
+                            attachments = []
+
                         try:
-                            await msg.edit(embed=embed)
+                            await msg.edit(embed=embed, attachments=attachments)
                         except Exception as e:
                             print(e)
 

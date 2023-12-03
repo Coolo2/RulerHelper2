@@ -1,9 +1,20 @@
+## 2.8.2 (Dec 03 2023)
+- Fixed /get nation refresh button not responding when it has to generate a map 
+- Fixed certain maps having transparent space on the side of the image
+- Nation drawings now must fit aspect ratio requirements for the height as well
+## 2.8.1 (Nov 29 2023)
+- Fixed a bug making line graphs show a decrease towards the end when there wasn't
+- Fixed "in town for 0s" on notifications
+- Fixed bugs causing some history values to be missing
+- Fixed irrelevent outposts displaying on notification drawings
 # 2.8.0 (Nov 28 2023)
-- New /history_today
+- New command /history_today
  - Sub-commands /history_today town,nation,player,global 
  - Shows object attribute history throughout the day (every 20 minutes!)
  - Only shows 24h of data 
 - Notifications now display time spent inside town
+- Journeys are now drawn onto notifications
+newpage
 ## 2.7.1 (Nov 27 2023)
 - Various fixes to graph positioning and resolution 
 - Small changes to likely residency calculation
