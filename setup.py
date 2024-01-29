@@ -11,10 +11,10 @@ Setup file!
 
 """
 
-version = "2.8.0"
+version = "2.8.5"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
-PRODUCTION_MODE = True # Enables error handling and stuff. Set to False during testing, True during release
+PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
 
 commands = True # Whether to listen for commands
 
@@ -23,7 +23,8 @@ alert_channel = 1155439092423733359 # Channel ID to send heavy error messages to
 request_channel = 985590035556479017 # Channel ID to send /request stuff
 mods = [368071242189897728] # List of User IDs who are "bot moderators". They can accept requests. First member of this list should be bot owner
 
-DEFAULT_TOWNS = ["RulerSpawn", "Sea", "Unclaimed", "Europe_Quarry", "North_America_Quarry", "Asia-Pacific_Quarry", "South_America_Quarry", "Africa_Quarry", "NAmericaTradingPost", "Europe_Trading_Post"] # Ignore these towns in certain commands. Will still be tracked and can still be seen with /get
+DEFAULT_TOWNS = ["RulerSpawn", "Sea", "Unclaimed"] # Ignore these towns in certain commands. Will still be tracked and can still be seen with /get
+DEFAULT_TOWNS_SUBSTRING = ["Quarry", "Trading"]
 DONT_TRACK_TOWNS = ["Sea", "RulerSpawn", "Unclaimed"] # Ignore these towns while tracking.
 
 today_tracking_period = datetime.timedelta(minutes=20)

@@ -28,6 +28,8 @@ import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
 
+from PIL import Image, ImageDraw
+
 def floor(num, zoomed_scale):
     return zoomed_scale * math.floor(num / zoomed_scale)
 
@@ -307,8 +309,9 @@ def check_cache(cache_name : str, cache_id : str):
     
     return n
 
-def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="auto", plot_spawn=True, dot_size=None, whole=False, players : list[client.object.Player] = None, cache_name : str = None, cache_id : int = None, cache_checked=False, dimmed_towns : list[client.object.Town]=[], connect_spawns:list[client.object.Town]=False, maintain_aspect=True, journey:list[list[int]]=None):
 
+def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="auto", plot_spawn=True, dot_size=None, whole=False, players : list[client.object.Player] = None, cache_name : str = None, cache_id : int = None, cache_checked=False, dimmed_towns : list[client.object.Town]=[], connect_spawns:list[client.object.Town]=False, maintain_aspect=True, journey:list[list[int]]=None):
+    
     # Cache_checked can be False if not checked, None if doesn't exists, str if does exist
     matplotlib.rcParams['text.color'] = "silver"
 
@@ -345,6 +348,7 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
                     add = True
 
                 if polygon.contains(Point(town.spawn.x, town.spawn.z)) and add == True:
+                    
                     plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.2 if whole == True else 0.5, animated=True)
         
         if outposts == "retain":
@@ -357,6 +361,7 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
                 
                 det = town.detached_locations
                 for polygon in det.geoms if hasattr(det, "geoms") else [det]:
+                    
                     if journey:
                         add = False 
                         for p_raw in journey:
@@ -365,7 +370,8 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
                     else:
                         add = True
                     
-                    if add:
+                    if outposts or add:
+                        
                         plt.fill(*polygon.exterior.xy, fc=town.fill_color + "20", ec=town.border_color, zorder=3, rasterized=True, lw=0.2 if whole == True else 0.5, animated=True)
     
 
@@ -387,10 +393,9 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
         plt.scatter(x_online, z_online, color="white", s=dot_size or 10, zorder=6)
         plt.scatter(x_offline, z_offline, color="#707070", s=dot_size/10 or 1, zorder=5)
 
-    if dimmed_towns:
+    if dimmed_towns and outposts != True:
         for town in dimmed_towns:
             for i, polygon in enumerate(town.locations.geoms):
-
                 plt.fill(*polygon.exterior.xy, fc=s.map_bordering_town_fill_colour + f"{s.map_bordering_town_opacity:02}", ec=town.border_color + f"{s.map_bordering_town_opacity//2:02}", zorder=2, rasterized=True, lw=0.5)
 
     if plot_spawn:
@@ -420,6 +425,9 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
     if outposts != "retain" or journey:
         x_lim = ax.get_xlim()
         y_lim = ax.get_ylim()
+        print(x_lim, y_lim)
+    
+    
     
     dpi = s.IMAGE_DPI_DRAWING
 
@@ -490,6 +498,9 @@ def plot_towns(towns : list[client.object.Town], outposts="retain", show_earth="
     plt.close()
 
     return buf
+
+
+
 
 
 def take(n, iterable):

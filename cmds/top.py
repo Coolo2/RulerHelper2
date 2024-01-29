@@ -72,10 +72,10 @@ def generate_command(
         log = ""
         values = {}
         for i, record in enumerate(reversed(rs) if reverse else rs):
-            if is_town and record.attribute('name') in s.DEFAULT_TOWNS:
+            if is_town and (record.attribute('name') in s.DEFAULT_TOWNS or True in [l in record.attribute('name') for l in s.DEFAULT_TOWNS_SUBSTRING]):
                 continue
             
-            if is_religion and "Produces" in record.attribute("name"):
+            if is_religion and "Production" in record.attribute("name"):
                 continue
             
             parsed = (parser(record.fields[1].value) if parser else record.fields[1].value) or 0

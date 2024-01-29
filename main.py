@@ -28,12 +28,15 @@ c.bot = bot
 async def on_ready():
     print(bot.user.name, "online")
 
+    _refresh.start()
+
     for guild in bot.guilds:
         print(guild.name, guild.owner)
 
 @tasks.loop(seconds=c.refresh_period)
 async def _refresh():
     c.refresh_no += 1
+    c.messages_sent = 0
 
     t = datetime.datetime.now()
     print("Refreshing", c.refresh_period)
@@ -83,8 +86,6 @@ async def setup_hook():
     #await c.test()
     
     await c.world.initialise_player_list()
-    
-    _refresh.start()
 
 bot.setup_hook = setup_hook
 

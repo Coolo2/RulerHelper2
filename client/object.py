@@ -178,7 +178,7 @@ class Nation(Object):
     @property 
     def capital(self) -> Town:
         for town in self.towns:
-            if town.icon == "king":
+            if town.icon == "ruler":
                 return town 
     
     @property 
@@ -483,7 +483,7 @@ class Town():
         borders = []
 
         for town in self.__world.towns:
-            if town != self and town.name not in setup.DEFAULT_TOWNS:
+            if town != self and town.name not in setup.DEFAULT_TOWNS and True not in [l in town.name for l in setup.DEFAULT_TOWNS_SUBSTRING]:
                 if self.locations.intersects(town.locations):
                     borders.append(town)
         
@@ -940,8 +940,8 @@ class World():
         multi = []
 
         i=0
-        for o in sorted(array, key = lambda x: x.search_boost, reverse=True):
-            if (not search and str(o) == name) or (search and name.replace(" ", "_").lower() in str(o).replace(" ", "_").lower() ):
+        for o in sorted(array, key = lambda x: (x.name.lower()==name.lower(),x.search_boost), reverse=True):
+            if (not search and o.name == name) or (search and name.replace(" ", "_").lower() in str(o).replace(" ", "_").lower() ):
                 if not multiple: return o 
                 i += 1
                 multi.append(o)
@@ -956,7 +956,7 @@ class World():
         multi = []
 
         i=0
-        for town in sorted(self.__towns, key = lambda x: self.__towns[x].search_boost, reverse=True):
+        for town in sorted(self.__towns, key = lambda x: (x.lower()==town_name.lower(),self.__towns[x].search_boost), reverse=True):
             if town_name.replace(" ", "_").lower() in str(town).replace(" ", "_").lower():
                 if not multiple: return self.__towns[town]
                 i+=1
@@ -967,12 +967,12 @@ class World():
             return multi 
 
     def get_player(self, player_name : str, search=True, multiple=False, max=25) -> Player:
-        if not search:
+        if not search and not multiple:
             return self.__players.get(player_name)
         
         multi = []
         i=0
-        for player in sorted(self.__players, key = lambda x: self.__players[x].search_boost, reverse=True):
+        for player in sorted(self.__players, key = lambda x: (x.lower()==player_name.lower(),self.__players[x].search_boost), reverse=True):
             if player_name.replace(" ", "_").lower() in str(player).replace(" ", "_").lower():
                 if not multiple: return self.__players[player]
                 i += 1
@@ -980,7 +980,6 @@ class World():
                 if i >= max: break
 
         if multiple:
-            multi.sort(key = lambda x: x.search_boost, reverse=True)
             return multi
 
     def get_nation(self, nation_name : str, search=False, multiple=False, max=25) -> Nation:
@@ -1491,7 +1490,7 @@ continents : dict[str, Polygon] = {
             [-11805, -2400]
         ]
     ),
-    "oceana":Polygon(
+    "oceania":Polygon(
         [
             [29083, 605],
             [28427, 1966],

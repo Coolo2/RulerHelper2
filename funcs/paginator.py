@@ -1,4 +1,8 @@
 
+"""
+PyPaginator v2.0.1 by Coolo2
+"""
+
 import discord
 import typing
 
@@ -36,7 +40,7 @@ class PaginatorView(discord.ui.View):
         
         self.pages = [split_character.join(pages[i:i+per_page]) for i in range(0, len(pages), per_page)]
 
-        if self.index >= len(self.pages):
+        if self.index >= len(self.pages) or self.index == -1:
             self.index = len(self.pages)-1
 
         if len(page_image_generators) > 0 and page_image_generators[0]:
