@@ -3,6 +3,7 @@ from datetime import timedelta
 from discord import Object
 from discord.utils import escape_markdown
 from client.funcs import generate_time
+from client.image_generator import ImageGenerator
 import datetime
 
 """
@@ -11,7 +12,7 @@ Setup file!
 
 """
 
-version = "2.8.5"
+version = "2.9.0"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
@@ -69,7 +70,7 @@ embedSuccess = 0x32CD32
 
 compare_attributes = {
     "town": [
-        {"attribute":"activity", "qualitative":False, "y_formatter":generate_time, "history_attribute":"duration", "inline":True},
+        {"attribute":"activity", "qualitative":False, "y_formatter":ImageGenerator.YTickFormatter.TIME, "history_attribute":"duration", "inline":True},
         {"attribute":"total_visited_players", "qualitative":False, "name":"visited players", "inline":True, "history_attribute":"visited_players", "inline":True},
         {"attribute":"founded_date", "qualitative":False, "formatter":lambda x: f"{(datetime.date.today()-x).days:,} days ({x.strftime('%b %d %Y')})", "parser":lambda x: (datetime.date.today() - x).days, "name":"age", "y":"Age (days)", "no_history":True},
         {"attribute":"bank", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Bank ($)", "inline":True},

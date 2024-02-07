@@ -119,7 +119,12 @@ def generate_command(
             values[td] = values[list(values)[-1]]
         
         if not qualitative:
-            file = graphs.save_graph(values, f"{name} {attnameformat} history", "Date", y or "Value", plot, y_formatter = y_formatter, adjust_missing=len(values) < 60)
+            lg = c.image_generator.LineGraph(c.image_generator.XTickFormatter.DATE, y_formatter)
+            lg.add_line(c.image_generator.Line([c.image_generator.Vertex(r.fields[0].value, r.fields[1].value) for r in rs]))
+            await c.image_generator.plot_linegraph(
+                lg, f"{name} {attnameformat} history", "Date", y or "Value"
+            )
+            file = await c.image_generator.render_plt(s.IMAGE_DPI_GRAPH, pad=True)
         else:
             file = graphs.save_timeline(values, f"{name} {attnameformat} history", booly=parser==bool)
 
@@ -232,8 +237,14 @@ def generate_command_today(
         
             values[str(record.attribute('time'))] = int(parsed)
         
+        lg = c.image_generator.LineGraph(c.image_generator.XTickFormatter.DATETIME, y_formatter)
+        lg.add_line(c.image_generator.Line([c.image_generator.Vertex(r.fields[0].value, r.fields[1].value) for r in rs]))
+        await c.image_generator.plot_linegraph(
+            lg, f"{name} {attnameformat} history today", "Time (GMT)", y or "Value"
+        )
+        file = await c.image_generator.render_plt(s.IMAGE_DPI_GRAPH, pad=True)
 
-        file = graphs.save_graph(values, f"{name} {attnameformat} history today", "Date (GMT)", y or "Value", plot, y_formatter = y_formatter, adjust_missing=len(values) < 60)
+        #file = graphs.save_graph(values, f"{name} {attnameformat} history today", "Date (GMT)", y or "Value", plot, y_formatter = y_formatter, adjust_missing=len(values) < 60)
 
         graph = discord.File(file, filename="graph.png")
 
@@ -347,8 +358,9 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
                         for item in view.children:
                             if hasattr(item, "label") and item.label == "Map":
                                 item.disabled = True 
-                        
-                        map = discord.File(graphs.plot_towns(towns, plot_spawn=False, whole=True), filename="graph.png")
+
+                        dpi = await c.image_generator.generate_area_map(towns, True, True, True, True, None, [])
+                        map = discord.File(await c.image_generator.render_plt(dpi, None), "graph.png")
                         
                         await interaction.followup.edit_message(embed=embed, attachments=[map], message_id=interaction.message.id, view=view)
                     return map_button_callback

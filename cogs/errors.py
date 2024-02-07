@@ -23,6 +23,7 @@ class ErrorHandling(commands.Cog):
                 description=f"```{error}```\n\nMessage <@{s.mods[0]}> for support",
                 color=s.embedFail
             )
+            known = False
 
             if isinstance(error, app_commands.errors.CommandNotFound):
                 return
@@ -33,11 +34,15 @@ class ErrorHandling(commands.Cog):
                     description=f"{error_original.description}\n\nMessage <@{s.mods[0]}> for support",
                     color=s.embedFail
                 )
+                known = True
 
-            try:
-                await interaction.response.send_message(embed=embed, ephemeral=True)
-            except:
-                await interaction.followup.send(embed=embed, ephemeral=True)
+            if known or s.PRODUCTION_MODE:
+                try:
+                    return await interaction.response.send_message(embed=embed, ephemeral=True)
+                except:
+                    return await interaction.followup.send(embed=embed, ephemeral=True)
+            
+            raise error
 
 async def setup(bot : commands.Bot):
     await bot.add_cog(ErrorHandling(bot, bot.client))

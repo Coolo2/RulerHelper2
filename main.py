@@ -73,10 +73,12 @@ extensions = [file.replace(".py", "") for file in os.listdir('./cmds') if file.e
 async def setup_hook():
     if s.commands:
         for extension in extensions:
+            if s.PRODUCTION_MODE and extension == "test":
+                continue
             await bot.load_extension(f"cmds.{extension}")
     await bot.load_extension("cogs.events")
-    if s.PRODUCTION_MODE:
-        await bot.load_extension("cogs.errors")
+    
+    await bot.load_extension("cogs.errors")
 
     if s.refresh_commands:
         await bot.tree.sync()

@@ -1,21 +1,45 @@
-## 2.8.5 (Jan 29 2024)
+# v2.9.0 (~)
+- Outposts are now recognised 
+ - Added "outposts" field to /get town which displays no. of outposts 
+- Map image generator has been rewritten
+ - Background earth image is higher quality 
+ - Lines are smoother and dots are smaller
+ - Towns are now placed over the background in a more accurate place
+ - Map now shows non-outpost detached territories by default.
+ - Maps no longer occasionally render a bit of transparent space at the bottom
+ - Visited notification maps now show the correct territories that the player visited
+- Line graph image generator has been rewritten 
+ - Much faster 
+ - X axis ticks are always evenly spread 
+ - Increased resolution of the lines 
+- /get player changes
+ - Face images are now slightly larger 
+ - "Full Skin" button added which shows their full skin body 
+ - Buttons split into 2 rows 
+- /get online no longer shows offline players without pressing a button. This speeds up map generation
+- Outpost maps are now cached so may load faster
+- You can now get information about a player from their discord account (if found) by right clicking them > apps > Find user.
+- Fixed a bug where detached territories would not be removed if deleted in-game until daily restart
+- Added a $ to "average town balance" notable statistic
+newpage
+## v2.8.5 (Jan 29 2024)
 - Fixed /get nation outposts drawing having incorrect sizing / being blank 
 - Certain default religions no longer show in top commands
-## 2.8.4 (Jan 20 2024)
-Fixed a bug where refreshes would stop until next restart if connection was lost
-## 2.8.3 (Jan 04 2024)
+## v2.8.4 (Jan 20 2024)
+- Fixed a bug where refreshes would stop until next restart if connection was lost
+## v2.8.3 (Jan 04 2024)
 - Fixed spelling of oceania
-## 2.8.2 (Dec 03 2023)
+## v2.8.2 (Dec 03 2023)
 - Fixed /get nation refresh button not responding when it has to generate a map 
 - Fixed certain maps having transparent space on the side of the image
 - Nation drawings now must fit aspect ratio requirements for the height as well
 - Fixed some search bugs
-## 2.8.1 (Nov 29 2023)
+## v2.8.1 (Nov 29 2023)
 - Fixed a bug making line graphs show a decrease towards the end when there wasn't
 - Fixed "in town for 0s" on notifications
 - Fixed bugs causing some history values to be missing
 - Fixed irrelevent outposts displaying on notification drawings
-# 2.8.0 (Nov 28 2023)
+# v2.8.0 (Nov 28 2023)
 - New command /history_today
  - Sub-commands /history_today town,nation,player,global 
  - Shows object attribute history throughout the day (every 20 minutes!)
@@ -23,12 +47,12 @@ Fixed a bug where refreshes would stop until next restart if connection was lost
 - Notifications now display time spent inside town
 - Journeys are now drawn onto notifications
 newpage
-## 2.7.1 (Nov 27 2023)
+## v2.7.1 (Nov 27 2023)
 - Various fixes to graph positioning and resolution 
 - Small changes to likely residency calculation
 - "Requested by" now shows display name rather than unique username
 - Search is now lines up with autocomplete if command is run with an unfinished search query
-# 2.7.0 (Nov 26 2023)
+# v2.7.0 (Nov 26 2023)
 - Nation average town balance data 
  - New commands /history nation average_town balance, /top nations average_town_balance 
  - New average town balance notable statistic in /get nation
@@ -45,7 +69,7 @@ newpage
 - Fixed /compare players if a player was missing a likely residency
 - Fixed /history culture and /history religion
 newpage
-## 2.6.3 (Nov 24 2023)
+## v2.6.3 (Nov 24 2023)
 - /get online select list is now ordered correctly
 - Fixed a bug causing /compare towns not to work if a town wasn't in a nation
 - Map spawn dots now max out in size (only noticeable for small towns)
@@ -54,16 +78,16 @@ newpage
 - Totals in /compare commands are now comma seperated if large
 - /history player commands no longer show a shallow gradient if they haven't played for a few days
 - /compare player graphs no longer break
-## 2.6.2 (Nov 23 2023)
+## v2.6.2 (Nov 23 2023)
 - 0 values now display properly in history graphs 
 - Slightly improved search algorithm for incomplete queries
-## 2.6.1 (Nov 22 2023)
+## v2.6.1 (Nov 22 2023)
 - Emergency fixes for /history commands not working for certain objects 
 - Comma seperation added to y axis in bar charts and graphs
 - Lines are now displayed as a dot if there is only one data point 
 - History commands with no data will now properly show a message
 - Fixed a bug where "command" buttons would copy paginator location
-# 2.6.0 (Nov 21 2023)
+# v2.6.0 (Nov 21 2023)
 - /get online list is now sorted by online time today
 - Objects in /top now highlight if they do not exist anymore
 - Fixed numbering in select menus in /top and /history visited

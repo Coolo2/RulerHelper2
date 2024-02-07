@@ -48,50 +48,46 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
 
         attributes = s.compare_attributes["town"]
-        image_generators.append((graphs.plot_towns, (towns, "retain", "auto", True, 5, False, None, None, None, None, [], towns)))
-        history_days = [str(r.attribute("date")) for r in await self.client.town_history_table.get_records(attributes=["date"], order=db.CreationOrder("date", db.types.OrderAscending), group=["date"])]
+
+        async def im_map(twns : list[client.object.Town]):
+            dpi = await self.client.image_generator.generate_area_map(twns, True, False, self.client.image_generator.MapBackground.AUTO, False, None, [], True, (1.25, 0.92+(0.08*len(twns))))
+            await self.client.image_generator.layer_spawn_connections(twns)
+            return await self.client.image_generator.render_plt(dpi, None)
+        image_generators.append((im_map, (towns,)))
+
         for _, attribute in enumerate(attributes):
             display_name : str = (attribute.get("name") or attribute.get("attribute")).replace("_", " ").title()
             history_name = attribute.get("history_attribute") or attribute.get("attribute")
             formatter = attribute.get("formatter") or str
+
+            desc, total = "", 0
             values = [getattr(t, attribute.get("attribute")) for t in towns]
-            for i, value in enumerate(values): # Await what needs to be
-                try:
-                    values[i] = await value 
-                except:
-                    pass 
+
+            for i, value in enumerate(values): # Await coroutines
+                try: values[i] = await value 
+                except: pass 
             
-            desc = ""
-            vals = {}
-            history_values_per_town = {}
-            total = 0
+            graph = self.client.image_generator.LineGraph(self.client.image_generator.XTickFormatter.DATE, attribute.get("y_formatter"))
             for i, (town, value) in enumerate(zip(towns, values)):
-                vals[town.name_formatted] = value
                 desc += f"{s.compare_emojis[i]} {formatter(value)}\n"
 
-                # History graph
                 if not attribute.get('no_history') and not attribute.get('qualitative'):
                     total =  total + value
                     history_r = await self.client.town_history_table.get_records([db.CreationCondition("town", town.name)], order=db.CreationOrder("date", db.types.OrderAscending), attributes=[history_name, "date"])
-                    vals_dict = {}
-                    for r in history_r:
-                        vals_dict[str(r.attribute("date"))] = r.attribute(history_name)
-                    history_values_per_town[str(town.name_formatted)] = []
-                    for date in history_days:
-                        history_values_per_town[str(town.name_formatted)].append(vals_dict.get(date) or np.NaN)
-
+                    graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r.attribute("date"), r.attribute(history_name)) for r in history_r], town.name))
+            
+            if not attribute.get("qualitative"):
+                y = attribute.get("y") or display_name
+                if not attribute.get("no_history"):
+                    async def plot_lines(graph, display_name, y):
+                        await self.client.image_generator.plot_linegraph(graph, f"{display_name} Comparison", "Date", y)
+                        return await self.client.image_generator.render_plt(s.IMAGE_DPI_GRAPH, pad=True)
+                    image_generators.append((plot_lines, (graph,display_name,y)))
+            
             total = total if type(total) == int else round(total, 2)
             total_str = f"{total:,}" if type(total) in [int, float] else str(total)
             embed.add_field(name=f"{display_name} {('('+total_str+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
-        
-            if not attribute.get("qualitative"):
-                y = attribute.get("y") or display_name
-                parser = attribute.get("parser") or int
-                if not attribute.get("no_history"):
-                    image_generators.append((graphs.save_graph, (None, f"{display_name} Comparison", "Town", y, plot, None, attribute.get("y_formatter"), history_values_per_town, history_days, s.compare_line_colors)))
-                else:
-                    image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Town", y, bar, None, attribute.get("y_formatter"), None, None, s.compare_line_colors)))
-        
+
         nations = list(dict.fromkeys([t.nation.name for t in towns if t.nation]))
 
         view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False, temp_img_url="attachment://paginator_image.png" if edit else "attachment://map_waiting.jpg", render_image_after=True, index=interaction.extras.get("page"))
@@ -103,7 +99,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         f = discord.File(s.waiting_bg_path, "map_waiting.jpg")
         await (interaction.response.edit_message(embed=embed, view=view) if edit else interaction.response.send_message(embed=embed, view=view, file=f))
 
-        view.render_initial_image()
+        await view.render_initial_image()
 
         await interaction.edit_original_response(embed=view.embed, attachments=[view.attachment], view=view)
 
@@ -136,51 +132,47 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
             color=s.embed
         )
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
+        
+        async def im_map(twns : list[client.object.Town], capitals : list[client.object.Town]):
+            dpi = await self.client.image_generator.generate_area_map(twns, True, False, self.client.image_generator.MapBackground.AUTO, False, None, [], True, (1.25, 0.92+(0.08*len(capitals))))
+            await self.client.image_generator.layer_spawn_connections(capitals)
+            return await self.client.image_generator.render_plt(dpi, None)
+        image_generators.append((im_map, (twns, capitals)))
 
         attributes = s.compare_attributes["nation"]
-        image_generators.append((graphs.plot_towns, (twns, "retain", "auto", True, 5, False, None, None, None, None, [], capitals)))
-        history_days = [str(r.attribute("date")) for r in await self.client.nation_history_table.get_records(attributes=["date"], order=db.CreationOrder("date", db.types.OrderAscending), group=["date"])]
         for _, attribute in enumerate(attributes):
             display_name : str = (attribute.get("name") or attribute.get("attribute")).replace("_", " ").title()
             history_name = attribute.get("history_attribute") or attribute.get("attribute")
             formatter = attribute.get("formatter") or str
-            values = [getattr(n, attribute.get("attribute")) for n in nations]
-            for i, value in enumerate(values): # Await what needs to be
-                try:
-                    values[i] = await value 
-                except:
-                    pass 
+
+            desc, total = "", 0
+            values = [getattr(t, attribute.get("attribute")) for t in nations]
+
+            for i, value in enumerate(values): # Await coroutines
+                try: values[i] = await value 
+                except: pass 
             
-            desc = ""
-            vals = {}
-            history_values_per_nation = {}
-            total = 0
+            graph = self.client.image_generator.LineGraph(self.client.image_generator.XTickFormatter.DATE, attribute.get("y_formatter"))
             for i, (nation, value) in enumerate(zip(nations, values)):
-                vals[nation.name_formatted] = value
                 desc += f"{s.compare_emojis[i]} {formatter(value)}\n"
 
-                # History graph
                 if not attribute.get('no_history') and not attribute.get('qualitative'):
-                    total =  total + value
+                    total += value
                     history_r = await self.client.nation_history_table.get_records([db.CreationCondition("nation", nation.name)], order=db.CreationOrder("date", db.types.OrderAscending), attributes=[history_name, "date"])
-                    vals_dict = {}
-                    for r in history_r:
-                        vals_dict[str(r.attribute("date"))] = r.attribute(history_name)
-                    history_values_per_nation[str(nation.name_formatted)] = []
-                    for date in history_days:
-                        history_values_per_nation[str(nation.name_formatted)].append(vals_dict.get(date) or np.NaN)
-
+                    graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r.attribute("date"), r.attribute(history_name)) for r in history_r], nation.name))
+            
+            if not attribute.get("qualitative"):
+                y = attribute.get("y") or display_name
+                if not attribute.get("no_history"):
+                    async def plot_lines(graph, display_name, y):
+                        await self.client.image_generator.plot_linegraph(graph, f"{display_name} Comparison", "Date", y)
+                        return await self.client.image_generator.render_plt(s.IMAGE_DPI_GRAPH, pad=True)
+                    image_generators.append((plot_lines, (graph,display_name,y)))
+            
             total = total if type(total) == int else round(total, 2)
             total_str = f"{total:,}" if type(total) in [int, float] else str(total)
             embed.add_field(name=f"{display_name} {('('+total_str+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
-        
-            if not attribute.get("qualitative"):
-                y = attribute.get("y") or display_name
-                parser = attribute.get("parser") or int
-                if not attribute.get("no_history"):
-                    image_generators.append((graphs.save_graph, (None, f"{display_name} Comparison", "Nation", y, plot, None, attribute.get("y_formatter"), history_values_per_nation, history_days, s.compare_line_colors)))
-                else:
-                    image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Nation", y, bar, None, attribute.get("y_formatter"), None, None, s.compare_line_colors)))
+
         
         view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False, temp_img_url="attachment://paginator_image.png" if edit else "attachment://map_waiting.jpg", render_image_after=True, index=interaction.extras.get("page"))
         view.add_item(commands_view.CommandButton(self, commands_view.Command("compare players", "Compare Leaders", parameters=[n.capital._mayor_raw for n in nations], emoji="👤", row=2)))
@@ -191,7 +183,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         f = discord.File(s.waiting_bg_path, "map_waiting.jpg")
         await (interaction.response.edit_message(embed=embed, view=view) if edit else interaction.response.send_message(embed=embed, view=view, file=f))
 
-        view.render_initial_image()
+        await view.render_initial_image()
 
         await interaction.edit_original_response(embed=view.embed, attachments=[view.attachment], view=view)
 
@@ -221,50 +213,47 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         )
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
 
+        async def im_map(players : list[client.object.Player]):
+            await self.client.image_generator.init_map()
+
+            await self.client.image_generator.layer_player_locations(players, [], show_background=True, expand_limits_multiplier=(1.4, 0.92+(0.08*len(players))))
+            await self.client.image_generator.layer_spawn_connections(players)
+            return await self.client.image_generator.render_plt(s.IMAGE_DPI_DRAWING, None)
+        image_generators.append((im_map, (players,)))
+
         attributes = s.compare_attributes["player"]
-        image_generators.append((graphs.plot_towns, ([], False, "auto", True, 5, False, players, None, None, None, [], players)))
-        history_days = [str(r.attribute("date")) for r in await self.client.player_history_table.get_records(attributes=["date"], order=db.CreationOrder("date", db.types.OrderAscending), group=["date"])]
         for _, attribute in enumerate(attributes):
-            display_name : str = (attribute.get("name") or attribute.get("attribute")).title().replace("_", " ")
+            display_name : str = (attribute.get("name") or attribute.get("attribute")).replace("_", " ").title()
             history_name = attribute.get("history_attribute") or attribute.get("attribute")
             formatter = attribute.get("formatter") or str
+
+            desc, total = "", 0
             values = [getattr(t, attribute.get("attribute")) for t in players]
-            for i, value in enumerate(values): # Await what needs to be
-                try:
-                    values[i] = await value 
-                except:
-                    pass 
+
+            for i, value in enumerate(values): # Await coroutines
+                try: values[i] = await value 
+                except: pass 
             
-            desc = ""
-            vals = {}
-            history_values_per_player = {}
-            total = 0
+            graph = self.client.image_generator.LineGraph(self.client.image_generator.XTickFormatter.DATE, attribute.get("y_formatter"))
             for i, (player, value) in enumerate(zip(players, values)):
-                vals[player.name] = value
                 desc += f"{s.compare_emojis[i]} {formatter(value)}\n"
 
-                # History graph
                 if not attribute.get('no_history') and not attribute.get('qualitative'):
-                    total =  total + value
+                    total += value
                     history_r = await self.client.player_history_table.get_records([db.CreationCondition("player", player.name)], order=db.CreationOrder("date", db.types.OrderAscending), attributes=[history_name, "date"])
-                    vals_dict = {}
-                    for r in history_r:
-                        vals_dict[str(r.attribute("date"))] = r.attribute(history_name)
-                    history_values_per_player[str(player.name_formatted)] = []
-                    for date in history_days:
-                        history_values_per_player[str(player.name_formatted)].append(vals_dict.get(date) or np.NaN)
+                    graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r.attribute("date"), r.attribute(history_name)) for r in history_r], player.name))
+            
+            if not attribute.get("qualitative"):
+                y = attribute.get("y") or display_name
+                if not attribute.get("no_history"):
+                    async def plot_lines(graph, display_name, y):
+                        await self.client.image_generator.plot_linegraph(graph, f"{display_name} Comparison", "Date", y)
+                        return await self.client.image_generator.render_plt(s.IMAGE_DPI_GRAPH, pad=True)
+                    image_generators.append((plot_lines, (graph,display_name,y)))
             
             total = total if type(total) == int else round(total, 2)
             total_str = f"{total:,}" if type(total) in [int, float] else str(total)
             embed.add_field(name=f"{display_name} {('('+total_str+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
-        
-            if not attribute.get("qualitative"):
-                y = attribute.get("y") or display_name
-                parser = attribute.get("parser") or int
-                if not attribute.get("no_history"):
-                    image_generators.append((graphs.save_graph, (None, f"{display_name} Comparison", "Player", y, plot, None, attribute.get("y_formatter"), history_values_per_player, history_days, s.compare_line_colors)))
-                else:
-                    image_generators.append((graphs.save_graph, ({t:parser(v) for t, v in vals.items()}, f"{display_name} Comparison", "Player", y, bar, None, attribute.get("y_formatter"), None, None, s.compare_line_colors)))
         
         likely_residencies = [i for i in list(dict.fromkeys([(await p.likely_residency).name if (await p.likely_residency) else None for p in players])) if i != None]
 
@@ -275,7 +264,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         f = discord.File(s.waiting_bg_path, "map_waiting.jpg")
         await (interaction.response.edit_message(embed=embed, view=view) if edit else interaction.response.send_message(embed=embed, view=view, file=f))
 
-        view.render_initial_image()
+        await view.render_initial_image()
 
         await interaction.edit_original_response(embed=view.embed, attachments=[view.attachment], view=view)
 

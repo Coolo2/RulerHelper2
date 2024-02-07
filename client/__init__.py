@@ -1,9 +1,6 @@
 
 import aiohttp
-from client import object, funcs, errors
-import json
-
-
+from client import object, funcs, errors, image_generator
 
 import datetime
 import setup as s
@@ -16,6 +13,7 @@ from discord.ext import commands
 
 import shutil
 import os
+from shapely import Point
 
 class Client():
     def __init__(self):
@@ -35,6 +33,10 @@ class Client():
         self.last_refreshed : datetime.datetime = None
         self.world = object.World(self) 
         self.notifications = Notifications(self)
+
+        self.image_generator = image_generator.ImageGenerator(self)
+    
+    errors = errors
 
     async def init_db(self, update_coro = None):
         await self.database.connect()
@@ -654,7 +656,14 @@ class Notifications():
 
                         t = self.client.world.get_town(town_name)
                         if t:
-                            attachments = [discord.File(graphs.plot_towns([t], outposts=False, show_earth=False, maintain_aspect=True, journey=journey), filename="journey.png")]
+                            a = []
+                            for area in t.areas:
+                                for point in journey:
+                                    if area.is_point_in_area(Point(point[0], 64, point[1])) and area not in a:
+                                        a.append(area)
+                            dpi = await self.client.image_generator.generate_area_map(a, False, False, False, False, None, [])
+                            await self.client.image_generator.layer_journey(journey)
+                            attachments = [discord.File(await self.client.image_generator.render_plt(dpi, None), "journey.png")]
                             embed.set_image(url="attachment://journey.png")
                         else:
                             attachments = []

@@ -21,6 +21,74 @@ import traceback
 
 import random
 
+class Area():
+    def __init__(self, town : client_pre.object.Town, verticies : list, name : str = None):
+        self.__town = town 
+        self.__verticies = verticies
+        self.__name = name
+
+        self.__polygon_cache = None
+    
+    @property 
+    def name(self):
+        return self.__name
+    
+    @property 
+    def town(self):
+        return self.__town
+
+    @property 
+    def raw_verticies(self) -> list[float]:
+        return self.__verticies
+    
+    def set_verticies(self, verticies : list[tuple[float]]):
+        self.__verticies = verticies
+
+    @property 
+    def polygon(self):
+        if not self.__polygon_cache:
+            self.__polygon_cache = Polygon(self.__verticies)
+        return self.__polygon_cache
+    
+    @property 
+    def outpost_spawn(self) -> Point:
+
+        for outpost_spawn in self.__town.outpost_spawns:
+            if self.polygon.contains(Point(outpost_spawn.x, outpost_spawn.z)):
+                return self.polygon
+        
+        return None 
+
+    @property 
+    def is_outpost(self) -> bool:
+        if self.outpost_spawn:
+            return True 
+        return False
+
+    @property 
+    def is_mainland(self) -> bool:
+        return not self.is_outpost
+
+    def is_point_in_area(self, point : Point) -> bool:
+        try:
+            return self.polygon.contains(Point(point.x, point.z))
+        except:
+            return False
+    
+    @property 
+    def fill_color(self):
+        return self.__town.fill_color
+    
+    @property 
+    def border_color(self):
+        return self.__town.border_color
+     
+    def __eq__(self, other):
+        if type(other) == Area and other.name == self.__name:
+            return True 
+        return False
+
+
 class Activity():
     def __init__(self, total : int = 0, last : datetime.datetime = datetime.datetime.now(), town : client_pre.object.Town|str = None, player : client_pre.object.Player|str = None):
         self.total = total 
@@ -117,6 +185,13 @@ class Object():
     @property
     def vertex_count(self) -> int:
         return self.__total(self.towns, "vertex_count")
+    
+    @property 
+    def outpost_spawns(self) -> list[tuple[float]]:
+        t = []
+        for town in self.towns:
+            t += town.outpost_spawns 
+        return t
 
     async def set_flag(self, flag_name : str, flag_value):
         cond = [db.CreationCondition("object_type", self.object_type), db.CreationCondition("object_name", self.name)]
@@ -139,10 +214,10 @@ class Object():
         return d
     
     @property 
-    def raw_locs(self):
-        l = {}
+    def areas(self):
+        l = []
         for town in self.towns:
-            l.update(town.raw_locs)
+            l += town.areas
         return l
     
 
@@ -247,7 +322,7 @@ class Nation(Object):
         detached_area_perc = (self.total_detached_area / self.total_area) * 100
         if detached_area_perc > 0:
             stats.append(f"Detached territories make up **{detached_area_perc:,.2f}%** of {self.name_formatted}'s claims")
-            stats.append(f"The average town balance in {self.name_formatted} is **{self.average_town_balance:,.2f}**")
+            stats.append(f"The average town balance in {self.name_formatted} is **${self.average_town_balance:,.2f}**")
         return stats
     
     @property
@@ -370,9 +445,11 @@ class Tax():
 class Town():
     def __init__(self, world : client_pre.object.World):
         self.__world = world
-        self.__locs = {}
         self.__built = False
         self.__desc = None
+
+        self.outpost_spawns : list[Point] = []
+        self.__areas : list[Area] = []
 
         self.search_boost = 0
 
@@ -397,21 +474,17 @@ class Town():
 
         self.last_updated : datetime.datetime = None
 
-    def is_coordinate_in_town(self, point : Point) -> bool:
+    def is_point_in_town(self, point : Point) -> bool:
         try:
             return self.locations.contains(Point(point.x, point.z))
         except:
             return False
-
-    @property 
-    def raw_locs(self):
-        return self.__locs
     
     @property
     def vertex_count(self) -> int:
         total = 0
-        for group in self.__locs.values():
-            total += len(group)
+        for area in self.__areas:
+            total += len(area.raw_verticies)
         return total
 
     @property 
@@ -445,8 +518,12 @@ class Town():
         return Activity.from_record(a)
     
     @property 
+    def areas(self):
+        return self.__areas
+    
+    @property 
     def locations(self) -> MultiPolygon:
-        return MultiPolygon([Polygon(p) for p in list(self.__locs.values())])
+        return MultiPolygon([a.polygon for a in self.__areas])
     
     @property 
     def continents(self) -> list[str]:
@@ -520,18 +597,14 @@ class Town():
             rankings[command.get("name") or command.get("attribute")] = [value, ranking+1, notable]
         
         return dict(sorted(rankings.items(), key=lambda x: x[1][1]))
-    
-    @property 
-    def detached_locations(self) -> MultiPolygon|Polygon:
-        multi = MultiPolygon()
-        for polygon in self.locations.geoms:
-            if not polygon.contains(Point(self.spawn.x, self.spawn.z)):
-                multi = multi.union(polygon)
-        return multi
 
     @property 
     def detached_area(self) -> int:
-        return self.detached_locations.area / 256
+        t = 0 
+        for area in self.__areas:
+            if area.is_outpost:
+                t += area.polygon.area
+        return t / 256
         
 
     @property 
@@ -663,12 +736,19 @@ class Town():
             #self.peaceful = True if "true" in groups[12] else False
 
         self.__desc = desc
+    
+    def clear_areas(self):
+        self.__areas = []
+        self.outpost_spawns = []
 
     async def set_marker(self, data : dict):
         await self.parse_desc(data["desc"])
         self.spawn = Point(data["x"], data["y"], data["z"])
         self.icon = data["icon"]
         self.last_updated = datetime.datetime.now()
+    
+    async def set_outposts(self, outposts : list[Point]):
+        self.outpost_spawns = outposts
 
     async def add_area(self, name : str, data : dict):
     
@@ -682,8 +762,12 @@ class Town():
         for x, z in zip(data["x"], data["z"]):
             locs.append((x, z))
         
-        if self.__locs.get(name) != locs:
-            self.__locs[name] = locs
+        a = Area(self, locs, name)
+        if a not in self.__areas:
+            self.__areas.append(a)
+        else:
+            self.__areas[self.__areas.index(a)].set_verticies(locs)
+        
         
         self.last_updated = datetime.datetime.now()
     
@@ -696,6 +780,8 @@ class Town():
 class Player():
     def __init__(self, world : client_pre.object.World):
         self.__world = world 
+
+        self.__skin_identifier : str = None
 
         self.name : str = None
         self.location = None
@@ -716,21 +802,34 @@ class Player():
     @property 
     def is_bedrock(self):
         return True if "." in self.name else False
-
-    @property 
-    async def bedrock_face_url(self):
-
-        user = await self.__world.client.session.get(f"https://api.geysermc.org/v2/xbox/xuid/{self.name.replace('.', '').replace('_', '%20')}")
-        user_json : dict = await user.json()
-        if not user_json.get("xuid"):
-            return f"{self.__world.client.url}/tiles/faces/32x32/{self.name}.png"
-        texture = await self.__world.client.session.get(f"https://api.geysermc.org/v2/skin/{user_json['xuid']}")
+    
+    async def __fetch_skin_identifier(self):
+        if self.is_bedrock:
+            user = await self.__world.client.session.get(f"https://api.geysermc.org/v2/xbox/xuid/{self.name.replace('.', '').replace('_', '%20')}")
+            user_json : dict = await user.json()
+            if user_json.get("xuid"):
+                texture = await self.__world.client.session.get(f"https://api.geysermc.org/v2/skin/{user_json['xuid']}")
+                self.__skin_identifier = (await texture.json())['texture_id']
+        else:
+            self.__skin_identifier = self.name 
         
-        return f"https://mc-heads.net/avatar/{(await texture.json())['texture_id']}/32"
+        return self.__skin_identifier
     
     @property 
+    async def skin_identifier(self):
+        if not self.__skin_identifier:
+            await self.__fetch_skin_identifier()
+        return self.__skin_identifier
+
+
+    @property 
     async def face_url(self):
-        return f"{self.__world.client.url}/tiles/faces/32x32/{self.name}.png" if not self.is_bedrock else await self.bedrock_face_url
+        return f"https://mc-heads.net/avatar/{await self.skin_identifier}/48" 
+    
+    @property 
+    async def body_url(self):
+        return f"https://mc-heads.net/body/{await self.skin_identifier}/180" 
+    
     
     @property
     async def discord(self) -> discord.User:
@@ -769,7 +868,7 @@ class Player():
         nearby_town = None
 
         for town in self.__world.towns:
-            if town.is_coordinate_in_town(self.location):
+            if town.is_point_in_town(self.location):
                 nearby_town = town
 
         self._town_cache = nearby_town
@@ -1223,34 +1322,50 @@ class World():
                 await self.client.global_day_history_table.add_record(await self.to_record_day_history())
 
     async def __update_town_list(self, areas : dict[str, dict], markers : dict[str, dict]):
+
+        outposts = {}
+
+        for marker_id, marker_data in markers.items():
+            if "_Outpost_" in marker_id:
+                town_name = marker_id.split("_Outpost_")[0]
+                if town_name not in outposts:
+                    outposts[town_name] = []
+                outposts[town_name].append(Point(marker_data["x"], marker_data["y"], marker_data["z"]))
+        
+        for town in self.__towns.values():
+            town.clear_areas()
         
         for area_name, area in areas.items():
             if area.get("set") != "siegewar.markerset":
+                
                 try:
                     
                     if area["label"] in setup.DONT_TRACK_TOWNS:
                         continue 
 
+                    if True in [su in area["label"] for su in setup.DEFAULT_TOWNS_SUBSTRING]:
+                        continue
+
                     if area["label"] not in self.__towns:
                         
                         t = Town(self)
                         await t.add_area(area_name, area)
+                        
                         if markers.get(f"{t.name}__home"):
                             self.__towns[area["label"]] = t
-                            await t.set_marker(markers[f"{t.name}__home"])
                     else:
                         t = self.get_town(area["label"])
                         await t.add_area(area_name, area)
-                        if markers.get(f"{t.name}__home"):
-                            
-                            await t.set_marker(markers[f"{t.name}__home"])
+                    
+                    if markers.get(f"{t.name}__home"):
+                        await t.set_marker(markers[f"{t.name}__home"])
+                    if t.name in outposts:
+                        await t.set_outposts(outposts[t.name])
                     #await asyncio.sleep(0.001) # Allow "parallel" processing
                     
                 except Exception as e:
                     # Error with town add. Town may need to be removed!
                     await self.client.bot.get_channel(setup.alert_channel).send(f"{area.get('label')} Town Update Error! `{e}`"[:2000])
-
-        
     
     async def __update_town_tracking(self):
         new_records = []

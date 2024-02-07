@@ -16,6 +16,17 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         self.client = client
 
         super().__init__()
+
+        @self.bot.tree.context_menu(name="Find user")
+        async def _get_user(interaction : discord.Interaction, user : discord.User):
+            discords = await client.world.linked_discords
+
+            for d in discords:
+                if d[1] == user:
+                    return await self._player.callback(self, interaction, d[0].name)
+            
+            raise self.client.errors.MildError("Could not find player's in-game account")
+
     
     @app_commands.command(name="player", description="Get information about a player")
     @app_commands.autocomplete(player_name=autocompletes.player_autocomplete)
@@ -51,18 +62,32 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Notable Statistics", value=notable_statistics, inline=False)
 
         embed.set_footer(text=f"Bot has been tracking for {(await self.client.world.total_tracked).str_no_timestamp()}")
-        
         embed.set_thumbnail(url=await player.face_url)
 
         c_view = commands_view.CommandsView(self)
         c_view.add_item(commands_view.RefreshButton(self.client, "get player", (player.name,)))
+
+        button = discord.ui.Button(label="Full Skin", emoji="🧍", row=1, style=discord.ButtonStyle.primary)
+        def full_skin(player : client.object.Player, view : discord.ui.View):
+            async def full_skin_callback(interaction : discord.Interaction):
+                for item in view.children:
+                    if item.label == "Full Skin":
+                        item.disabled = True 
+                
+                interaction.message.embeds[0].set_image(url=await player.body_url)
+                
+                await interaction.response.edit_message(view=view, embed=interaction.message.embeds[0])
+            return full_skin_callback
+        button.callback = full_skin(player, c_view)
+        c_view.add_item(button)
+
         if town:
             c_view.add_command(commands_view.Command("get town", "Town Info", (town.name,), button_style=discord.ButtonStyle.primary, emoji="ℹ️"))
         if likely_residency and likely_residency != town:
             c_view.add_command(commands_view.Command("get town", "Likely Residency Info", (likely_residency.name,), button_style=discord.ButtonStyle.primary, emoji="ℹ️"))
-        c_view.add_command(commands_view.Command("history player activity", "Activity History", (player.name,), button_style=discord.ButtonStyle.secondary, emoji="⏳"))
+        c_view.add_command(commands_view.Command("history player activity", "Activity History", (player.name,), button_style=discord.ButtonStyle.secondary, emoji="⏳", row=2))
         if visited_towns_total > 0:
-            c_view.add_command(commands_view.Command("history player visited_towns", "Visited Towns", (player.name,), button_style=discord.ButtonStyle.secondary, emoji="📖"))
+            c_view.add_command(commands_view.Command("history player visited_towns", "Visited Towns", (player.name,), button_style=discord.ButtonStyle.secondary, emoji="📖", row=2))
         
 
         return await response_coro(embed=embed, view=c_view)
@@ -89,7 +114,6 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         embed = discord.Embed(title=f"Town: {town.name_formatted}", description=town.geography_description, color=s.embed)
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
-        embed.set_thumbnail(url="attachment://graph.png")
 
         embed.add_field(name="Nation", value=town.nation.name_formatted if town.nation else "None")
         embed.add_field(name="Culture", value=str(town.culture))
@@ -105,6 +129,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Visited Players", value=f"{visited_players_total} ({(visited_players_total/len(self.client.world.players))*100:.1f}%)")
         embed.add_field(name="Public", value="Yes" if town.public else "No")
         embed.add_field(name="Previous names", value=", ".join(previous_names) if len(previous_names) > 0 else "None")
+        embed.add_field(name="Outposts", value=str(len(town.outpost_spawns)))
 
         embed.add_field(name=f"Borders ({len(borders)})", value="`" + ("`, `".join(t.name_formatted for t in borders) + "`") if len(borders) > 0 else "None", inline=False) 
         #embed.add_field(name="Peaceful", value="Yes" if town.peaceful else "No")
@@ -133,27 +158,28 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
                     if item.label == "Expand Outposts":
                         item.disabled = True 
                 
-                graph = discord.File(graphs.plot_towns([town], outposts=True, dimmed_towns=borders), filename="graph_outposts.png")
+                c = self.client.image_generator.town_cache_item(f"TownOutposts+{town.name}", [town]).check_cache()
+                dpi = await self.client.image_generator.generate_area_map([town], True, True, self.client.image_generator.MapBackground.AUTO, False, c, borders)
+                file = discord.File(await self.client.image_generator.render_plt(dpi, c), "town_outpost_map.png")
 
                 interaction.message.embeds[0].set_thumbnail(url=None)
-                interaction.message.embeds[0].set_image(url="attachment://graph_outposts.png")
+                interaction.message.embeds[0].set_image(url="attachment://town_outpost_map.png")
                 
-                await interaction.response.edit_message(view=view, attachments=[graph], embed=interaction.message.embeds[0])
+                await interaction.response.edit_message(view=view, attachments=[file], embed=interaction.message.embeds[0])
             return outposts_button_callback
         button.callback = outposts_button(town, c_view, borders)
-        if len(town.raw_locs) > 1:
+        if len(town.outpost_spawns) > 1:
             c_view.add_item(button)
         c_view.add_command(commands_view.Command("history town visited_players", "Visited Players", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="📖", row=2))
         c_view.add_command(commands_view.Command("history town bank", "Bank History", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="💵", row=2))
         c_view.add_command(commands_view.Command("history town residents", "Resident History", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
         
-        cache_name = f"Town+{town.name}"
-        cache_id = f"{town.vertex_count}_{area}"
-        
-        graph = discord.File(graphs.plot_towns([town], outposts="retain", dimmed_towns=borders, show_earth=False, cache_name=cache_name, cache_id=cache_id, maintain_aspect=False), filename="graph.png")
-        
+        c = self.client.image_generator.town_cache_item(f"Town+{town.name}", [town]).check_cache()
+        dpi = await self.client.image_generator.generate_area_map([town], True, False, self.client.image_generator.MapBackground.OFF, False, c, borders)
+        file = discord.File(await self.client.image_generator.render_plt(dpi, c), "town_map.png")
+        embed.set_thumbnail(url="attachment://town_map.png")
 
-        return await interaction.response.edit_message(embed=embed, attachments=[graph], view=c_view) if edit else await interaction.response.send_message(embed=embed, file=graph, view=c_view)
+        return await interaction.response.edit_message(embed=embed, attachments=[file], view=c_view) if edit else await interaction.response.send_message(embed=embed, file=file, view=c_view)
     
     @app_commands.command(name="nation", description="Get information about a nation")
     @app_commands.autocomplete(nation_name=autocompletes.nation_autocomplete)
@@ -213,19 +239,22 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         button = discord.ui.Button(label="Expand Outposts", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
         def outposts_button(nation : client.object.Nation, view : discord.ui.View, borders):
             async def outposts_button_callback(interaction : discord.Interaction):
+                await interaction.response.defer()
                 for item in view.children:
                     if type(item) == discord.ui.Button and item.label == "Expand Outposts":
                         item.disabled = True 
-                
-                graph = discord.File(graphs.plot_towns(nation.towns, outposts=True, dimmed_towns=borders[1], plot_spawn=True), filename="graph_outposts.png")
+
+                c = self.client.image_generator.town_cache_item(f"NationOutposts+{nation.name}", nation.towns).check_cache()
+                dpi = await self.client.image_generator.generate_area_map(nation.towns, True, True, self.client.image_generator.MapBackground.AUTO, False, c, nation.borders[1])
+                file = discord.File(await self.client.image_generator.render_plt(dpi, c), "nation_map_outposts.png")
 
                 interaction.message.embeds[0].set_thumbnail(url=None)
-                interaction.message.embeds[0].set_image(url="attachment://graph_outposts.png")
+                interaction.message.embeds[0].set_image(url="attachment://nation_map_outposts.png")
                 
-                await interaction.response.edit_message(view=view, attachments=[graph], embed=interaction.message.embeds[0])
+                await interaction.followup.edit_message(view=view, attachments=[file], embed=interaction.message.embeds[0], message_id=interaction.message.id)
             return outposts_button_callback
         button.callback = outposts_button(nation, c_view, borders)
-        if len(nation.raw_locs) > len(towns)+1:
+        if len(nation.outpost_spawns) > 0:
             c_view.add_item(button)
 
         if type(leader) != str:
@@ -244,39 +273,23 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             cmds.append(commands_view.Command("get town", town.name_formatted, (town.name,), emoji=None))
         c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", 3))
 
-        # Diagram and send
-        cache_name = f"Nation+{nation.name}"
-        cache_id = f"{nation.vertex_count}_{area}"
-        im = graphs.check_cache(cache_name=cache_name, cache_id=cache_id)
-        files=[]
-        embed.set_image(url="attachment://map.png")
-        if im:
-            files.append(discord.File(im, "map.png"))
-            
-
-            return await (interaction.response.edit_message(embed=embed, attachments=files, view=c_view) if edit else interaction.response.send_message(embed=embed, files=files, view=c_view))
-
-        elif len(towns) > 3:
-            
-            if not edit:
-                files.append(discord.File(s.waiting_bg_path, "map_waiting.jpg"))
-                embed.set_image(url="attachment://map_waiting.jpg")
-
-            await (
-                (
-                    interaction.response.edit_message(embed=embed, view=c_view) if len(files) > 0 else interaction.response.edit_message(embed=embed, view=c_view)
-                ) if edit else interaction.response.send_message(embed=embed, files=files, view=c_view)
-            )
-    
-        
-        graph = discord.File(graphs.plot_towns([capital]+towns, plot_spawn=True, dimmed_towns=borders[1], cache_name=cache_name, cache_id=cache_id, outposts="retain"), filename="map.png")
-        embed.set_image(url="attachment://map.png")
-
-        if len(towns) > 3:
-            await interaction.edit_original_response(embed=embed, attachments=[graph])
+        c = self.client.image_generator.town_cache_item(f"Nation+{nation.name}", nation.towns).check_cache()
+        if not c.valid and not edit:
+            embed.set_image(url="attachment://map_waiting.jpg")
+            await interaction.response.send_message(embed=embed, view=c_view, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"))
+        elif not c.valid:
+            embed.set_image(url="attachment://nation_map.png")
+            await interaction.response.edit_message(embed=embed, view=c_view)
+        dpi = await self.client.image_generator.generate_area_map(nation.towns, True, False, self.client.image_generator.MapBackground.AUTO, False, c, nation.borders[1])
+        file = discord.File(await self.client.image_generator.render_plt(dpi, c), "nation_map.png")
+        embed.set_image(url="attachment://nation_map.png")
+        if c.valid and not edit:
+            await interaction.response.send_message(embed=embed, view=c_view, file=file)
+        elif c.valid:
+            await interaction.response.edit_message(embed=embed, view=c_view, attachments=[file])
         else:
-            await (interaction.response.edit_message(embed=embed, view=c_view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=c_view, file=graph))
-        
+            await interaction.edit_original_response(embed=embed, view=c_view, attachments=[file])
+
     @app_commands.command(name="culture", description="Get information about a culture")
     @app_commands.autocomplete(culture_name=autocompletes.culture_autocomplete)
     async def _culture(self, interaction : discord.Interaction, culture_name : str):
@@ -313,19 +326,23 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", 3))
         c_view.add_command(commands_view.Command("history culture towns", "Town History", (culture.name,), button_style=discord.ButtonStyle.secondary, emoji="🗾", row=2))
         c_view.add_command(commands_view.Command("history culture residents", "Resident History", (culture.name,), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
-
-        if len(towns) > 3:
+        
+        c = self.client.image_generator.town_cache_item(f"Culture+{culture.name}", culture.towns).check_cache()
+        if not c.valid and not edit:
             embed.set_image(url="attachment://map_waiting.jpg")
-            f = discord.File(s.waiting_bg_path, "map_waiting.jpg")
-            await (interaction.response.edit_message(embed=embed, view=c_view, attachments=[f]) if edit else interaction.response.send_message(embed=embed, view=c_view, file=f))
-        
-        graph = discord.File(graphs.plot_towns(towns, plot_spawn=False), filename="graph.png")
-        embed.set_image(url="attachment://graph.png")
-        
-        if len(towns) > 3:
-            await interaction.edit_original_response(attachments=[graph], embed=embed)
+            await interaction.response.send_message(embed=embed, view=c_view, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"))
+        elif not c.valid:
+            embed.set_image(url="attachment://culture_map.png")
+            await interaction.response.edit_message(embed=embed, view=c_view)
+        dpi = await self.client.image_generator.generate_area_map(culture.towns, False, True, self.client.image_generator.MapBackground.AUTO, False, c)
+        file = discord.File(await self.client.image_generator.render_plt(dpi, c), "culture_map.png")
+        embed.set_image(url="attachment://culture_map.png")
+        if c.valid and not edit:
+            await interaction.response.send_message(embed=embed, view=c_view, file=file)
+        elif c.valid:
+            await interaction.response.edit_message(embed=embed, view=c_view, attachments=[file])
         else:
-            await (interaction.response.edit_message(embed=embed, view=c_view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=c_view, file=graph))
+            await interaction.edit_original_response(embed=embed, view=c_view, attachments=[file])
     
     @app_commands.command(name="religion", description="Get information about a religion")
     @app_commands.autocomplete(religion_name=autocompletes.religion_autocomplete)
@@ -363,19 +380,23 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", 3))
         c_view.add_command(commands_view.Command("history religion towns", "Town History", (religion.name,), button_style=discord.ButtonStyle.secondary, emoji="🗾", row=2))
         c_view.add_command(commands_view.Command("history religion followers", "Follower History", (religion.name,), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
-
-        if len(towns) > 3:
+        
+        c = self.client.image_generator.town_cache_item(f"Religion+{religion.name}", religion.towns).check_cache()
+        if not c.valid and not edit:
             embed.set_image(url="attachment://map_waiting.jpg")
-            f = discord.File(s.waiting_bg_path, "map_waiting.jpg")
-            await (interaction.response.edit_message(embed=embed, view=c_view, attachments=[f]) if edit else interaction.response.send_message(embed=embed, view=c_view, file=f))
-        
-        graph = discord.File(graphs.plot_towns(towns, plot_spawn=False), filename="graph.png")
-        embed.set_image(url="attachment://graph.png")
-        
-        if len(towns) > 3:
-            await interaction.edit_original_response(attachments=[graph], embed=embed)
+            await interaction.response.send_message(embed=embed, view=c_view, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"))
+        elif not c.valid:
+            embed.set_image(url="attachment://religion_map.png")
+            await interaction.response.edit_message(embed=embed, view=c_view)
+        dpi = await self.client.image_generator.generate_area_map(religion.towns, False, True, self.client.image_generator.MapBackground.AUTO, False, c)
+        file = discord.File(await self.client.image_generator.render_plt(dpi, c), "religion_map.png")
+        embed.set_image(url="attachment://religion_map.png")
+        if c.valid and not edit:
+            await interaction.response.send_message(embed=embed, view=c_view, file=file)
+        elif c.valid:
+            await interaction.response.edit_message(embed=embed, view=c_view, attachments=[file])
         else:
-            await (interaction.response.edit_message(embed=embed, view=c_view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=c_view, file=graph))
+            await interaction.edit_original_response(embed=embed, view=c_view, attachments=[file])
     
     @app_commands.command(name="world", description="Get information about the world as a whole")
     async def _world(self, interaction : discord.Interaction):
@@ -409,27 +430,23 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         c_view.add_command(commands_view.Command("history global residents", "Resident History", (), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
         c_view.add_command(commands_view.Command("history global nations", "Nation History", (), button_style=discord.ButtonStyle.secondary, emoji="👑", row=2))
 
-        cache_id = f"{len(world.towns)}+{len(world.nations)}"
-        im = graphs.check_cache(cache_name="Earth", cache_id=cache_id)
-        files=[]
-        embed.set_image(url="attachment://graph.png")
-        if im:
-            files.append(discord.File(im, "graph.png"))
-        elif not edit:
-            files.append(discord.File(s.waiting_bg_path, "map_waiting.jpg"))
+        c = self.client.image_generator.town_cache_item(f"Global", world.towns).check_cache()
+        
+        embed.set_image(url="attachment://earth_map.png")
+        if not c.valid and not edit:
             embed.set_image(url="attachment://map_waiting.jpg")
 
-        await (
-            (
-                interaction.response.edit_message(embed=embed, attachments=files, view=c_view) if len(files) > 0 else interaction.response.edit_message(embed=embed, view=c_view)
-            ) if edit else interaction.response.send_message(embed=embed, files=files, view=c_view)
-        )
+            await interaction.response.send_message(embed=embed, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"), view=c_view)
+        elif edit:
+            await interaction.response.edit_message(embed=embed, view=c_view)
+        
+        dpi = await self.client.image_generator.generate_area_map(world.towns, False, True, self.client.image_generator.MapBackground.ON, True, c)
+        file = discord.File(await self.client.image_generator.render_plt(dpi, c), "earth_map.png")
 
-        if not im:
-            graph = discord.File(graphs.plot_towns(towns, plot_spawn=False, whole=True, cache_name="Earth", cache_id=cache_id, cache_checked=im), filename="graph.png")
-            embed.set_image(url="attachment://graph.png")
-
-            await interaction.edit_original_response(embed=embed, attachments=[graph])
+        if edit or not c.valid:
+            await interaction.edit_original_response(embed=embed, view=c_view, attachments=[file])
+        else:
+            await interaction.response.send_message(embed=embed, view=c_view, file=file)
 
     @app_commands.command(name="online", description="List online players")
     async def _online(self, interaction : discord.Interaction):
@@ -457,17 +474,49 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         if len(cmds) > 0:
             view.add_item(commands_view.CommandSelect(self, list(reversed(cmds))[:25], "Get Player Info...", 2))
 
-        im = graphs.check_cache(cache_name="Earth", cache_id=f"{len(self.client.world.towns)}+{len(self.client.world.nations)}")
+        button = discord.ui.Button(label="Show offline players", emoji="🧍", row=1, style=discord.ButtonStyle.primary)
+        def off_players(world : client.object.World, view : discord.ui.View, embed : discord.Embed):
+            async def off_players_callback(interaction : discord.Interaction):
+                for item in view.children:
+                    if hasattr(item, "label") and item.label == "Show offline players":
+                        item.disabled = True 
+                
+                await interaction.response.defer()
+
+                embed.set_image(url="attachment://earth_map.png")
+                c = self.client.image_generator.town_cache_item(f"Global", world.towns).check_cache()
+                dpi = await self.client.image_generator.generate_area_map(world.towns, False, True, self.client.image_generator.MapBackground.ON, True, c)
+                if not c.valid: await self.client.image_generator.render_plt(dpi, c, True)
+                await self.client.image_generator.layer_player_locations(world.online_players, world.offline_players)
+                file = discord.File(await self.client.image_generator.render_plt(dpi, c), "earth_map.png")
+
+                return await interaction.followup.edit_message(embed=embed, attachments=[file], view=view, message_id=interaction.message.id)
+
+            return off_players_callback
+        button.callback = off_players(self.client.world, view, embed)
+        view.add_item(button)
+
+
+        c = self.client.image_generator.town_cache_item(f"Global", self.client.world.towns).check_cache()
         
-        f = discord.File(s.waiting_bg_path, "map_waiting.jpg")
-        if edit:
-            embed.set_image(url="attachment://graph.png")
-        await (interaction.response.edit_message(embed=embed, view=view) if edit else interaction.response.send_message(embed=embed, view=view, file=f))
+        embed.set_image(url="attachment://earth_map.png")
+        if not edit:
+            embed.set_image(url="attachment://map_waiting.jpg")
+            await interaction.response.send_message(embed=embed, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"), view=view)
+            embed.set_image(url="attachment://earth_map.png")
+        elif edit:
+            await interaction.response.edit_message(embed=embed, view=view)
+        
+        dpi = await self.client.image_generator.generate_area_map(self.client.world.towns, False, True, self.client.image_generator.MapBackground.ON, True, c)
+        if not c.valid:
+            await self.client.image_generator.render_plt(dpi, c, True)
 
-        graph = discord.File(graphs.plot_towns(self.client.world.towns, players=self.client.world.players, plot_spawn=False, whole=True, cache_checked=im, cache_name="Earth", cache_id=f"{len(self.client.world.towns)}+{len(self.client.world.nations)}", dot_size=5), filename="graph.png")
-        embed.set_image(url="attachment://graph.png")
+        await self.client.image_generator.layer_player_locations(online_players, [])
+        file = discord.File(await self.client.image_generator.render_plt(dpi), "earth_map.png")
 
-        await interaction.edit_original_response(attachments=[graph], embed=embed)
+        
+        await interaction.edit_original_response(embed=embed, view=view, attachments=[file])
+
 
 
 async def setup(bot : commands.Bot):

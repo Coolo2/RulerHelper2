@@ -1,10 +1,11 @@
 
 """
-PyPaginator v2.0.1 by Coolo2
+PyPaginator v2.0.2 by Coolo2
 """
 
 import discord
 import typing
+import inspect
 
 class PaginatorView(discord.ui.View):
 
@@ -106,7 +107,7 @@ class PaginatorView(discord.ui.View):
             else:
                 await interaction.response.defer()
                 
-                image = generator[0](*generator[1])
+                image = await self.render_frame()
                 graph = discord.File(image, filename="paginator_image.png")
                 self.embed.set_image(url="attachment://paginator_image.png")
 
@@ -163,12 +164,19 @@ class PaginatorView(discord.ui.View):
 
         await interaction.response.send_modal(SearchModal(self))
     
-    def render_initial_image(self):
+    async def render_frame(self):
+        generator = self.page_image_generators[self.index]
+        if inspect.iscoroutinefunction(generator[0]):
+            image = await generator[0](*generator[1])
+        else:
+            image = generator[0](*generator[1])
+        return image
+    
+    async def render_initial_image(self):
         for child in self.children:
             child.disabled = False
 
-        generator = self.page_image_generators[self.index]
-        image = generator[0](*generator[1])
+        image = await self.render_frame()
         graph = discord.File(image, filename="paginator_image.png")
         self.attachment = graph
         self.embed.set_image(url="attachment://paginator_image.png")
