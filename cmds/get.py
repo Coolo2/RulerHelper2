@@ -44,6 +44,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         visited_towns_total = await player.total_visited_towns
         dc = await player.discord
         notable_statistics = client.funcs.top_rankings_to_text(await player.top_rankings, player.name)
+        total_mentions, last_mention = await player.total_mentions
+        total_messages, last_message = await player.total_messages
 
         health = "<:heartfull:1152274373923844196>"*int(player.health//2) + "<:hearthalf:1152274386364145715>"*int(player.health%2) + "<:heartnone:1152275125199179867>"*int((20-player.health)//2)
         armor = "<:armorfull:1152274423898976289>"*int(player.armor//2) + "<:armorhalf:1152274436179898430>"*int(player.armor%2) + "<:armornone:1152274447445790730>"*int((20-player.armor)//2)
@@ -60,8 +62,10 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Likely Discord", value=str(dc.mention if dc else "Unknown"))
         embed.add_field(name="Donator?", value="Yes" if player.donator == True else "Unlikely" if player.donator == False else "Unknown")
         embed.add_field(name="Notable Statistics", value=notable_statistics, inline=False)
+        embed.add_field(name="Sent messages", value=f"{total_messages:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_messages != 0 else ""))
+        embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
 
-        embed.set_footer(text=f"Bot has been tracking for {(await self.client.world.total_tracked).str_no_timestamp()}")
+        embed.set_footer(text=await self.client.tracking_footer)
         embed.set_thumbnail(url=await player.face_url)
 
         c_view = commands_view.CommandsView(self)
@@ -107,6 +111,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         area = town.area
         visited_players_total = await town.total_visited_players
         previous_names = await town.previous_names
+        total_mentions, last_mention = await town.total_mentions
 
         notable_rankings_str = client.funcs.top_rankings_to_text(await town.top_rankings, town.name_formatted)
         notable_statistics = town.notable_statistics
@@ -129,13 +134,14 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Visited Players", value=f"{visited_players_total} ({(visited_players_total/len(self.client.world.players))*100:.1f}%)")
         embed.add_field(name="Public", value="Yes" if town.public else "No")
         embed.add_field(name="Previous names", value=", ".join(previous_names) if len(previous_names) > 0 else "None")
+        embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
         embed.add_field(name="Outposts", value=str(len(town.outpost_spawns)))
 
         embed.add_field(name=f"Borders ({len(borders)})", value="`" + ("`, `".join(t.name_formatted for t in borders) + "`") if len(borders) > 0 else "None", inline=False) 
         #embed.add_field(name="Peaceful", value="Yes" if town.peaceful else "No")
         embed.add_field(name="Notable Statistics", value=notable_statistics_str + notable_rankings_str, inline=False)
 
-        embed.set_footer(text=f"Bot has been tracking for {(await self.client.world.total_tracked).str_no_timestamp()}")
+        embed.set_footer(text=await self.client.tracking_footer)
 
         c_view = commands_view.CommandsView(self)
 
@@ -168,7 +174,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
                 await interaction.response.edit_message(view=view, attachments=[file], embed=interaction.message.embeds[0])
             return outposts_button_callback
         button.callback = outposts_button(town, c_view, borders)
-        if len(town.outpost_spawns) > 1:
+        if len(town.outpost_spawns) > 0 and len(town.areas) > 1:
             c_view.add_item(button)
         c_view.add_command(commands_view.Command("history town visited_players", "Visited Players", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="📖", row=2))
         c_view.add_command(commands_view.Command("history town bank", "Bank History", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="💵", row=2))
@@ -199,6 +205,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         total_residents = nation.total_residents
         area = nation.total_area
         previous_names = await nation.previous_names
+        total_mentions, last_mention = await nation.total_mentions
         
         borders = nation.borders
 
@@ -223,15 +230,17 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Population Density", value=f"{int(nation.total_area/total_residents):,} plots/resident")
         embed.add_field(name="Activity", value=str(await nation.activity))
         embed.add_field(name="Discord", value=flags.get("server") or "None set.")
+        embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
         embed.add_field(name="Previous names", value=", ".join(previous_names) if len(previous_names) > 0 else "None")
-        
+
         embed.add_field(name=f"Borders ({len(borders[0])})", value="`" + ("`, `".join(n.name_formatted for n in borders[0]) + "`") if len(borders[1]) > 0 else "None", inline=False if len(borders[1]) > 0 else True) 
         embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in [capital]+towns)) + "`", inline=False)
         embed.add_field(name="Culture Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in culture_make_up.items()][:5]) if len(culture_make_up) > 0 else 'None')
         embed.add_field(name="Religion Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in religion_make_up.items()][:5]) if len(religion_make_up) > 0 else 'None')
         embed.add_field(name="Notable Statistics", value=notable_statistics_str + notable_rankings_str, inline=False)
+        
 
-        embed.set_footer(text=f"Bot has been tracking for {(await self.client.world.total_tracked).str_no_timestamp()}")
+        embed.set_footer(text=await self.client.tracking_footer)
 
         c_view = commands_view.CommandsView(self)
         c_view.add_item(commands_view.RefreshButton(self.client, "get nation", (nation.name,)))
@@ -299,6 +308,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         culture = self.client.world.get_culture(culture_name, True)
         towns = culture.towns
         area = culture.total_area
+        total_mentions, last_mention = await culture.total_mentions
 
         if not culture:
             raise client.errors.MildError("Couldn't find culture")
@@ -313,6 +323,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Area", value=f"{area:,} plots ({area*64:,}km²)")
         embed.add_field(name="Town Value", value=f"${culture.total_value:,.2f}")
         embed.add_field(name="Population Density", value=f"{int(culture.total_area/total_residents):,} plots/resident")
+        embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
         embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in towns)) + "`", inline=False)
         embed.add_field(name="Nation Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in nation_make_up.items()][:5]) if len(nation_make_up) > 0 else 'None')
 
@@ -353,6 +364,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         religion = self.client.world.get_religion(religion_name, True)
         towns = religion.towns
         area = religion.total_area
+        total_mentions, last_mention = await religion.total_mentions
 
         if not religion:
             raise client.errors.MildError("Couldn't find religion")
@@ -367,6 +379,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Area", value=f"{area:,} plots ({area*64:,}km²)")
         embed.add_field(name="Town Value", value=f"${religion.total_value:,.2f}")
         embed.add_field(name="Population Density", value=f"{int(religion.total_area/total_residents):,} plots/resident")
+        embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
         embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in towns)) + "`", inline=False)
         embed.add_field(name="Nation Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in nation_make_up.items()][:5]) if len(nation_make_up) > 0 else 'None')
 
@@ -421,8 +434,9 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Total Residents", value=f"{world.total_residents:,} ({len(world.players):,} known)")
         embed.add_field(name="Total player activity", value=total_activity.str_no_timestamp())
         embed.add_field(name="Average online players", value=f"{total_activity.total/total_tracked.total:,.2f}")
+        embed.add_field(name="Total sent messages", value=f"{await world.total_messages:,}")
 
-        embed.set_footer(text=f"Bot has been tracking for {total_tracked.str_no_timestamp()}")
+        embed.set_footer(text=await self.client.tracking_footer)
 
         c_view = commands_view.CommandsView(self)
         c_view.add_item(commands_view.RefreshButton(self.client, "get world", [], 2))
@@ -432,14 +446,14 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         c = self.client.image_generator.town_cache_item(f"Global", world.towns).check_cache()
         
-        embed.set_image(url="attachment://earth_map.png")
         if not c.valid and not edit:
             embed.set_image(url="attachment://map_waiting.jpg")
-
             await interaction.response.send_message(embed=embed, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"), view=c_view)
         elif edit:
+            embed.set_image(url="attachment://earth_map.png")
             await interaction.response.edit_message(embed=embed, view=c_view)
         
+        embed.set_image(url="attachment://earth_map.png")
         dpi = await self.client.image_generator.generate_area_map(world.towns, False, True, self.client.image_generator.MapBackground.ON, True, c)
         file = discord.File(await self.client.image_generator.render_plt(dpi, c), "earth_map.png")
 
@@ -499,14 +513,14 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         c = self.client.image_generator.town_cache_item(f"Global", self.client.world.towns).check_cache()
         
-        embed.set_image(url="attachment://earth_map.png")
         if not edit:
             embed.set_image(url="attachment://map_waiting.jpg")
             await interaction.response.send_message(embed=embed, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"), view=view)
-            embed.set_image(url="attachment://earth_map.png")
         elif edit:
+            embed.set_image(url="attachment://earth_map.png")
             await interaction.response.edit_message(embed=embed, view=view)
         
+        embed.set_image(url="attachment://earth_map.png")
         dpi = await self.client.image_generator.generate_area_map(self.client.world.towns, False, True, self.client.image_generator.MapBackground.ON, True, c)
         if not c.valid:
             await self.client.image_generator.render_plt(dpi, c, True)

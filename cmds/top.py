@@ -36,20 +36,22 @@ def generate_command(
 
         edit = interaction.extras.get("edit")
 
+        
+
         on_date = datetime.datetime.strptime(on, "%b %d %Y").date() if on and not not_in_history else datetime.date.today()
 
         if is_town:
             if not_in_history:
-                rs = await c.towns_table.get_records(attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+                rs = await c.towns_table.get_records(attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderDescending))
                 total = await c.towns_table.total_column(attribute)
             else:
-                rs = await c.town_history_table.get_records(attributes=["town AS name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending), conditions=[db.CreationCondition("date", on_date)])
+                rs = await c.town_history_table.get_records(attributes=["town AS name", attribute], order=db.CreationOrder(attribute, db.types.OrderDescending), conditions=[db.CreationCondition("date", on_date)])
                 total = await c.town_history_table.total_column(attribute, conditions=[db.CreationCondition("date", on_date)])
             l = [t.name for t in c.world.towns]
         elif is_player:
             rs = await c.player_history_table.get_records(
                 attributes=["player AS name", f"MAX({attribute}) AS {attribute}"], 
-                order=db.CreationOrder(attribute, db.types.OrderAscending),
+                order=db.CreationOrder(attribute, db.types.OrderDescending),
                 conditions=[db.CreationCondition("date", on_date, "<=")],
                 group=["player"]
             )
@@ -57,7 +59,7 @@ def generate_command(
             for r in rs: total += r.attribute(attribute) or 0
             l = [p.name for p in c.world.players]
         else: # is nation
-            rs = await c.nation_history_table.get_records(conditions=[db.CreationCondition("date", on_date)], attributes=["nation AS name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+            rs = await c.nation_history_table.get_records(conditions=[db.CreationCondition("date", on_date)], attributes=["nation AS name", attribute], order=db.CreationOrder(attribute, db.types.OrderDescending))
             total = await c.nation_history_table.total_column(attribute, conditions=[db.CreationCondition("date", on_date)])
             l = [n.name for n in c.world.nations]
 
@@ -65,34 +67,40 @@ def generate_command(
         attnameformat = attname.replace('_', ' ')
 
         if is_culture or is_religion:
-            rs = await c.object_history_table.get_records(conditions=[db.CreationCondition("type", o_type), db.CreationCondition("date", on_date)], attributes=["object AS name", attribute], order=db.CreationOrder(attribute, db.types.OrderAscending))
+            rs = await c.object_history_table.get_records(conditions=[db.CreationCondition("type", o_type), db.CreationCondition("date", on_date)], attributes=["object AS name", attribute], order=db.CreationOrder(attribute, db.types.OrderDescending))
             total = await c.object_history_table.total_column(attribute, conditions=[db.CreationCondition("type", o_type), db.CreationCondition("date", on_date)])
             l = [o.name for o in c.world._objects[o_type + "s"]]
 
         log = ""
         values = {}
-        for i, record in enumerate(reversed(rs) if reverse else rs):
+        i = -1
+        for record in (reversed(rs) if reverse else rs):
             if is_town and (record.attribute('name') in s.DEFAULT_TOWNS or True in [l in record.attribute('name') for l in s.DEFAULT_TOWNS_SUBSTRING]):
                 continue
-            
             if is_religion and "Production" in record.attribute("name"):
                 continue
+            if is_player and record.attribute("name") not in l and on_date == datetime.date.today():
+                continue
+            i += 1
             
             parsed = (parser(record.fields[1].value) if parser else record.fields[1].value) or 0
             val = formatter(parsed)
             attval = record.attribute(attribute) or 0
-            perc = (attval/total)*100 if type(attval) != datetime.date else (parsed/total)*100
+            if total > 0:
+                perc = (attval/total)*100 if type(attval) != datetime.date else (parsed/total)*100
+            else:
+                perc = 0
             perc_str = f" ({perc:,.1f}%)" if type(attval) != datetime.date else ""
             name = str(record.attribute('name')).replace("_", " ") if not is_player else str(record.attribute('name'))
             fmt = "**" if record.attribute("name") in l else "`"
 
-            log =  f"{len(rs)-i}. {fmt}{discord.utils.escape_markdown(name)}{fmt}: {val}{perc_str}\n" + log
+            log =  log + f"{i}. {fmt}{discord.utils.escape_markdown(name)}{fmt}: {val}{perc_str}\n"
 
             values[name] = int(parsed)
         
-        title = f"Top {o_type}s by {attnameformat} " + (f"on {on} " if on else "") + f"({len(rs):,})"
+        title = f"Top {o_type}s by {attnameformat} " + (f"on {on} " if on else "") + f"({i:,})"
 
-        file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), title, o_type.title(), y or "Value", bar, y_formatter=y_formatter, highlight=highlight)
+        file = graphs.save_graph(dict(list((list(values.items())))[:s.top_graph_object_count]), title, o_type.title(), y or "Value", bar, y_formatter=y_formatter, highlight=highlight)
         graph = discord.File(file, filename="graph.png")
 
         embed = discord.Embed(title=title, color=s.embed)
@@ -107,8 +115,10 @@ def generate_command(
                 added += 1
                 cmds.append(commands_view.Command(f"get {o_type}", f"{i+1}. {object_name}", (object_name,), emoji=None))
         
-        if attribute == "duration":
+        if attribute in ["duration"]:
             embed.set_footer(text=f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
+        elif attribute in ["messages", "mentions"]:
+            embed.set_footer(text=f" Tracking chat for {(await interaction.client.client.world.total_tracked_chat).str_no_timestamp()}")
 
         view = paginator.PaginatorView(embed, log, index=interaction.extras.get("page"))
         view.add_item(commands_view.RefreshButton(c, f"top {o_type}s {attname}", (), 3))

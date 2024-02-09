@@ -330,7 +330,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
         
         embed = discord.Embed(title=f"{str(o)} visited history ({len(objects)})", color=s.embed)
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
-        embed.set_footer(text=f"Bot has been tracking for {(await c.world.total_tracked).str_no_timestamp()}")
+        embed.set_footer(text=await c.tracking_footer)
 
         files = []
         if len(objects) > 0:

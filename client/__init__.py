@@ -1,6 +1,6 @@
 
 import aiohttp
-from client import object, funcs, errors, image_generator
+from client import object, funcs, errors, image_generator, notifications
 
 import datetime
 import setup as s
@@ -15,10 +15,14 @@ import shutil
 import os
 from shapely import Point
 
+import ijson.backends.yajl2_c as ijson
+
 class Client():
     def __init__(self):
 
         self.refresh_no : int = 0
+        self.__dynmap_update_timestamp = 0
+        self.messages_sent = 0
         
         self.session : aiohttp.ClientSession= None
         self.database = db.Database("towny.db", auto_commit=False)
@@ -32,7 +36,7 @@ class Client():
         self.refresh_period = s.default_refresh_period
         self.last_refreshed : datetime.datetime = None
         self.world = object.World(self) 
-        self.notifications = Notifications(self)
+        self.notifications = notifications.Notifications(self)
 
         self.image_generator = image_generator.ImageGenerator(self)
     
@@ -60,7 +64,6 @@ class Client():
                 "towns",
                 [
                     db.CreationAttribute("name", db.types.String, primary_key=True),
-                    db.CreationAttribute("flag_url", db.types.String),
                     db.CreationAttribute("nation", db.types.String),
                     db.CreationAttribute("religion", db.types.String),
                     db.CreationAttribute("culture", db.types.String),
@@ -72,6 +75,7 @@ class Client():
                     db.CreationAttribute("public", db.types.Int),
                     db.CreationAttribute("peaceful", db.types.Int),
                     db.CreationAttribute("area", db.types.Int),
+                    db.CreationAttribute("mentions", db.types.Int),
                     db.CreationAttribute("visited_players", db.types.Int),
                     db.CreationAttribute("duration", db.types.Int),
                     db.CreationAttribute("last_seen", db.types.Datetime)
@@ -90,6 +94,8 @@ class Client():
                     db.CreationAttribute("health", db.types.Int),
                     db.CreationAttribute("visited_towns", db.types.Int),
                     db.CreationAttribute("donator", db.types.Int),
+                    db.CreationAttribute("messages", db.types.Int),
+                    db.CreationAttribute("mentions", db.types.Int),
                     db.CreationAttribute("duration", db.types.Int),
                     db.CreationAttribute("last", db.types.Datetime)
                 ]
@@ -106,6 +112,7 @@ class Client():
                     db.CreationAttribute("town_balance", db.types.Float),
                     db.CreationAttribute("residents", db.types.Int),
                     db.CreationAttribute("area", db.types.Int),
+                    db.CreationAttribute("mentions", db.types.Int),
                     db.CreationAttribute("duration", db.types.Int),
                     db.CreationAttribute("last", db.types.Datetime)
                 ]
@@ -142,7 +149,8 @@ class Client():
                     db.CreationAttribute("area", db.types.Int),
                     db.CreationAttribute("duration", db.types.Int),
                     db.CreationAttribute("visited_players", db.types.Int),
-                    db.CreationAttribute("current_name", db.types.String)
+                    db.CreationAttribute("current_name", db.types.String),
+                    db.CreationAttribute("mentions", db.types.Int)
                 ]
             )
         )
@@ -173,6 +181,8 @@ class Client():
                     db.CreationAttribute("visited_towns", db.types.Int),
                     db.CreationAttribute("likely_town", db.types.String),
                     db.CreationAttribute("likely_nation", db.types.String),
+                    db.CreationAttribute("messages", db.types.Int),
+                    db.CreationAttribute("mentions", db.types.Int)
                 ]
             )
         )
@@ -202,7 +212,8 @@ class Client():
                     db.CreationAttribute("leader", db.types.String),
                     db.CreationAttribute("area", db.types.Int),
                     db.CreationAttribute("duration", db.types.Int),
-                    db.CreationAttribute("current_name", db.types.String)
+                    db.CreationAttribute("current_name", db.types.String),
+                    db.CreationAttribute("mentions", db.types.Int)
                 ]
             )
         )
@@ -233,7 +244,9 @@ class Client():
                     db.CreationAttribute("town_value", db.types.Float),
                     db.CreationAttribute("area", db.types.Int),
                     db.CreationAttribute("known_players", db.types.Int),
-                    db.CreationAttribute("activity", db.types.Int)
+                    db.CreationAttribute("activity", db.types.Int),
+                    db.CreationAttribute("messages", db.types.Int),
+                    db.CreationAttribute("database_size", db.types.Float)
                 ]
             )
         )
@@ -249,7 +262,8 @@ class Client():
                     db.CreationAttribute("town_value", db.types.Float),
                     db.CreationAttribute("area", db.types.Int),
                     db.CreationAttribute("known_players", db.types.Int),
-                    db.CreationAttribute("activity", db.types.Int)
+                    db.CreationAttribute("activity", db.types.Int),
+                    db.CreationAttribute("messages", db.types.Int)
                 ]
             )
         )
@@ -264,7 +278,8 @@ class Client():
                     db.CreationAttribute("towns", db.types.Int),
                     db.CreationAttribute("town_balance", db.types.Float),
                     db.CreationAttribute("residents", db.types.Int),
-                    db.CreationAttribute("area", db.types.Int)
+                    db.CreationAttribute("area", db.types.Int),
+                    db.CreationAttribute("mentions", db.types.Int)
                 ]
             )
         )
@@ -306,9 +321,36 @@ class Client():
             )
         )
 
+        self.chat_message_counts_table = await self.database.create_or_get_table(
+            db.CreationTable(
+                "chat_message_counts",
+                [
+                    db.CreationAttribute("player", db.types.String),
+                    db.CreationAttribute("amount", db.types.Int),
+                    db.CreationAttribute("last", db.types.Datetime)
+                ]
+            )
+        )
+
+        self.chat_mentions_table = await self.database.create_or_get_table(
+            db.CreationTable(
+                "chat_mentions",
+                [
+                    db.CreationAttribute("object_type", db.types.String),
+                    db.CreationAttribute("object_name", db.types.String),
+                    db.CreationAttribute("amount", db.types.Int),
+                    db.CreationAttribute("last", db.types.Datetime)
+                ]
+            )
+        )
+
+
         #await self.database.connection.execute('PRAGMA synchronous = OFF')
         await self.database.connection.execute('PRAGMA journal_mode = WAL')
         
+    @property 
+    async def tracking_footer(self):
+        return f"Tracked: game for {(await self.world.total_tracked).str_no_timestamp()}, chat for {(await self.world.total_tracked_chat).str_no_timestamp()}"
 
     async def create_session(self):
         if not self.session:
@@ -316,7 +358,6 @@ class Client():
 
 
     async def fetch_world(self):
-        
 
         await self.create_session()
 
@@ -326,8 +367,45 @@ class Client():
         if map.status == 502 or map_data.status == 502:
             return False
         
-
         await self.world.refresh(map.content, map_data.content)
+    
+    async def fetch_chat_messages(self):
+        
+        mentions = {}
+        for town in self.world.towns: 
+            mentions[town.name.lower()] = ("town", town.name)
+        for object_type in self.world._objects: 
+            for object in self.world._objects[object_type]: mentions[object.name.lower()] = (object_type[:-1], object.name) 
+        for player in self.world.players:
+            mentions[player.name.lower()] = ("player", player.name)
+
+        r = await self.session.get(f"{self.url}/up/world/RulerEarth/{self.__dynmap_update_timestamp+1}")
+        
+        dynmap_parts = ijson.kvitems_async(r.content, "", use_float=True)
+
+        async for key, updates in dynmap_parts:
+            if key == "updates":
+                for update in updates:
+                    if update["type"] == "chat":
+                        self.__dynmap_update_timestamp = update["timestamp"]
+
+                        sender = self.world.get_player(update["account"], False)
+                        message : str = update['message']
+
+                        for word in message.split(" "):
+                            if word.lower() in mentions:
+                                mention = mentions[word.lower()]
+
+                                cond2 = [db.CreationCondition("object_type", mention[0]), db.CreationCondition("object_name", mention[1])]
+                                exists = await self.chat_mentions_table.record_exists(cond2)
+                                if not exists: await self.chat_mentions_table.add_record([mention[0], mention[1], 1, datetime.datetime.now()])
+                                else: await self.chat_mentions_table.update_record(cond2, [db.CreationField.add("amount", 1), db.CreationField("last", datetime.datetime.now())])
+
+                        if sender:
+                            cond2 = [db.CreationCondition("player", sender.name)]
+                            exists = await self.chat_message_counts_table.record_exists(cond2)
+                            if not exists: await self.chat_message_counts_table.add_record([sender.name, 1, datetime.datetime.now()])
+                            else: await self.chat_message_counts_table.update_record(cond2, [db.CreationField.add("amount", 1), db.CreationField("last", datetime.datetime.now())])
     
     async def cull_db(self):
 
@@ -338,6 +416,14 @@ class Client():
 
         await self.players_table.delete_records([db.CreationCondition("last", datetime.datetime.now()-s.cull_players_from, "<")])
         await self.towns_table.delete_records([db.CreationCondition("last_seen", datetime.datetime.now()-s.cull_objects_after, "<")])
+
+        await self.database.connection.execute("DELETE FROM visited_towns WHERE player IN (SELECT visited_towns.player FROM visited_towns LEFT JOIN players ON visited_towns.player=players.name WHERE players.name IS NULL) AND duration < 300;")
+        await self.database.connection.execute("DELETE FROM player_history WHERE player IN (SELECT player_history.player FROM player_history LEFT JOIN players ON player_history.player=players.name JOIN activity ON activity.object_name=player_history.player WHERE players.name IS NULL AND activity.duration < 1000);")
+        
+        # Abstract history tables, remove some old data which is not needed anymore
+        for object_type in ["player", "town", "nation", "object"]:
+            for threshold_time, days_of_6 in s.history_abstraction_thresholds:
+                await self.database.connection.execute(f"DELETE FROM {object_type}_history WHERE (julianday(date)-julianday('2021-10-29')) % 6 IN ({days_of_6}) AND date<?", (datetime.datetime.now()-threshold_time,))
         
 
         await self.flags_table.delete_records([db.CreationCondition("object_type", "nation"), db.CreationField.external_query(self.objects_table, "object_name", db.CreationCondition("type", "nation"), operator="NOT IN")])
@@ -423,6 +509,9 @@ class Client():
         if object_type == "player":
             old_duration = (await self.player_history_table.get_record([db.CreationCondition("player", old_object_name)], [self.player_history_table.attribute("duration")], order=db.CreationOrder("date", db.types.OrderDescending))).attribute("duration")
 
+            await self.database.connection.execute("UPDATE chat_message_counts SET player=? WHERE player=?", (obj.name, old_object_name))
+            await self.database.connection.execute("UPDATE chat_mentions SET object_name=? WHERE object_name=? AND object_type='player'", (obj.name, old_object_name))
+
             # Update flag table
             await self.flags_table.delete_records([db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", obj.name)]) 
             await self.flags_table.update_records([db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", old_object_name)], [db.CreationField(self.flags_table.attribute("object_name"), new_object_name)])
@@ -458,6 +547,8 @@ class Client():
         elif object_type == "town":
             old_duration = (await self.town_history_table.get_record([db.CreationCondition("town", old_object_name)], [self.town_history_table.attribute("duration")], order=db.CreationOrder("date", db.types.OrderDescending))).attribute("duration")
 
+            await self.database.connection.execute("UPDATE chat_mentions SET object_name=? WHERE object_name=? AND object_type='town'", (obj.name, old_object_name))
+
             # Update flag table
             await self.flags_table.delete_records([db.CreationCondition("object_type", "town"), db.CreationCondition("object_name", obj.name)]) 
             await self.flags_table.update_records([db.CreationCondition("object_type", "town"), db.CreationCondition("object_name", old_object_name)], [db.CreationField(self.flags_table.attribute("object_name"), new_object_name)])
@@ -491,6 +582,8 @@ class Client():
             await self.player_history_table.update_records([db.CreationCondition("likely_town", old_object_name)], db.CreationField("likely_town", obj.name))
         elif object_type == "nation":
 
+            await self.database.connection.execute("UPDATE chat_mentions SET object_name=? WHERE object_name=? AND object_type='nation'", (obj.name, old_object_name))
+
             # Update flags: 1. Delete flags if already exist 2. Update old name
             await self.flags_table.delete_records([db.CreationCondition("object_type", "nation"), db.CreationCondition("object_name", obj.name)]) 
             await self.flags_table.update_records([db.CreationCondition("object_type", "nation"), db.CreationCondition("object_name", old_object_name)], [db.CreationField(self.flags_table.attribute("object_name"), new_object_name)])
@@ -511,172 +604,7 @@ class Client():
             await self.player_history_table.update_records([db.CreationCondition("likely_nation", old_object_name)], db.CreationField("likely_nation", obj.name))
 
     
-class NotificationChannel():
-    def __init__(self):
-        self.notification_type : str = None
-        self.channel : discord.TextChannel = None 
-        self.nation_name : str = None
-        self.ignore_if_resident :bool = None
-    
-    def from_record(client : Client, record : wrapper.Record):
-        nc = NotificationChannel()
 
-        nc.notification_type = record.attribute("notification_type")
-        nc.channel = client.bot.get_channel(int(record.attribute("channel_id")))
-        nc.nation_name = record.attribute("object_name")
-
-        ignore_if_resident = record.attribute("ignore_if_resident")
-        nc.ignore_if_resident = True if str(ignore_if_resident) == "1" else False
-
-        return nc
-
-class Notifications():
-    def __init__(self, client: Client):
-        self.client = client
-
-        self._players_ignore : dict[str, dict[str, int]] = {}# "town":{"player":[0, msg]}
-
-    async def add_notification_channel(self, channel : discord.TextChannel, notification_type : str, nation_name : str, ignore_if_resident : bool):
-        await self.client.notifications_table.add_record(
-            [
-                notification_type,
-                channel.guild.id,
-                channel.id,
-                nation_name,
-                int(ignore_if_resident)
-            ]
-        )
-    
-    async def update_notifications_channel(self, channel : discord.TextChannel, notification_type : str, nation_name : str, ignore_if_resident : bool):
-        await self.client.notifications_table.update_record(
-            [db.CreationCondition("channel_id", channel.id), db.CreationCondition("notification_type", notification_type)],
-            *[
-                notification_type,
-                channel.guild.id,
-                channel.id,
-                nation_name,
-                int(ignore_if_resident)
-            ]
-        )
-    
-    async def does_notification_channel_exist(self, channel : discord.TextChannel, notification_type : str):
-        return await self.client.notifications_table.record_exists(*[db.CreationCondition("channel_id", channel.id), db.CreationCondition("notification_type", notification_type)])
-
-    async def delete_notifications_channel(self, channel : discord.TextChannel = None, notification_type : str = None):
-        c = []
-        if notification_type:
-            c.append(db.CreationCondition("notification_type", notification_type))
-        if channel:
-            c.append(db.CreationCondition("channel_id", channel.id))
-        return await self.client.notifications_table.delete_records(*c)
-
-    
-    async def get_notification_channels(self, channel : discord.TextChannel = None, notification_type : str = None):
-        c = []
-        if notification_type:
-            c.append(db.CreationCondition("notification_type", notification_type))
-        if channel:
-            c.append(db.CreationCondition("channel_id", channel.id))
-        
-        notification_channels_records = await self.client.notifications_table.get_records(
-            conditions=c
-        )
-
-        
-        notification_channels : list[NotificationChannel] = []
-
-        for record in notification_channels_records:
-            nc = NotificationChannel.from_record(self.client, record)
-            if nc.channel:
-                notification_channels.append(nc)
-        
-        return notification_channels
-    
-    async def refresh(self, graphs):
-        channels = await self.client.notifications.get_notification_channels()
-
-        for town_name, players in self.client.world.towns_with_players.items():
-            
-            town = self.client.world.get_town(town_name)
-            ignore_players = self._players_ignore.get(town_name) or {}
-            if not town:
-                continue
-
-            for channel in channels:
-                if town.nation and channel.notification_type == "territory_enter" and channel.nation_name == town.nation.name:
-                    for player in players:
-                        if player.name in ignore_players:
-                            l = [player.location.x, player.location.z]
-                            ig = self._players_ignore[town_name][player.name]
-                            if len(ig[2]) == 0 or ig[2][-1] != l:
-                                ig[2].append(l)
-                            ig[0] += self.client.refresh_period
-                            continue
-                
-                        likely_residency = await player.likely_residency
-                        likely_residency_nation = likely_residency.nation.name_formatted if likely_residency and likely_residency.nation else "None"
-
-                        
-                        if channel.ignore_if_resident and likely_residency and likely_residency.nation == town.nation:
-                            continue
-                            
-                        embed = discord.Embed(title="Player entered territory", color=s.embed)
-                        embed.add_field(name="Player name", value=discord.utils.escape_markdown(player.name))
-                        embed.add_field(name="Coordinates", value=f"[{int(player.location.x)}, {int(player.location.y)}, {int(player.location.z)}]({self.client.url}?x={int(player.location.x)}&z={int(player.location.z)}&zoom={s.map_link_zoom})")
-                        embed.add_field(name="Town", value=town.name_formatted)
-                        embed.add_field(name="Likely residency", value=f"{likely_residency} ({likely_residency_nation})" if likely_residency else "Unknown")
-                        embed.add_field(name="Time spent", value="This will be edited when they exit")
-                        embed.set_thumbnail(url=await player.face_url)
-
-                        try:
-                            msg = await channel.channel.send(embed=embed)
-                        except:
-                            msg = None
-
-                        if town_name not in self._players_ignore:
-                            self._players_ignore[town_name] = {}
-                        
-                        if player.name not in self._players_ignore[town_name]:
-                            self._players_ignore[town_name][player.name] = [self.client.refresh_period, msg, []]
-                        
-                        
-        
-        for town_name, players in self._players_ignore.copy().items():
-
-            for player in players.copy():
-                time : int = self._players_ignore[town_name][player][0]
-                msg : discord.Message = self._players_ignore[town_name][player][1]
-                journey : list[list[int]] = self._players_ignore[town_name][player][2]
-                    
-                if not self.client.world.towns_with_players.get(town_name) or player not in self.client.world.towns_with_players[town_name]:
-                    if msg:
-
-                        embed = msg.embeds[0]
-                        embed.set_field_at(4, name="Time spent", value=f"In town for {funcs.generate_time(time)}")
-
-                        t = self.client.world.get_town(town_name)
-                        if t:
-                            a = []
-                            for area in t.areas:
-                                for point in journey:
-                                    if area.is_point_in_area(Point(point[0], 64, point[1])) and area not in a:
-                                        a.append(area)
-                            dpi = await self.client.image_generator.generate_area_map(a, False, False, False, False, None, [])
-                            await self.client.image_generator.layer_journey(journey)
-                            attachments = [discord.File(await self.client.image_generator.render_plt(dpi, None), "journey.png")]
-                            embed.set_image(url="attachment://journey.png")
-                        else:
-                            attachments = []
-
-                        try:
-                            await msg.edit(embed=embed, attachments=attachments)
-                        except Exception as e:
-                            print(e)
-
-                    del self._players_ignore[town_name][player]
-            
-            if len(self._players_ignore[town_name]) == 0:
-                del self._players_ignore[town_name]
             
 
 

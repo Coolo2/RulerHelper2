@@ -28,8 +28,8 @@ DEFAULT_TOWNS = ["RulerSpawn", "Sea", "Unclaimed"] # Ignore these towns in certa
 DEFAULT_TOWNS_SUBSTRING = ["Quarry", "Trading"]
 DONT_TRACK_TOWNS = ["Sea", "RulerSpawn", "Unclaimed"] # Ignore these towns while tracking.
 
-today_tracking_period = datetime.timedelta(minutes=20)
-production_today_tracking_minutes = [0, 20, 40]
+today_tracking_period = datetime.timedelta(minutes=30)
+production_today_tracking_minutes = [0, 30]
 
 IMAGE_DPI_GRAPH = 100 # DPI (image quality) for graphs (bar charts, pie charts, line graphs)
 IMAGE_DPI_DRAWING = 300 # DPI (image quality) for drawings (maps)
@@ -58,6 +58,13 @@ map_link_zoom = 10 # Zoom level for map links. Eg "Location" in /get player
 cull_players_from = timedelta(days=45) # Duration of time to remove players from the database after
 cull_objects_after = timedelta(minutes=1) # Duration of time to remove deleted towns/nations from the database after. Does not clear history, just concurrent data used in /top etc
 
+history_abstraction_thresholds = [
+    (timedelta(days=45), "1"),
+    (timedelta(days=120), "1, 3"),
+    (timedelta(days=200), "1, 3, 5"),
+    (timedelta(days=365), "1, 2, 3, 4, 5")
+] 
+
 top_graph_object_count = 40 # Number of towns/players/nations to display in "/top" bar charts
 history_skip_if_object_unknown = False # If True and an object (town/player) is not known, ignore it completely in history commands. If False will still display but with diff. format
 see_more_footer = True # Show a footer saying "see more with /command..." under certain commands. useful when bot is new for button calls
@@ -78,24 +85,28 @@ compare_attributes = {
         {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":None, "y":"Area (plots)", "inline":True},
         {"attribute":"resident_tax", "qualitative":False, "name":"daily_tax", "y":"Tax (%)", "inline":True},
         {"attribute":"mayor", "qualitative":True, "inline":True, "formatter":lambda x: escape_markdown(x.name if hasattr(x, 'name') else x)},
-        {"attribute":"nation", "qualitative":True, "formatter":lambda n: n.name_formatted if n else "None", "inline":True}
+        {"attribute":"nation", "qualitative":True, "formatter":lambda n: n.name_formatted if n else "None", "inline":True},
+        {"attribute":"mention_count", "qualitative":False, "inline":True, "history_attribute":"mentions"}
     ],
     "nation":[
-        {"attribute":"activity", "qualitative":False, "y_formatter":generate_time, "history_attribute":"duration"},
+        {"attribute":"activity", "qualitative":False, "y_formatter":ImageGenerator.YTickFormatter.TIME, "history_attribute":"duration"},
         {"attribute":"total_towns", "qualitative":False, "inline":True, "name":"towns", "history_attribute":"towns"},
         {"attribute":"total_residents", "qualitative":False, "name":"residents", "inline":True, "history_attribute":"residents"},
         {"attribute":"total_area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":None, "y":"Area (plots)", "inline":True, "history_attribute":"area"},
         {"attribute":"total_value", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Town Value ($)", "inline":True, "history_attribute":"town_balance"},
         {"attribute":"leader", "qualitative":True, "inline":True, "formatter":lambda x: escape_markdown(x.name if hasattr(x, 'name') else x)},
         {"attribute":"capital", "qualitative":True, "inline":True},
-        {"attribute":"average_town_balance", "qualitative":False, "inline":True, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Town Value ($)", "history_attribute":"town_balance/towns"}
+        {"attribute":"average_town_balance", "qualitative":False, "inline":True, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Town Value ($)", "history_attribute":"town_balance/towns"},
+        {"attribute":"mention_count", "qualitative":False, "inline":True, "history_attribute":"mentions"}
     ],
     "player":[
-        {"attribute":"activity", "qualitative":False, "y_formatter":generate_time, "history_attribute":"duration"},
+        {"attribute":"activity", "qualitative":False, "y_formatter":ImageGenerator.YTickFormatter.TIME, "history_attribute":"duration"},
         {"attribute":"total_visited_towns", "qualitative":False, "name":"visited towns", "inline":True, "history_attribute":"visited_towns"},
         {"attribute":"location", "qualitative":True, "formatter":lambda x: f"{int(x.x)}, {int(x.y)}, {int(x.z)}", "inline":False},
         {"attribute":"town", "qualitative":True, "inline":True},
         {"attribute":"likely_residency", "qualitative":True, "inline":True},
+        {"attribute":"message_count", "qualitative":False, "inline":True, "history_attribute":"messages"},
+        {"attribute":"mention_count", "qualitative":False, "inline":True, "history_attribute":"mentions"}
         
     ]
 }
@@ -112,16 +123,19 @@ history_commands = {
             {"attribute":"public", "qualitative":True, "formatter":None, "name":None, "parser":bool},
             #{"attribute":"peaceful", "qualitative":True, "formatter":None, "name":None, "parser":bool},
             {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":None, "parser":None, "y":"plots"},
-            {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
+            {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":ImageGenerator.YTickFormatter.TIME},
             {"attribute":"area/resident_count", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident"},
             {"attribute":"visited_players", "qualitative":False, "formatter":None, "name":"visited_player_count", "parser":None, "y":"Players"},
             {"attribute":"current_name", "qualitative":True, "formatter":None, "name":None, "parser":lambda x: str(x).replace("_", " "), "name":"name"},
+            {"attribute":"mentions", "qualitative":False, "formatter":None, "parser":None, "y":"Mentions"}
     ],
     "player":[
-            {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
+            {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":ImageGenerator.YTickFormatter.TIME},
             {"attribute":"visited_towns", "qualitative":False, "formatter":None, "name":"visited_town_count", "parser":None, "y":"Towns"},
             {"attribute":"likely_town", "qualitative":True, "formatter":None, "parser":lambda x: str(x).replace("_", " "), "start_at":datetime.date(2023, 11, 20)},
-            {"attribute":"likely_nation", "qualitative":True, "formatter":None, "parser":lambda x: str(x).replace("_", " "), "start_at":datetime.date(2023, 11, 20)}
+            {"attribute":"likely_nation", "qualitative":True, "formatter":None, "parser":lambda x: str(x).replace("_", " "), "start_at":datetime.date(2023, 11, 20)},
+            {"attribute":"messages", "qualitative":False, "formatter":None, "parser":None, "y":"Messages"},
+            {"attribute":"mentions", "qualitative":False, "formatter":None, "parser":None, "y":"Mentions"}
     ],
     "nation":[
             {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},
@@ -130,16 +144,18 @@ history_commands = {
             {"attribute":"capital", "qualitative":True, "formatter":None, "name":None, "parser":lambda x: str(x).replace("_", " ")},
             {"attribute":"leader", "qualitative":True, "formatter":None, "name":None, "parser":None},
             {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":"area", "parser":None, "y":"Area (plots)"},
-            {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
+            {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":ImageGenerator.YTickFormatter.TIME},
             {"attribute":"area/residents", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident"},
             {"attribute":"current_name", "qualitative":True, "formatter":None, "name":None, "parser":lambda x: str(x).replace("_", " "), "name":"name"},
             {"attribute":"town_balance/towns", "qualitative":False, "formatter":lambda x: f"${x:.2f}/town", "name":"average_town_balance", "parser":None, "y":"$/town"},
+            {"attribute":"mentions", "qualitative":False, "formatter":None, "parser":None, "y":"Mentions"}
     ],
     "object":[ # Religion and Culture
             {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},
             {"attribute":"town_balance", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
             {"attribute":"residents", "qualitative":False, "formatter":None, "name":"residents", "parser":None},
-            {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":"area", "parser":None, "y":"Area (plots)"}
+            {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":"area", "parser":None, "y":"Area (plots)"},
+            {"attribute":"mentions", "qualitative":False, "formatter":None, "parser":None, "y":"Mentions"}
     ],
     "global":[
             {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},
@@ -148,7 +164,9 @@ history_commands = {
             {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":"area", "parser":None, "y":"Area (plots)"},
             {"attribute":"nations", "qualitative":False, "formatter":None, "name":"nations", "parser":None},
             {"attribute":"known_players", "qualitative":False, "formatter":lambda x: f"{x:,}", "name":None, "parser":None},
-            {"attribute":"activity", "qualitative":False, "formatter":generate_time, "name":"total_player_activity", "y":"Time", "y_formatter":generate_time}
+            {"attribute":"activity", "qualitative":False, "formatter":generate_time, "name":"total_player_activity", "y":"Time", "y_formatter":ImageGenerator.YTickFormatter.TIME},
+            {"attribute":"messages", "qualitative":False, "formatter":None, "parser":None, "y":"Messages"},
+            {"attribute":"database_size", "qualitative":False, "formatter":lambda x: f"{x:,.2f} MB", "parser":None, "y":"Size (MB)"}
     ]
 }
 
@@ -157,23 +175,26 @@ history_today_commands = {
     "player":["activity", "visited_town_count"],
     "town":["residents", "tax", "bank", "area", "activity"],
     "nation":["towns", "town_value", "residents", "area", "activity"],
-    "global":["towns", "town_value", "residents", "area", "nations", "known_players", "total_player_activity"]
+    "global":["towns", "town_value", "residents", "area", "nations", "known_players", "total_player_activity", "messages"]
 }
 
 top_commands = {
     "town":[
         {"attribute":"resident_count", "formatter":None, "name":"residents", "parser":None},
-        {"attribute":"resident_tax", "formatter":lambda x: f"{x:,.1f}%", "name":"tax", "parser":None, "y":"Tax (%)", "reverse_notable":True},
+        {"attribute":"resident_tax", "formatter":lambda x: f"{x:,.1f}%", "name":"tax", "parser":None, "y":"Tax (%)", "reverse_notable":True, "reverse":True},
         {"attribute":"bank", "formatter":lambda x: f"${x:,.2f}", "name":None, "parser":None, "y":"Bank ($)"},
         {"attribute":"area", "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":None, "parser":None, "y":"Area (plots)"},
         {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
         {"attribute":"founded_date", "formatter":lambda x: f"{x:,} days ({(datetime.date.today()-datetime.timedelta(days=x)).strftime('%b %d %Y')})", "name":"age", "parser":lambda x: (datetime.date.today() - x).days, "y":"Age (days)", "reverse":True, "reverse_notable":True, "not_in_history":True},
-        {"attribute":"area/resident_count", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident", "reverse_notable":True},
-        {"attribute":"visited_players", "qualitative":False, "formatter":None, "name":None, "parser":None, "y":"Players"}
+        {"attribute":"area/resident_count", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident", "reverse_notable":True, "reverse":True},
+        {"attribute":"visited_players", "qualitative":False, "formatter":None, "name":None, "parser":None, "y":"Players"},
+        {"attribute":"mentions", "formatter":None, "parser":None}
     ],
     "player":[
         {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
-        {"attribute":"visited_towns", "qualitative":False, "formatter":None, "name":None, "parser":None, "y":"Towns"}
+        {"attribute":"visited_towns", "qualitative":False, "formatter":None, "name":None, "parser":None, "y":"Towns"},
+        {"attribute":"messages", "formatter":None, "parser":None},
+        {"attribute":"mentions", "formatter":None, "parser":None},
     ],
     "nation":[
         {"attribute":"towns", "formatter":None, "name":"towns", "parser":None},
@@ -181,14 +202,16 @@ top_commands = {
         {"attribute":"residents", "formatter":None, "name":"residents", "parser":None},
         {"attribute":"area", "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":"area", "parser":None, "y":"Area (plots)"},
         {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":generate_time},
-        {"attribute":"area/residents", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident", "reverse_notable":True},
+        {"attribute":"area/residents", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident", "reverse_notable":True, "reverse":True},
         {"attribute":"town_balance/towns", "qualitative":False, "formatter":lambda x: f"${x:,.2f}/town", "name":"average_town_balance", "parser":None, "y":"$/town"},
+        {"attribute":"mentions", "formatter":None, "parser":None}
     ],
     "object":[#Culture and Religion
         {"attribute":"towns", "formatter":None, "name":"towns", "parser":None},
         {"attribute":"town_balance", "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
         {"attribute":"residents", "formatter":None, "name":"residents", "parser":None},
-        {"attribute":"area", "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":"area", "parser":None, "y":"Area (plots)"}
+        {"attribute":"area", "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":"area", "parser":None, "y":"Area (plots)"},
+        {"attribute":"mentions", "formatter":None, "parser":None}
     ]
 }
 

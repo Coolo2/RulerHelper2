@@ -23,10 +23,6 @@ matplotlib.rcParams['text.color'] = "silver"
 
 CACHE_SPLIT_STRING = "_+_"
 
-
-
-
-
 class CacheItem():
     def __init__(self, name : str, id : str, extra : str = None):
 
@@ -101,8 +97,8 @@ class ImageGenerator():
             return f"<Vertex {self.x} {self.y}>"
         
     class Line():
-        def __init__(self, points : list[ImageGenerator.Vertex], name : str = None):
-            self.raw_points = points
+        def __init__(self, points : list[ImageGenerator.Vertex], name : str = None, remove_none = True):
+            self.raw_points = [p for p in points if p.y != None] if remove_none else points
             self.name = name
         
         @property 
@@ -211,7 +207,10 @@ class ImageGenerator():
             color_i = s.line_color if len(lg.lines) == 1 else lg.colors[i%len(lg.colors)]
             points = line.decode_points(lg)
 
-            plt.plot([p[0] for p in points], [p[1] for p in points], color=color_i, label=line.name, alpha=1 if len(lg.lines) == 1 else 0.75)
+            if len(points) == 1: # Remove nan and count
+                plt.scatter(x=points[-1][0] if len(points) > 0 else 0, y=points[-1][1], color=color_i, label=line.name)
+            else:
+                plt.plot([p[0] for p in points], [p[1] for p in points], color=color_i, label=line.name, alpha=1 if len(lg.lines) == 1 else 0.75)
 
         gca = plt.gca()
         

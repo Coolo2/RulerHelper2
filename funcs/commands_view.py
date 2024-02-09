@@ -23,7 +23,7 @@ def get_command_callback(tree : app_commands.CommandTree, cmd) -> typing.Corouti
 async def execute_callback_with_interaction(callback, cog, interaction : discord.Interaction, parameters):
     try:
         await callback(cog, interaction, *parameters)
-    except (TypeError, AttributeError):
+    except (TypeError, AttributeError) as e :
         await callback(interaction, *parameters)
 
 class Command():

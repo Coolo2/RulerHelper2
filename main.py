@@ -29,9 +29,17 @@ async def on_ready():
     print(bot.user.name, "online")
 
     _refresh.start()
+    _chat_refresh.start()
 
     for guild in bot.guilds:
         print(guild.name, guild.owner)
+
+@tasks.loop(seconds=10)
+async def _chat_refresh():
+    try:
+        await c.fetch_chat_messages()
+    except Exception as e:
+        print(e)
 
 @tasks.loop(seconds=c.refresh_period)
 async def _refresh():
@@ -45,9 +53,7 @@ async def _refresh():
         w = await c.fetch_world()
 
         if w != False:
-        
             await c.cull_db()
-            
             await c.database.commit()
 
             try:

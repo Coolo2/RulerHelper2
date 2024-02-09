@@ -1,6 +1,15 @@
 # v2.9.0 (~)
 - Outposts are now recognised 
  - Added "outposts" field to /get town which displays no. of outposts 
+- In-game chat messages are now tracked
+ - Note: messages are not read, they are only used for counters (described below)
+ - You can now see "mention counts" - number of times a town/nation/player/culture/religion was written in chat 
+ - You can now see number of messages sent by a player since tracking began 
+ - New commands: /top players/towns/nations/cultures/religions: mentions, /history player/town/nation/culture/religion mentions 
+ - /top players messages, /history player messages, /history global messages
+ - Added "message count" field to /get player and /get world
+ - Added "mention count" field to /get player/town/nation/culture/religion
+ - "Tracking for" embed footer now shows time reading chat
 - Map image generator has been rewritten
  - Background earth image is higher quality 
  - Lines are smoother and dots are smaller
@@ -16,11 +25,16 @@
  - Face images are now slightly larger 
  - "Full Skin" button added which shows their full skin body 
  - Buttons split into 2 rows 
+- /top ... population_density is now in reversed order to match the name
+- Added /history global database_size
+- /history_today tracking period adjusted to 30 minutes 
+- /history data is now gradually abstracted over time. Only certain days of data are affected, you will still be able to see all history
 - /get online no longer shows offline players without pressing a button. This speeds up map generation
 - Outpost maps are now cached so may load faster
 - You can now get information about a player from their discord account (if found) by right clicking them > apps > Find user.
 - Fixed a bug where detached territories would not be removed if deleted in-game until daily restart
 - Added a $ to "average town balance" notable statistic
+- "Forgotten" players no longer show in /top players
 newpage
 ## v2.8.5 (Jan 29 2024)
 - Fixed /get nation outposts drawing having incorrect sizing / being blank 

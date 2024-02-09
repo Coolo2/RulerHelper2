@@ -20,6 +20,7 @@ from client import funcs
 import traceback
 
 import random
+import os
 
 class Area():
     def __init__(self, town : client_pre.object.Town, verticies : list, name : str = None):
@@ -61,9 +62,9 @@ class Area():
 
     @property 
     def is_outpost(self) -> bool:
-        if self.outpost_spawn:
-            return True 
-        return False
+        if not self.outpost_spawn or len(self.town.areas) == 1:
+            return False 
+        return True
 
     @property 
     def is_mainland(self) -> bool:
@@ -163,7 +164,10 @@ class Object():
             len(self.towns), 
             self.total_value, 
             res_count, 
-            self.total_area, 
+            self.total_area,
+            db.CreationField.external_query(
+                self.world.client.chat_mentions_table, "mentions", [db.CreationCondition("object_type", self.object_type), db.CreationCondition("object_name", self.name)], query_attribute="amount"
+            ), 
             db.CreationField.external_query(
                     self.world.client.activity_table, 
                     "duration", 
@@ -172,7 +176,15 @@ class Object():
             datetime.datetime.now()
         ]
     
+    @property 
+    async def total_mentions(self) -> tuple[int, datetime.datetime]: 
+        r = await self.world.client.chat_mentions_table.get_record([db.CreationCondition("object_type", self.object_type), db.CreationCondition("object_name", self.name)], ["amount", "last"])
 
+        if r:
+            return r.attribute("amount"), r.attribute("last")
+        return 0, None
+    @property
+    async def mention_count(self): return (await self.total_mentions)[0]
 
     @property 
     def total_residents(self) -> int: return self.__total(self.towns, "resident_count")
@@ -233,7 +245,10 @@ class Object():
             len(self.towns),
             self.total_value,
             self.total_residents,
-            self.total_area
+            self.total_area,
+            db.CreationField.external_query(
+                self.world.client.chat_mentions_table, "mentions", [db.CreationCondition("object_type", self.object_type), db.CreationCondition("object_name", self.name)], query_attribute="amount"
+            )
         ]
 
     def __str__(self):
@@ -355,7 +370,10 @@ class Nation(Object):
                     "duration", 
                     [db.CreationCondition("object_type", "nation"), db.CreationCondition("object_name", self.name)]
             ),
-            self.name
+            self.name,
+            db.CreationField.external_query(
+                self.world.client.chat_mentions_table, "mentions", [db.CreationCondition("object_type", self.object_type), db.CreationCondition("object_name", self.name)], query_attribute="amount"
+            )
         ]
     
     def to_record_day_history(self):
@@ -623,6 +641,16 @@ class Town():
     async def previous_names(self) -> list[str]:
         rs = await self.__world.client.town_history_table.get_records([db.CreationCondition("town", self.name), db.CreationCondition("current_name", self.name, "!=")], ["current_name"], group=["current_name"], order=db.CreationOrder("date", db.types.OrderDescending))
         return [r.attribute("current_name") for r in rs]
+    
+    @property 
+    async def total_mentions(self) -> tuple[int, datetime.datetime]: 
+        r = await self.__world.client.chat_mentions_table.get_record([db.CreationCondition("object_type", "town"), db.CreationCondition("object_name", self.name)], ["amount", "last"])
+
+        if r:
+            return r.attribute("amount"), r.attribute("last")
+        return 0, None
+    @property
+    async def mention_count(self): return (await self.total_mentions)[0]
 
     def to_record(self) -> list:
 
@@ -630,7 +658,6 @@ class Town():
 
         return [
             self.name, 
-            self.flag_url, 
             str(self.nation), 
             str(self.religion), 
             str(self.culture), 
@@ -642,6 +669,7 @@ class Town():
             int(self.public), 
             int(self.peaceful), 
             area,
+            0,
             0,
             db.CreationField.external_query(
                     self.__world.client.activity_table, 
@@ -658,6 +686,9 @@ class Town():
                     "visited_players", 
                     [db.CreationCondition("town", self.name)],
                     query_attribute="COUNT(*)"
+        )
+        r[-4] = db.CreationField.external_query(
+            self.__world.client.chat_mentions_table, "mentions", [db.CreationCondition("object_type", "town"), db.CreationCondition("object_name", self.name)], query_attribute="amount"
         )
         return r
     
@@ -681,7 +712,10 @@ class Town():
                     [db.CreationCondition("object_type", "town"), db.CreationCondition("object_name", self.name)]
             ),
             db.CreationField.external_query(self.__world.client.visited_towns_table, "visited_players", [db.CreationCondition("town", self.name)], query_attribute="COUNT(*)"),
-            self.name
+            self.name,
+            db.CreationField.external_query(
+                self.__world.client.chat_mentions_table, "mentions", [db.CreationCondition("object_type", "town"), db.CreationCondition("object_name", self.name)], query_attribute="amount"
+            )
         ]
     
     def to_record_day_history(self) -> list:
@@ -893,6 +927,25 @@ class Player():
         return await self.__world.client.visited_towns_table.count_rows([db.CreationCondition("player", self.name)])
     
     @property 
+    async def total_mentions(self) -> tuple[int, datetime.datetime]: 
+        r = await self.__world.client.chat_mentions_table.get_record([db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", self.name)], ["amount", "last"])
+
+        if r:
+            return r.attribute("amount"), r.attribute("last")
+        return 0, None
+    
+    @property 
+    async def total_messages(self) -> tuple[int, datetime.datetime]: 
+        r = await self.__world.client.chat_message_counts_table.get_record([db.CreationCondition("player", self.name)], ["amount", "last"])
+        if r: return r.attribute("amount"), r.attribute("last")
+        return 0, None
+
+    @property
+    async def message_count(self): return (await self.total_messages)[0]
+    @property
+    async def mention_count(self): return (await self.total_mentions)[0]
+    
+    @property 
     async def likely_residency(self) -> Town:
 
         for town in self.__world.towns:
@@ -967,13 +1020,15 @@ class Player():
             self.health, 
             0,
             int(self.donator),
+            0, 
+            0,
             self.__world.client.refresh_period, 
-            datetime.datetime.now(),
+            datetime.datetime.now()
         ]
 
     def to_record_update(self) -> list:
         r = self.to_record()
-        r[-4] = db.CreationField.external_query(
+        r[-6] = db.CreationField.external_query(
                     self.__world.client.visited_towns_table, 
                     "visited_towns", 
                     [db.CreationCondition("player", self.name)],
@@ -983,6 +1038,12 @@ class Player():
                     self.__world.client.activity_table, 
                     "duration", 
                     [db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", self.name)]
+        )
+        r[-4] = db.CreationField.external_query(
+                    self.__world.client.chat_message_counts_table, "messages", [db.CreationCondition("player", self.name)], query_attribute="amount"
+        )
+        r[-3] = db.CreationField.external_query(
+                    self.__world.client.chat_mentions_table, "mentions", [db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", self.name)], query_attribute="amount"
         )
         return r
     
@@ -994,7 +1055,13 @@ class Player():
             db.CreationField.external_query(self.__world.client.players_table, "duration", db.CreationCondition("name", self.name)), 
             db.CreationField.external_query(self.__world.client.visited_towns_table, "visited_towns", [db.CreationCondition("player", self.name)], query_attribute="COUNT(*)"),
             likely.name if likely else None,
-            likely.nation.name if likely and likely.nation else None
+            likely.nation.name if likely and likely.nation else None,
+            db.CreationField.external_query(
+                    self.__world.client.chat_message_counts_table, "messages", [db.CreationCondition("player", self.name)], query_attribute="amount"
+            ),
+            db.CreationField.external_query(
+                    self.__world.client.chat_mentions_table, "mentions", [db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", self.name)], query_attribute="amount"
+            )
         ]
     
     async def to_record_day_history(self) -> list:
@@ -1099,12 +1166,17 @@ class World():
     def search_culture(self, nation_name : str, max : int = 25) -> list[Nation]: return self.search(self.get_culture, nation_name, max)
     def search_religion(self, nation_name : str, max : int = 25) -> list[Nation]: return self.search(self.get_religion, nation_name, max)
 
+    @property
+    def database_size(self):
+        return round(os.path.getsize('towny.db')/1000/1000, 2)
+
     async def to_record_history(self) -> list:
-        return [datetime.date.today(), len(self.towns), self.total_residents, len(self.nations), self.total_value, self.total_area, len(self.players), (await self.total_activity).total]
+        return [datetime.date.today(), len(self.towns), self.total_residents, len(self.nations), self.total_value, self.total_area, len(self.players), (await self.total_activity).total, await self.total_messages, self.database_size]
 
     async def to_record_day_history(self) -> list:
         r = await self.to_record_history()
         r[0] = datetime.datetime.now() 
+        r.pop()
         return r
 
     @property 
@@ -1159,6 +1231,13 @@ class World():
     @property 
     async def total_tracked(self) -> Activity:
         return Activity((await self.client.global_table.get_record([db.CreationCondition("name", "total_tracked")], ["value"])).attribute("value"))
+    @property 
+    async def total_tracked_chat(self) -> Activity:
+        return Activity((await self.client.global_table.get_record([db.CreationCondition("name", "total_tracked_chat")], ["value"])).attribute("value"))
+    
+    @property 
+    async def total_messages(self) -> int: 
+        return await self.client.chat_message_counts_table.total_column("amount")
     
     @property 
     async def linked_discords(self) -> list[tuple[Player, discord.Member]]:
@@ -1198,9 +1277,6 @@ class World():
                 self.is_stormy = o[1] or False
             elif o[0] == "players":
                 player_list = o[1]
-            elif o[0] == "updates":
-                #await self.__update_town_list(o[1])
-                continue
             else:
                 continue
         
@@ -1307,6 +1383,9 @@ class World():
         if not await self.client.global_table.record_exists(db.CreationCondition("name", "total_tracked")):
             await self.client.global_table.add_record(["total_tracked", 0])
         await self.client.global_table.update_record(db.CreationCondition("name", "total_tracked"), db.CreationField.add("value", self.client.refresh_period))
+        if not await self.client.global_table.record_exists(db.CreationCondition("name", "total_tracked_chat")):
+            await self.client.global_table.add_record(["total_tracked_chat", 0])
+        await self.client.global_table.update_record(db.CreationCondition("name", "total_tracked_chat"), db.CreationField.add("value", self.client.refresh_period))
 
         cond = [db.CreationCondition("date", datetime.date.today())]
         exists = await self.client.global_history_table.record_exists(cond)
