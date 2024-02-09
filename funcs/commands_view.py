@@ -24,7 +24,10 @@ async def execute_callback_with_interaction(callback, cog, interaction : discord
     try:
         await callback(cog, interaction, *parameters)
     except (TypeError, AttributeError) as e :
-        await callback(interaction, *parameters)
+        try:
+            await callback(interaction, *parameters)
+        except Exception as e:
+            await interaction.client.tree.on_error(interaction, e)
 
 class Command():
     def __init__(self, command : typing.Union[str, typing.Coroutine], label : str, parameters : tuple, button_style : discord.ButtonStyle = discord.ButtonStyle.secondary, emoji : str = "💬", row=1):

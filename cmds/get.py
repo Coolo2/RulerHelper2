@@ -2,7 +2,7 @@
 import discord 
 
 import setup as s
-from funcs import autocompletes, commands_view, graphs, paginator
+from funcs import autocompletes, commands_view, paginator
 
 from discord import app_commands
 from discord.ext import commands
@@ -62,7 +62,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Likely Discord", value=str(dc.mention if dc else "Unknown"))
         embed.add_field(name="Donator?", value="Yes" if player.donator == True else "Unlikely" if player.donator == False else "Unknown")
         embed.add_field(name="Notable Statistics", value=notable_statistics, inline=False)
-        embed.add_field(name="Sent messages", value=f"{total_messages:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_messages != 0 else ""))
+        embed.add_field(name="Sent messages", value=f"{total_messages:,}" + (f" <t:{int(last_message.timestamp())}:R>" if total_messages != 0 else ""))
         embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
 
         embed.set_footer(text=await self.client.tracking_footer)
@@ -500,7 +500,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
                 embed.set_image(url="attachment://earth_map.png")
                 c = self.client.image_generator.town_cache_item(f"Global", world.towns).check_cache()
                 dpi = await self.client.image_generator.generate_area_map(world.towns, False, True, self.client.image_generator.MapBackground.ON, True, c)
-                if not c.valid: await self.client.image_generator.render_plt(dpi, c, True)
+                if not c.valid: await self.client.image_generator.render_plt(dpi, c)
                 await self.client.image_generator.layer_player_locations(world.online_players, world.offline_players)
                 file = discord.File(await self.client.image_generator.render_plt(dpi, c), "earth_map.png")
 
@@ -523,7 +523,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.set_image(url="attachment://earth_map.png")
         dpi = await self.client.image_generator.generate_area_map(self.client.world.towns, False, True, self.client.image_generator.MapBackground.ON, True, c)
         if not c.valid:
-            await self.client.image_generator.render_plt(dpi, c, True)
+            await self.client.image_generator.render_plt(dpi, c)
 
         await self.client.image_generator.layer_player_locations(online_players, [])
         file = discord.File(await self.client.image_generator.render_plt(dpi), "earth_map.png")

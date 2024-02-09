@@ -515,7 +515,7 @@ class Town():
 
     @property 
     def mayor(self) -> typing.Union[Player, str]:
-        return self.__world.get_player(self.__mayor) or self.__mayor
+        return self.__world.get_player(self.__mayor, False) or self.__mayor
 
     @property 
     def area(self) -> int:
@@ -567,7 +567,7 @@ class Town():
             [db.CreationCondition("town", self.name)], 
             ["player", "duration", "last"], group=["player"], order=db.CreationOrder("duration", db.types.OrderDescending)
         )
-        return [Activity(r.attribute("duration"), r.attribute("last"), player=self.__world.get_player(r.attribute("player")) or r.attribute("player")) for r in rs]
+        return [Activity(r.attribute("duration"), r.attribute("last"), player=self.__world.get_player(r.attribute("player"), False) or r.attribute("player")) for r in rs]
 
     @property 
     async def exists_in_db(self):
@@ -919,7 +919,7 @@ class Player():
             [db.CreationCondition("player", self.name)], 
             ["town", "duration", "last"], group=["town"], order=db.CreationOrder("duration", db.types.OrderDescending)
         )
-        return [Activity(r.attribute("duration"), r.attribute("last"), self.__world.get_town(r.attribute("town")) or r.attribute("town")) for r in rs]
+        return [Activity(r.attribute("duration"), r.attribute("last"), self.__world.get_town(r.attribute("town"), False) or r.attribute("town")) for r in rs]
         
     
     @property 
@@ -961,7 +961,7 @@ class Player():
         )
 
         if r and r.attribute("residents") != 1: # If town has one resident and player is not mayor they cannot be a resident
-            return self.__world.get_town(r.attribute("town"))
+            return self.__world.get_town(r.attribute("town"), False)
     
     @property 
     async def exists_in_db(self):
@@ -1433,7 +1433,7 @@ class World():
                         if markers.get(f"{t.name}__home"):
                             self.__towns[area["label"]] = t
                     else:
-                        t = self.get_town(area["label"])
+                        t = self.get_town(area["label"], False)
                         await t.add_area(area_name, area)
                     
                     if markers.get(f"{t.name}__home"):
@@ -1527,7 +1527,7 @@ class World():
 
             online_players.append(player_data["account"])
 
-            p = self.get_player(player_data["account"])
+            p = self.get_player(player_data["account"], False)
 
             if not p:
                 

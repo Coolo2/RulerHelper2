@@ -25,8 +25,6 @@ class Events(commands.Cog):
 
             if custom_id and (custom_id.startswith("refresh") or custom_id.startswith("command")):
 
-                
-
                 if custom_id.startswith("refresh"):
                     command_string = custom_id.replace("refresh_", "")
                     interaction.extras["edit"] = True

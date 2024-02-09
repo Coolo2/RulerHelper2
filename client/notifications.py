@@ -93,12 +93,12 @@ class Notifications():
         
         return notification_channels
     
-    async def refresh(self, graphs):
+    async def refresh(self):
         channels = await self.client.notifications.get_notification_channels()
 
         for town_name, players in self.client.world.towns_with_players.items():
             
-            town = self.client.world.get_town(town_name)
+            town = self.client.world.get_town(town_name, False)
             ignore_players = self._players_ignore.get(town_name) or {}
             if not town:
                 continue
@@ -155,7 +155,7 @@ class Notifications():
                         embed = msg.embeds[0]
                         embed.set_field_at(4, name="Time spent", value=f"In town for {funcs.generate_time(time)}")
 
-                        t = self.client.world.get_town(town_name)
+                        t = self.client.world.get_town(town_name, False)
                         if t:
                             a = []
                             for area in t.areas:

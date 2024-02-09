@@ -29,12 +29,16 @@
 - Added /history global database_size
 - /history_today tracking period adjusted to 30 minutes 
 - /history data is now gradually abstracted over time. Only certain days of data are affected, you will still be able to see all history
+- /history town ... no longer shows previous towns under the same name
 - /get online no longer shows offline players without pressing a button. This speeds up map generation
 - Outpost maps are now cached so may load faster
 - You can now get information about a player from their discord account (if found) by right clicking them > apps > Find user.
 - Fixed a bug where detached territories would not be removed if deleted in-game until daily restart
 - Added a $ to "average town balance" notable statistic
 - "Forgotten" players no longer show in /top players
+- Made some performance improvements around the bot. Refreshes should be faster and certain commands will also respond faster
+- Fixed bug where notifications command was accessible from DMs 
+- Fixed bug where timelines would crash if over 5 objects
 newpage
 ## v2.8.5 (Jan 29 2024)
 - Fixed /get nation outposts drawing having incorrect sizing / being blank 

@@ -2,7 +2,7 @@
 import discord 
 
 import setup as s
-from funcs import autocompletes, commands_view, graphs, paginator
+from funcs import autocompletes, commands_view, paginator
 
 from discord import app_commands
 from discord.ext import commands

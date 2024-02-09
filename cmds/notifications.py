@@ -16,6 +16,7 @@ notification_settings = {
 }
 
 @app_commands.default_permissions(manage_guild=True)
+@app_commands.guild_only()
 class Notifications(commands.GroupCog, name="notifications", description="Setup nation notifications in a channel in your server"):
 
     def __init__(self, bot : commands.Bot, client : client.Client):

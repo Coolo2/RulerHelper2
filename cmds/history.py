@@ -2,7 +2,7 @@
 import discord 
 
 import setup as s
-from funcs import autocompletes, commands_view, paginator, graphs
+from funcs import autocompletes, commands_view, paginator
 
 from discord import app_commands
 from discord.ext import commands
@@ -10,12 +10,7 @@ from discord.ext import commands
 import db
 import client
 
-from matplotlib.pyplot import plot, bar
-from client.funcs import generate_time
-
 import datetime
-
-import numpy as np
 
 def generate_command(
             c : client.Client, 
@@ -46,6 +41,7 @@ def generate_command(
 
         if town:
             o = c.world.get_town(town, True)
+            conditions.append(db.CreationCondition("date", o.founded_date, ">="))
         elif player:
             o = c.world.get_player(player, True)
         elif nation:
@@ -79,6 +75,7 @@ def generate_command(
         last = None
         values = {}
         parsed_values = {}
+        timeline_points = []
         for record in rs:
             
             if record.attribute(attribute) == None and not qualitative:
@@ -88,7 +85,10 @@ def generate_command(
             if qualitative and last == parsed:
                 continue
             
-            parsed_values[str(record.attribute('date'))] = parsed
+            if not qualitative:
+                parsed_values[str(record.attribute('date'))] = parsed
+            else:
+                timeline_points.append(c.image_generator.Vertex(record.attribute('date'), parsed))
 
             if not qualitative:
                 change = parsed-last if last else None
@@ -102,17 +102,17 @@ def generate_command(
 
             idx = range(len(parsed_values))
         
-        else:
-            prev = None 
-            idx = []
-            for i, (date, parsed) in enumerate(parsed_values.items()):
-                if parsed != prev:
-                    prev = parsed 
-                    idx.append(i)
+        #else:
+        #    prev = None 
+        #    idx = []
+        #    for i, (point) in enumerate(timeline_points):
+        #        if point.y != prev:
+        #            prev = parsed 
+        #            idx.append(i)
 
-        for i in idx:
-            date, parsed = list(parsed_values.items())[i]
-            values[date] = str(parsed) if qualitative else int(parsed)
+            for i in idx:
+                date, parsed = list(parsed_values.items())[i]
+                values[date] = str(parsed) if qualitative else int(parsed)
 
         td = datetime.date.today().strftime("%Y-%m-%d")
         if td not in values and len(values) > 0 and datetime.datetime.strptime(list(values)[-1], "%Y-%m-%d").date() < datetime.date.today():
@@ -126,7 +126,8 @@ def generate_command(
             )
             file = await c.image_generator.render_plt(s.IMAGE_DPI_GRAPH, pad=True)
         else:
-            file = graphs.save_timeline(values, f"{name} {attnameformat} history", booly=parser==bool)
+            await c.image_generator.plot_timeline(timeline_points, f"{name} {attnameformat} history", boolean_values=parser==bool)
+            file = await c.image_generator.render_plt(s.IMAGE_DPI_GRAPH, pad=True)
 
         graph = discord.File(file, filename="graph.png")
 
@@ -243,9 +244,6 @@ def generate_command_today(
             lg, f"{name} {attnameformat} history today", "Time (GMT)", y or "Value"
         )
         file = await c.image_generator.render_plt(s.IMAGE_DPI_GRAPH, pad=True)
-
-        #file = graphs.save_graph(values, f"{name} {attnameformat} history today", "Date (GMT)", y or "Value", plot, y_formatter = y_formatter, adjust_missing=len(values) < 60)
-
         graph = discord.File(file, filename="graph.png")
 
         embed = discord.Embed(title=f"{name} {attnameformat} history today", color=s.embed)
@@ -296,15 +294,20 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             l = [t.name for t in c.world.towns]
 
         log = ""
-        values = {}
+        values : list[c.image_generator.Vertex] = []
         towns = []
-        for i, obj in enumerate(reversed(objects)):
+        for i, obj in enumerate(objects):
             is_known = True if type(obj.town) != str and type(obj.player) != str else False
             name = str(obj.town or obj.player)
+
+            if not is_known and s.history_skip_if_object_unknown:
+                continue
             
+            perc = (obj.total/total)*100
+
             prefix = ""
             fmt = ""
-            if obj.player and type(obj.player) != str:
+            if (total < 100 or perc >= 0.2) and type(obj.player) != str:
                 if str(await obj.player.likely_residency) == str(o):
                     prefix = s.likely_residency_prefix_history
             if obj.town and type(obj.town) != str:
@@ -316,15 +319,9 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
                 fmt = "**"
 
             format = fmt if is_known else "`"
-            
-            if not is_known and s.history_skip_if_object_unknown:
-                continue
 
-            perc = (obj.total/total)*100
-            
-            log = f"{len(objects)-i}. {prefix}{format}{discord.utils.escape_markdown(name) if is_known else name}{format}: {str(obj)} ({perc:,.1f}%)\n" + log
-
-            values[name] = obj.total
+            log = log + f"{i+1}. {prefix}{format}{discord.utils.escape_markdown(name) if is_known else name}{format}: {str(obj)} ({perc:,.1f}%)\n"
+            values.append(c.image_generator.Vertex(name, obj.total))
 
         opp = "player" if town else "town"
         
@@ -334,18 +331,21 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
 
         files = []
         if len(objects) > 0:
-            file = graphs.save_graph(dict(list(reversed(list(values.items())))[:s.top_graph_object_count]), f"{str(o)}'s visited {opp} history ({len(objects)})", opp.title(), "Time (minutes)", bar, y_formatter=generate_time)
+            await c.image_generator.plot_barchart(
+                values[0:s.top_graph_object_count], f"{str(o)}'s visited {opp} history ({len(objects)})", opp.title(), "Time (minutes)", y_formatter=c.image_generator.YTickFormatter.TIME
+            )
+            file = await c.image_generator.render_plt(s.IMAGE_DPI_GRAPH, pad=True)
             files.append(discord.File(file, filename="graph.png"))
             embed.set_image(url="attachment://graph.png")
 
             cmds = []
             added = 0
-            for i, object_name in enumerate(reversed(values.keys()) ):
-                if object_name.replace(" ", "_") in l and added < 25:
+            for i, object in enumerate(values ):
+                if object.x.replace(" ", "_") in l and added < 25:
                     added += 1
-                    cmds.append(commands_view.Command(f"get {opp}", f"{i+1}. {object_name}", (object_name,), emoji=None))
+                    cmds.append(commands_view.Command(f"get {opp}", f"{i+1}. {object.x}", (object.x,), emoji=None))
 
-            view = paginator.PaginatorView(embed, log, skip_buttons=False, index=interaction.extras.get("page"))
+            view = paginator.PaginatorView(embed, log, skip_buttons=True, index=interaction.extras.get("page"))
             if len(cmds) > 0:
                 view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {opp.title()} Info...", 2))
             
@@ -369,7 +369,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
         else:
             view = discord.ui.View()
             embed.description = "No one has visited."
-        view.add_item(commands_view.RefreshButton(c, f"history {'town' if town else 'player'} visited_{opp}s", (o.name,), row=0))
+        view.add_item(commands_view.RefreshButton(c, f"history {'town' if town else 'player'} visited_{opp}s", (o.name,), row=3))
         
         await (interaction.response.edit_message(embed=embed, view=view, attachments=files) if edit else interaction.response.send_message(embed=embed, view=view, files=files))
 
@@ -417,7 +417,7 @@ class History(commands.Cog):
                 cmd_type_name = command_type['name']
                 name = "followers" if name == "residents" and cmd_type_name == "religion" else name
 
-                command = app_commands.command(name=name, description=f"History for {cmd_type_name} {name}")(generate_command(
+                command = app_commands.command(name=name, description=attribute.get("description") or f"History for {cmd_type_name} {name}")(generate_command(
                     self.client, 
                     attribute.get("attribute"), 
                     attribute.get("qualitative"), 
@@ -425,7 +425,7 @@ class History(commands.Cog):
                     is_town=cmd_type_name == "town", is_nation = cmd_type_name == "nation", is_player=cmd_type_name == "player", is_culture=cmd_type_name == "culture", is_religion=cmd_type_name == "religion",
                     attname=name, 
                     y=attribute.get("y"), y_formatter=attribute.get("y_formatter"),
-                    start_at=attribute.get("start_at")
+                    start_at=attribute.get("start_at"),
                 ))
                 for parameter in command_type["parameters"]:
                     if parameter.get("autocomplete"):
@@ -433,7 +433,7 @@ class History(commands.Cog):
                 command_type["group"].add_command(command)
 
                 if command_type.get("group_today") and name in s.history_today_commands[command_type["name"]]:
-                    command_day = app_commands.command(name=name, description=f"Today's history for {cmd_type_name} {name}")(generate_command_today(
+                    command_day = app_commands.command(name=name, description=attribute.get("description") or f"Today's history for {cmd_type_name} {name}")(generate_command_today(
                         self.client, 
                         attribute.get("attribute"), 
                         attribute.get("formatter") or str, attribute.get("parser"), 

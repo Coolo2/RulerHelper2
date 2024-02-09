@@ -183,9 +183,7 @@ class ImageGenerator():
         def x_formatter(self):
             return self.__x_tick_formatter
     
-    
-
-    async def plot_linegraph(self, lg : LineGraph, title : str, x_label : str, y_label : str):
+    def __config_graph_chart(self, title, x_label, y_label):
         color = "silver"
         plt.rcParams["figure.figsize"] = [6.4*1.6, 4.8]
         matplotlib.rcParams['text.color'] = color
@@ -196,9 +194,14 @@ class ImageGenerator():
         matplotlib.rcParams["xtick.labelsize"] = 7
 
         plt.title(title, y=1)
-        plt.xlabel(x_label)
-        plt.ylabel(y_label)
+        if x_label: plt.xlabel(x_label)
+        if y_label: plt.ylabel(y_label)
         plt.xticks(rotation=270)
+
+    async def plot_linegraph(self, lg : LineGraph, title : str, x_label : str, y_label : str):
+        plt.close()
+        
+        self.__config_graph_chart(title, x_label, y_label)
 
         if not lg.colors:
             lg.colors = s.compare_line_colors
@@ -228,6 +231,86 @@ class ImageGenerator():
 
         if len(lg.lines) > 1:
             plt.legend(bbox_to_anchor=(0, 1.05, 1, 0.2), loc="lower left", prop={'size':10}, frameon=False, mode="expand", borderaxespad=0, ncol=3)
+    
+    async def plot_barchart(self, data : list[ImageGenerator.Vertex], title : str, x_label : str, y_label : str, y_formatter : ImageGenerator.YTickFormatter ):
+        plt.close()
+        if not y_formatter:
+            y_formatter = ImageGenerator.YTickFormatter.DEFAULT
+        
+        self.__config_graph_chart(title, x_label, y_label)
+
+        plt.bar([d.x for d in data], [d.y for d in data], color=s.bar_color)
+
+        gca = plt.gca()
+
+        gca.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+
+        yticks = gca.get_yticks()
+        gca.set_yticklabels([y_formatter(t) for t in yticks])
+    
+    async def plot_piechart(self, data : list[ImageGenerator.Vertex], title : str ):
+        plt.close()
+
+        plt.rcParams["figure.figsize"] = [6.4*1.6, 4.8]
+
+        def _autopct(pct):
+            return ('%.1f' % pct) + "%" if pct > 3 else ''
+
+        barlist, labels, pct_texts = plt.pie([d.y for d in data], labels=[d.x for d in data], autopct=_autopct, textprops={'fontsize': 7, "color":"white"}, rotatelabels=True, radius=1, startangle=160)
+        
+        for label, pct_text in zip(labels, pct_texts):
+            pct_text.set_rotation(label.get_rotation())
+        
+        plt.title(title, y=1.2)
+        plt.xticks(rotation=270)
+    
+    async def plot_timeline(self, points : list[ImageGenerator.Vertex], title : str, x_label : str = None, y_label : str = None, boolean_values : bool = False):
+        plt.close()
+
+        self.__config_graph_chart(title, x_label, y_label)
+        
+        minimum = min(points, key=lambda p: p.x_num)
+        today = ImageGenerator.Vertex(datetime.date.today(), 1).make_relative(minimum)[0]
+        gca = plt.gca()
+
+        last = None
+        bar_spaces : dict[str, list[tuple[int, int]]]= {}
+        x_ticks, x_ticklabels = [], []
+        for i, point in enumerate(points):
+            rel = point.make_relative(minimum)
+
+            if last != None:
+                if last[1] not in bar_spaces:
+                    bar_spaces[last[1]] = []
+                bar_spaces[last[1]].append((last[0], rel[0]-last[0] ))
+
+            x_ticks.append(rel[0])
+            x_ticklabels.append(ImageGenerator.XTickFormatter.DATE(minimum.x, rel[0]))
+            
+            last = rel 
+
+        if point.y not in bar_spaces:
+            bar_spaces[point.y] = []
+        bar_spaces[point.y].append((last[0], today-last[0]))
+        x_ticks.append(today)
+        x_ticklabels.append(ImageGenerator.XTickFormatter.DATE(minimum.x, today))
+
+        gca.set_ylim(0, len(bar_spaces))
+        
+        start_y = 1
+        add_end_y = 1
+
+        gca.set_yticks([start_y+i+0.5 for i in range(len(bar_spaces))] + [len(bar_spaces)+0.5+start_y+add_end_y])
+        gca.set_yticklabels(list(bar_spaces) + [""])
+        gca.set_xticks(x_ticks)
+        gca.set_xticklabels(x_ticklabels)
+
+        colors = s.timeline_colors
+        if boolean_values:
+            colors = s.timeline_colors_bool if points[0].y == True else list(reversed(s.timeline_colors_bool))
+
+        for i, (name, spaces) in enumerate(bar_spaces.items()):
+            plt.broken_barh(spaces, (start_y+i, 1), facecolors =(f'tab:{colors[i%len(colors)]}'))
 
 
     
@@ -303,6 +386,8 @@ class ImageGenerator():
             maintain_aspect_ratio : bool = True,
             expand_limits_multiplier : tuple[float] = (1, 1)
     ):
+        plt.close()
+
         bg_path = s.earth_bg_path
 
         towns : list[client.object.Town] = []
@@ -435,15 +520,12 @@ class ImageGenerator():
             done.append([ts[1].name, ts[0].name])
         plt.legend(loc="upper left", prop={'size':5}, frameon=False)
     
-    async def render_plt(self, dpi : int, cache_item : CacheItem = None, dont_close = False, pad : bool = False):
+    async def render_plt(self, dpi : int, cache_item : CacheItem = None, pad : bool = False):
         buf = io.BytesIO()
         plt.savefig(buf, dpi=dpi, transparent=True, bbox_inches="tight", pad_inches = None if pad else 0 )
 
         if cache_item and not cache_item.valid:
             await cache_item.save(buf)
-        
-        if not dont_close:
-            plt.close()
         
         buf.seek(0)
 

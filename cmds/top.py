@@ -2,7 +2,7 @@
 import discord 
 
 import setup as s
-from funcs import paginator, graphs, commands_view, autocompletes
+from funcs import paginator, commands_view, autocompletes
 
 from discord import app_commands
 from discord.ext import commands
@@ -10,8 +10,6 @@ from discord.ext import commands
 import db
 
 import client
-
-from matplotlib.pyplot import bar
 
 import datetime
 
@@ -35,8 +33,6 @@ def generate_command(
     async def cmd_uni(interaction : discord.Interaction, on : str = None, highlight : str = None):
 
         edit = interaction.extras.get("edit")
-
-        
 
         on_date = datetime.datetime.strptime(on, "%b %d %Y").date() if on and not not_in_history else datetime.date.today()
 
@@ -72,14 +68,15 @@ def generate_command(
             l = [o.name for o in c.world._objects[o_type + "s"]]
 
         log = ""
-        values = {}
+        values : list[c.image_generator.Vertex] = []
         i = -1
         for record in (reversed(rs) if reverse else rs):
-            if is_town and (record.attribute('name') in s.DEFAULT_TOWNS or True in [l in record.attribute('name') for l in s.DEFAULT_TOWNS_SUBSTRING]):
+            r_name = record.attribute("name")
+            if is_town and (r_name in s.DEFAULT_TOWNS or True in [l in r_name for l in s.DEFAULT_TOWNS_SUBSTRING]):
                 continue
-            if is_religion and "Production" in record.attribute("name"):
+            if is_religion and "Production" in r_name:
                 continue
-            if is_player and record.attribute("name") not in l and on_date == datetime.date.today():
+            if is_player and r_name not in l and on_date == datetime.date.today():
                 continue
             i += 1
             
@@ -91,17 +88,19 @@ def generate_command(
             else:
                 perc = 0
             perc_str = f" ({perc:,.1f}%)" if type(attval) != datetime.date else ""
-            name = str(record.attribute('name')).replace("_", " ") if not is_player else str(record.attribute('name'))
-            fmt = "**" if record.attribute("name") in l else "`"
+            name = str(r_name).replace("_", " ") if not is_player else str(r_name)
+            fmt = "**" if r_name in l else "`"
 
             log =  log + f"{i}. {fmt}{discord.utils.escape_markdown(name)}{fmt}: {val}{perc_str}\n"
 
-            values[name] = int(parsed)
+            values.append(c.image_generator.Vertex(name, parsed))
         
         title = f"Top {o_type}s by {attnameformat} " + (f"on {on} " if on else "") + f"({i:,})"
 
-        file = graphs.save_graph(dict(list((list(values.items())))[:s.top_graph_object_count]), title, o_type.title(), y or "Value", bar, y_formatter=y_formatter, highlight=highlight)
-        graph = discord.File(file, filename="graph.png")
+        await c.image_generator.plot_barchart(
+            values[0:s.top_graph_object_count], title, o_type.title(), y or "Value", y_formatter
+        )
+        graph = discord.File(await c.image_generator.render_plt(s.IMAGE_DPI_GRAPH, pad=True), "graph.png")
 
         embed = discord.Embed(title=title, color=s.embed)
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
@@ -109,11 +108,11 @@ def generate_command(
 
         cmds = []
         added = 0
-        for i, object_name in enumerate(reversed(values.keys())):
+        for i, object in enumerate(values):
             if i >= 25: continue 
-            if object_name.replace(" ", "_") in l and added < 25:
+            if object.x.replace(" ", "_") in l and added < 25:
                 added += 1
-                cmds.append(commands_view.Command(f"get {o_type}", f"{i+1}. {object_name}", (object_name,), emoji=None))
+                cmds.append(commands_view.Command(f"get {o_type}", f"{i+1}. {object.x}", (object.x,), emoji=None))
         
         if attribute in ["duration"]:
             embed.set_footer(text=f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")

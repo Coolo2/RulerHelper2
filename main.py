@@ -8,8 +8,6 @@ import dotenv
 import datetime 
 import math
 
-from funcs import graphs
-
 dotenv.load_dotenv()
 
 from discord.ext import tasks, commands
@@ -57,7 +55,7 @@ async def _refresh():
             await c.database.commit()
 
             try:
-                await c.notifications.refresh(graphs)
+                await c.notifications.refresh()
             except Exception as e:
                 await bot.get_channel(s.alert_channel).send(f"Notifications refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
             
