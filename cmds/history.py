@@ -307,7 +307,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
 
             prefix = ""
             fmt = ""
-            if (total < 100 or perc >= 0.2) and type(obj.player) != str:
+            if (total < 100 or perc >= 0.2) and obj.player and type(obj.player) != str:
                 if str(await obj.player.likely_residency) == str(o):
                     prefix = s.likely_residency_prefix_history
             if obj.town and type(obj.town) != str:
@@ -417,20 +417,21 @@ class History(commands.Cog):
                 cmd_type_name = command_type['name']
                 name = "followers" if name == "residents" and cmd_type_name == "religion" else name
 
-                command = app_commands.command(name=name, description=attribute.get("description") or f"History for {cmd_type_name} {name}")(generate_command(
-                    self.client, 
-                    attribute.get("attribute"), 
-                    attribute.get("qualitative"), 
-                    attribute.get("formatter") or str, attribute.get("parser"), 
-                    is_town=cmd_type_name == "town", is_nation = cmd_type_name == "nation", is_player=cmd_type_name == "player", is_culture=cmd_type_name == "culture", is_religion=cmd_type_name == "religion",
-                    attname=name, 
-                    y=attribute.get("y"), y_formatter=attribute.get("y_formatter"),
-                    start_at=attribute.get("start_at"),
-                ))
-                for parameter in command_type["parameters"]:
-                    if parameter.get("autocomplete"):
-                        command.autocomplete(parameter["name"])(parameter["autocomplete"])
-                command_type["group"].add_command(command)
+                if not attribute.get("today_only"):
+                    command = app_commands.command(name=name, description=attribute.get("description") or f"History for {cmd_type_name} {name}")(generate_command(
+                        self.client, 
+                        attribute.get("attribute"), 
+                        attribute.get("qualitative"), 
+                        attribute.get("formatter") or str, attribute.get("parser"), 
+                        is_town=cmd_type_name == "town", is_nation = cmd_type_name == "nation", is_player=cmd_type_name == "player", is_culture=cmd_type_name == "culture", is_religion=cmd_type_name == "religion",
+                        attname=name, 
+                        y=attribute.get("y"), y_formatter=attribute.get("y_formatter"),
+                        start_at=attribute.get("start_at"),
+                    ))
+                    for parameter in command_type["parameters"]:
+                        if parameter.get("autocomplete"):
+                            command.autocomplete(parameter["name"])(parameter["autocomplete"])
+                    command_type["group"].add_command(command)
 
                 if command_type.get("group_today") and name in s.history_today_commands[command_type["name"]]:
                     command_day = app_commands.command(name=name, description=attribute.get("description") or f"Today's history for {cmd_type_name} {name}")(generate_command_today(

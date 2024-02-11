@@ -98,7 +98,7 @@ def generate_command(
         title = f"Top {o_type}s by {attnameformat} " + (f"on {on} " if on else "") + f"({i:,})"
 
         await c.image_generator.plot_barchart(
-            values[0:s.top_graph_object_count], title, o_type.title(), y or "Value", y_formatter
+            values[0:s.top_graph_object_count], title, o_type.title(), y or "Value", y_formatter, highlight=highlight
         )
         graph = discord.File(await c.image_generator.render_plt(s.IMAGE_DPI_GRAPH, pad=True), "graph.png")
 

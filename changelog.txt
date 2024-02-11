@@ -1,7 +1,8 @@
-# v2.9.0 (~)
+# v2.9.0 (Feb 11 2024)
 - Outposts are now recognised 
  - Added "outposts" field to /get town which displays no. of outposts 
-- In-game chat messages are now tracked
+ - Added /top towns outposts
+- In-game chat messages are now counted
  - Note: messages are not read, they are only used for counters (described below)
  - You can now see "mention counts" - number of times a town/nation/player/culture/religion was written in chat 
  - You can now see number of messages sent by a player since tracking began 
@@ -27,6 +28,7 @@
  - Buttons split into 2 rows 
 - /top ... population_density is now in reversed order to match the name
 - Added /history global database_size
+- Added /history_today global online_players 
 - /history_today tracking period adjusted to 30 minutes 
 - /history data is now gradually abstracted over time. Only certain days of data are affected, you will still be able to see all history
 - /history town ... no longer shows previous towns under the same name
@@ -205,11 +207,11 @@ newpage
 - Added back history buttons to /get town
 - Added back visited town button to /get player when they have only visited one town
 - Renamed /history town resident_count to /history town residents
-# v2.2.0 (2023/11/03)
+# v2.2.0 (Nov 03 2023)
 - Added /history player visited_town_count, /top players visited_towns
  - Visited town history tracking starts from today. 
 - Notification ignore_if_resident filter now works properly
-# v2.1.0(2023/11/02)
+# v2.1.0(Nov 02 2023)
 - Bedrock faces now shown in /get player etc
 - Fixed various bugs
  - History for visited no longer freezes over 3 pages

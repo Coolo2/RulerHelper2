@@ -1,6 +1,6 @@
 
 import aiohttp
-from client import object, funcs, errors, image_generator, notifications
+from client import object, errors, image_generator, notifications
 
 import datetime
 import setup as s
@@ -8,12 +8,10 @@ import setup as s
 import db
 from db import wrapper
 
-import discord
 from discord.ext import commands
 
 import shutil
 import os
-from shapely import Point
 
 import ijson.backends.yajl2_c as ijson
 
@@ -76,6 +74,7 @@ class Client():
                     db.CreationAttribute("peaceful", db.types.Int),
                     db.CreationAttribute("area", db.types.Int),
                     db.CreationAttribute("mentions", db.types.Int),
+                    db.CreationAttribute("outposts", db.types.Int),
                     db.CreationAttribute("visited_players", db.types.Int),
                     db.CreationAttribute("duration", db.types.Int),
                     db.CreationAttribute("last_seen", db.types.Datetime)
@@ -263,8 +262,9 @@ class Client():
                     db.CreationAttribute("area", db.types.Int),
                     db.CreationAttribute("known_players", db.types.Int),
                     db.CreationAttribute("activity", db.types.Int),
-                    db.CreationAttribute("messages", db.types.Int)
-                ]
+                    db.CreationAttribute("messages", db.types.Int),
+                    db.CreationAttribute("online_players", db.types.Int)
+                ],
             )
         )
 

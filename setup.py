@@ -166,7 +166,8 @@ history_commands = {
             {"attribute":"known_players", "qualitative":False, "formatter":lambda x: f"{x:,}", "name":None, "parser":None},
             {"attribute":"activity", "qualitative":False, "formatter":generate_time, "name":"total_player_activity", "y":"Time", "y_formatter":ImageGenerator.YTickFormatter.TIME},
             {"attribute":"messages", "qualitative":False, "formatter":None, "parser":None, "y":"Messages"},
-            {"attribute":"database_size", "qualitative":False, "formatter":lambda x: f"{x:,.2f} MB", "parser":None, "y":"Size (MB)"}
+            {"attribute":"database_size", "qualitative":False, "formatter":lambda x: f"{x:,.2f} MB", "parser":None, "y":"Size (MB)"},
+            {"attribute":"online_players", "qualitative":False, "formatter":None, "parser":None, "y":"Online players", "today_only":True},
     ]
 }
 
@@ -175,7 +176,7 @@ history_today_commands = {
     "player":["activity", "visited_town_count"],
     "town":["residents", "tax", "bank", "area", "activity"],
     "nation":["towns", "town_value", "residents", "area", "activity"],
-    "global":["towns", "town_value", "residents", "area", "nations", "known_players", "total_player_activity", "messages"]
+    "global":["towns", "town_value", "residents", "area", "nations", "known_players", "total_player_activity", "messages", "online_players"]
 }
 
 top_commands = {
@@ -188,7 +189,8 @@ top_commands = {
         {"attribute":"founded_date", "formatter":lambda x: f"{x:,} days ({(datetime.date.today()-datetime.timedelta(days=x)).strftime('%b %d %Y')})", "name":"age", "parser":lambda x: (datetime.date.today() - x).days, "y":"Age (days)", "reverse":True, "reverse_notable":True, "not_in_history":True},
         {"attribute":"area/resident_count", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident", "reverse_notable":True, "reverse":True},
         {"attribute":"visited_players", "qualitative":False, "formatter":None, "name":None, "parser":None, "y":"Players"},
-        {"attribute":"mentions", "formatter":None, "parser":None}
+        {"attribute":"mentions", "formatter":None, "parser":None},
+        {"attribute":"outposts", "formatter":None, "parser":None, "not_in_history":True}
     ],
     "player":[
         {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":ImageGenerator.YTickFormatter.TIME},

@@ -19,7 +19,17 @@ import matplotlib.style as mplstyle
 
 matplotlib.use('Agg') 
 mplstyle.use('fast')
-matplotlib.rcParams['text.color'] = "silver"
+
+color = "silver"
+matplotlib.rcParams['text.color'] = color
+matplotlib.rcParams['axes.labelcolor'] = color
+matplotlib.rcParams['xtick.color'] = color
+matplotlib.rcParams['ytick.color'] = color
+matplotlib.rcParams["axes.edgecolor"] = color
+matplotlib.rcParams["xtick.labelsize"] = 7
+
+import warnings
+warnings.filterwarnings("ignore")
 
 CACHE_SPLIT_STRING = "_+_"
 
@@ -184,14 +194,7 @@ class ImageGenerator():
             return self.__x_tick_formatter
     
     def __config_graph_chart(self, title, x_label, y_label):
-        color = "silver"
         plt.rcParams["figure.figsize"] = [6.4*1.6, 4.8]
-        matplotlib.rcParams['text.color'] = color
-        matplotlib.rcParams['axes.labelcolor'] = color
-        matplotlib.rcParams['xtick.color'] = color
-        matplotlib.rcParams['ytick.color'] = color
-        matplotlib.rcParams["axes.edgecolor"] = color
-        matplotlib.rcParams["xtick.labelsize"] = 7
 
         plt.title(title, y=1)
         if x_label: plt.xlabel(x_label)
@@ -206,9 +209,11 @@ class ImageGenerator():
         if not lg.colors:
             lg.colors = s.compare_line_colors
 
+        total_points = 0
         for i, line in enumerate(lg.lines):
             color_i = s.line_color if len(lg.lines) == 1 else lg.colors[i%len(lg.colors)]
             points = line.decode_points(lg)
+            total_points += len(points)
 
             if len(points) == 1: # Remove nan and count
                 plt.scatter(x=points[-1][0] if len(points) > 0 else 0, y=points[-1][1], color=color_i, label=line.name)
@@ -216,30 +221,31 @@ class ImageGenerator():
                 plt.plot([p[0] for p in points], [p[1] for p in points], color=color_i, label=line.name, alpha=1 if len(lg.lines) == 1 else 0.75)
 
         gca = plt.gca()
-        
-        x_gap = lg.calculate_x_gap()
-        gca.set_xlim(lg.get_xlim(x_gap or 0))
-        
+
         gca.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
 
-        if x_gap:
-            gca.xaxis.set_major_locator(plt.MultipleLocator(x_gap))
+        if total_points > 0:
+            x_gap = lg.calculate_x_gap()
+            gca.set_xlim(lg.get_xlim(x_gap or 0))
 
-        xticks, yticks = gca.get_xticks(), gca.get_yticks()
-        gca.set_xticklabels(lg.format_x(list(xticks)))
-        gca.set_yticklabels(lg.format_y(list(yticks)))
+            if x_gap:
+                gca.xaxis.set_major_locator(plt.MultipleLocator(x_gap))
+
+            xticks, yticks = gca.get_xticks(), gca.get_yticks()
+            gca.set_xticklabels(lg.format_x(list(xticks)))
+            gca.set_yticklabels(lg.format_y(list(yticks)))
 
         if len(lg.lines) > 1:
             plt.legend(bbox_to_anchor=(0, 1.05, 1, 0.2), loc="lower left", prop={'size':10}, frameon=False, mode="expand", borderaxespad=0, ncol=3)
     
-    async def plot_barchart(self, data : list[ImageGenerator.Vertex], title : str, x_label : str, y_label : str, y_formatter : ImageGenerator.YTickFormatter ):
+    async def plot_barchart(self, data : list[ImageGenerator.Vertex], title : str, x_label : str, y_label : str, y_formatter : ImageGenerator.YTickFormatter, highlight : str = None ):
         plt.close()
         if not y_formatter:
             y_formatter = ImageGenerator.YTickFormatter.DEFAULT
         
         self.__config_graph_chart(title, x_label, y_label)
 
-        plt.bar([d.x for d in data], [d.y for d in data], color=s.bar_color)
+        barlist = plt.bar([d.x for d in data], [d.y for d in data], color=s.bar_color)
 
         gca = plt.gca()
 
@@ -247,6 +253,13 @@ class ImageGenerator():
 
         yticks = gca.get_yticks()
         gca.set_yticklabels([y_formatter(t) for t in yticks])
+
+        xticks = [d.x for d in data]
+
+        if highlight:
+            highlight = highlight.replace("_", " ")
+            if highlight in list(xticks):
+                barlist[list(xticks).index(highlight)].set_color('r')
     
     async def plot_piechart(self, data : list[ImageGenerator.Vertex], title : str ):
         plt.close()

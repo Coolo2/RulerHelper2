@@ -80,11 +80,11 @@ async def setup_hook():
             if s.PRODUCTION_MODE and extension == "test":
                 continue
             await bot.load_extension(f"cmds.{extension}")
-    await bot.load_extension("cogs.events")
+        await bot.load_extension("cogs.events")
     
     await bot.load_extension("cogs.errors")
 
-    if s.refresh_commands:
+    if s.refresh_commands and s.commands:
         await bot.tree.sync()
         await bot.tree.sync(guild=s.mod_guild)
     

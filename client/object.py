@@ -652,6 +652,10 @@ class Town():
     @property
     async def mention_count(self): return (await self.total_mentions)[0]
 
+    @property 
+    def outposts(self):
+        return [a for a in self.areas if a.is_outpost]
+
     def to_record(self) -> list:
 
         area = self.search_boost = self.area
@@ -670,6 +674,7 @@ class Town():
             int(self.peaceful), 
             area,
             0,
+            len(self.outposts),
             0,
             db.CreationField.external_query(
                     self.__world.client.activity_table, 
@@ -687,7 +692,7 @@ class Town():
                     [db.CreationCondition("town", self.name)],
                     query_attribute="COUNT(*)"
         )
-        r[-4] = db.CreationField.external_query(
+        r[-5] = db.CreationField.external_query(
             self.__world.client.chat_mentions_table, "mentions", [db.CreationCondition("object_type", "town"), db.CreationCondition("object_name", self.name)], query_attribute="amount"
         )
         return r
@@ -1177,6 +1182,7 @@ class World():
         r = await self.to_record_history()
         r[0] = datetime.datetime.now() 
         r.pop()
+        r.append(self.player_count)
         return r
 
     @property 
@@ -1504,11 +1510,11 @@ class World():
         for player in players:
             p = Player(self)
 
-            p.name : str = str(player.attribute("name"))
+            p.name = str(player.attribute("name"))
             p.location = Point(float(c) for c in player.attribute("location").split(","))
-            p.armor : int = player.attribute("armor")
-            p.health : int = player.attribute("health")
-            p.donator : bool = bool(player.attribute("donator")) if player.attribute("donator") else None
+            p.armor = player.attribute("armor")
+            p.health = player.attribute("health")
+            p.donator = bool(player.attribute("donator")) if player.attribute("donator") else None
 
             self.__players[p.name] = p
 
