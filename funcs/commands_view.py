@@ -39,6 +39,9 @@ class Command():
         self.emoji = emoji
 
         self.custom_id = f"command_{command}+{'_&_'.join(parameters)}"
+
+        if len(self.custom_id) > 100:
+            self.custom_id = shorten_custom_id(f"command_{command}+", parameters)
     
     def as_select_option(self):
         return discord.SelectOption(label=self.label, emoji=self.emoji, value=self.custom_id)
@@ -77,6 +80,17 @@ class CommandsView(discord.ui.View):
 class RefreshButton(discord.ui.Button):
     def __init__(self, client : Client, command_name : str, command_params : tuple, row : int = 1):
         self._custom_id = f"refresh_{command_name}+{'_&_'.join(command_params)}"
+
+        if len(self._custom_id) > 100:
+            self._custom_id = shorten_custom_id(f"refresh_{command_name}+", command_params)
+
         super().__init__(emoji="🔃", row=row, custom_id=self._custom_id)
 
         self.client = client 
+
+def shorten_custom_id(prefix : str, command_params : tuple[str]):
+
+    space_remaining = 100 - len(prefix)
+    length_allowed = (space_remaining-(3*len(command_params)))//len(command_params)
+
+    return f"{prefix}{'_&_'.join([c[:length_allowed] for c in command_params])}"

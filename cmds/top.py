@@ -34,7 +34,7 @@ def generate_command(
 
         edit = interaction.extras.get("edit")
 
-        on_date = datetime.datetime.strptime(on, "%b %d %Y").date() if on and not not_in_history else datetime.date.today()
+        on_date = datetime.datetime.strptime(on, s.DATE_STRFTIME).date() if on and not not_in_history else datetime.date.today()
 
         if is_town:
             if not_in_history:

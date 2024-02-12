@@ -95,20 +95,12 @@ def generate_command(
                 change = (("+" if change >= 0 else "-") + formatter(change).replace("-", "")) if change not in [None, 0] else ""
             val = formatter(parsed)
             
-            log = f"**{record.attribute('date').strftime('%b %d %Y')}**: {discord.utils.escape_markdown(str(val))}" + (f" (`{change}`)\n" if last and not qualitative and len(change)>0 else "\n") + log
+            log = f"**{record.attribute('date').strftime(s.DATE_STRFTIME)}**: {discord.utils.escape_markdown(str(val))}" + (f" (`{change}`)\n" if last and not qualitative and len(change)>0 else "\n") + log
             last = parsed
         
         if not qualitative:
 
             idx = range(len(parsed_values))
-        
-        #else:
-        #    prev = None 
-        #    idx = []
-        #    for i, (point) in enumerate(timeline_points):
-        #        if point.y != prev:
-        #            prev = parsed 
-        #            idx.append(i)
 
             for i in idx:
                 date, parsed = list(parsed_values.items())[i]
@@ -350,7 +342,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
                 view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {opp.title()} Info...", 2))
             
             if player:
-                button = discord.ui.Button(label="Map", emoji="🗺️", row=0)
+                button = discord.ui.Button(label="Map", emoji="🗺️", row=1)
                 def map_button(towns : list[client.object.Town], view : discord.ui.View):
                     async def map_button_callback(interaction : discord.Interaction):
                         await interaction.response.defer()
@@ -369,7 +361,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
         else:
             view = discord.ui.View()
             embed.description = "No one has visited."
-        view.add_item(commands_view.RefreshButton(c, f"history {'town' if town else 'player'} visited_{opp}s", (o.name,), row=3))
+        view.add_item(commands_view.RefreshButton(c, f"history {'town' if town else 'player'} visited_{opp}s", (o.name,), row=1))
         
         await (interaction.response.edit_message(embed=embed, view=view, attachments=files) if edit else interaction.response.send_message(embed=embed, view=view, files=files))
 

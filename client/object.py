@@ -764,7 +764,7 @@ class Town():
             self.resident_count  = int(groups[7])
 
             try:
-                self.founded_date = datetime.datetime.strptime(groups[8], "%b %d %Y").date()
+                self.founded_date = datetime.datetime.strptime(groups[8], setup.DATE_STRFTIME).date()
             except ValueError:
                 self.founded_date = datetime.date.today()
 

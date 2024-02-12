@@ -128,7 +128,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Mayor", value=discord.utils.escape_markdown(str(town.mayor)))
         embed.add_field(name="Spawnblock", value=f"[{int(town.spawn.x)}, {int(town.spawn.z)}]({self.client.url}?x={int(town.spawn.x)}&z={int(town.spawn.z)}&zoom={s.map_link_zoom})")
         embed.add_field(name="Total Residents", value=f"{town.resident_count:,}")
-        embed.add_field(name="Founded", value=town.founded_date.strftime('%b %d %Y'))
+        embed.add_field(name="Founded", value=town.founded_date.strftime(s.DATE_STRFTIME))
         embed.add_field(name="Area", value=f"{area:,} plots ({area * 64:,}km²)")
         embed.add_field(name="Activity", value=str(await town.activity))
         embed.add_field(name="Visited Players", value=f"{visited_players_total} ({(visited_players_total/len(self.client.world.players))*100:.1f}%)")

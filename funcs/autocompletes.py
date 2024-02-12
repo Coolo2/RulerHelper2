@@ -5,6 +5,8 @@ import client
 import db
 import datetime
 
+import setup as s
+
 async def player_autocomplete(interaction : discord.Interaction, current : str):
 
     c : client.Client = interaction.client.client
@@ -73,7 +75,7 @@ def history_date_autocomplete_wrapper(object_type : str):
         c : client.Client = interaction.client.client
         table = await c.database.get_table(f"{object_type}_history")
         dates = await table.get_records(attributes=["date"], group=["date"], order=db.CreationOrder("date", db.types.OrderAscending))
-        dates_formatted = [datetime.datetime.strftime(r.attribute("date"), '%b %d %Y') for r in dates ]
+        dates_formatted = [datetime.datetime.strftime(r.attribute("date"), s.DATE_STRFTIME) for r in dates ]
 
         return [
             app_commands.Choice(name=d, value=d)

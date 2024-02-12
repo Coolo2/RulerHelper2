@@ -1,3 +1,9 @@
+## v2.9.1 (Feb 12 2024)
+- Dates now show weekday throughout the bot 
+- Fixed /history player visited_towns not working
+- Chat /history commands now have comma-seperated numbers 
+- Fixed an issue most common in /compare where the command wouldn't send due to button ids being too long
+- Added /distribution ... visited_players
 # v2.9.0 (Feb 11 2024)
 - Outposts are now recognised 
  - Added "outposts" field to /get town which displays no. of outposts 

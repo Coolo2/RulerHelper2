@@ -134,8 +134,8 @@ class ImageGenerator():
             return points
 
     class XTickFormatter:
-        DATETIME = lambda initial, x: datetime.datetime.strftime(initial + datetime.timedelta(seconds=x), "%b %d %Y %H:%M")
-        DATE = lambda initial, x: datetime.datetime.strftime(initial + datetime.timedelta(seconds=x), "%b %d %Y")
+        DATETIME = lambda initial, x: datetime.datetime.strftime(initial + datetime.timedelta(seconds=x), f"{s.DATE_STRFTIME} %H:%M")
+        DATE = lambda initial, x: datetime.datetime.strftime(initial + datetime.timedelta(seconds=x), s.DATE_STRFTIME)
         NUMBER = lambda initial, x: str(x)
     
     class YTickFormatter:
