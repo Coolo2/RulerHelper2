@@ -156,16 +156,16 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         if town.religion:
             c_view.add_command(commands_view.Command("get religion", "Religion Info", (town.religion.name,), button_style=discord.ButtonStyle.primary, emoji="🙏"))
         
-        
-        button = discord.ui.Button(label="Expand Outposts", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
-        def outposts_button(town : client.object.Town, view : discord.ui.View, borders):
+        outposts = True if len(town.outpost_spawns) > 0 and len(town.areas) > 1 else False
+        button = discord.ui.Button(label="Expand Outposts" if outposts else "Expand Map", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
+        def outposts_button(town : client.object.Town, view : discord.ui.View, borders, outposts : bool):
             async def outposts_button_callback(interaction : discord.Interaction):
                 for item in view.children:
-                    if item.label == "Expand Outposts":
+                    if item.label in ("Expand Outposts", "Expand Map"):
                         item.disabled = True 
                 
                 c = self.client.image_generator.town_cache_item(f"TownOutposts+{town.name}", [town]).check_cache()
-                dpi = await self.client.image_generator.generate_area_map([town], True, True, self.client.image_generator.MapBackground.AUTO, False, c, borders)
+                dpi = await self.client.image_generator.generate_area_map([town], True, True, self.client.image_generator.MapBackground.AUTO if outposts else False, False, c, borders)
                 file = discord.File(await self.client.image_generator.render_plt(dpi, c), "town_outpost_map.png")
 
                 interaction.message.embeds[0].set_thumbnail(url=None)
@@ -173,15 +173,15 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
                 
                 await interaction.response.edit_message(view=view, attachments=[file], embed=interaction.message.embeds[0])
             return outposts_button_callback
-        button.callback = outposts_button(town, c_view, borders)
-        if len(town.outpost_spawns) > 0 and len(town.areas) > 1:
-            c_view.add_item(button)
+        
+        button.callback = outposts_button(town, c_view, borders, outposts)
+        c_view.add_item(button)
         c_view.add_command(commands_view.Command("history town visited_players", "Visited Players", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="📖", row=2))
         c_view.add_command(commands_view.Command("history town bank", "Bank History", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="💵", row=2))
         c_view.add_command(commands_view.Command("history town residents", "Resident History", (town.name,), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
         
         c = self.client.image_generator.town_cache_item(f"Town+{town.name}", [town]).check_cache()
-        dpi = await self.client.image_generator.generate_area_map([town], True, False, self.client.image_generator.MapBackground.OFF, False, c, borders)
+        dpi = await self.client.image_generator.generate_area_map([town], True, False, self.client.image_generator.MapBackground.OFF, False, c, borders, False)
         file = discord.File(await self.client.image_generator.render_plt(dpi, c), "town_map.png")
         embed.set_thumbnail(url="attachment://town_map.png")
 

@@ -1,3 +1,16 @@
+## 2.9.5 (Mar 09 2024)
+- Fixed a major bug with town refreshing
+### 2.9.4 (Feb 16 2024)
+- Stopped refresh hanging after bot regains connection
+- 'notable statistics' now ignore markdown formatting on object names 
+- Trasure ships are no longer seen throughout the bot 
+- Town drawings are no longer widened when they are in the thumbnail of an embed
+- /get town 'show map' button will no longer show the earth background sometimes
+### v2.9.2 & v2.9.3 (Feb 13 2024)
+- 'Mentions' ranking notable statistic no longer incorrectly shows as #1
+- 'Expand map' button added when there are no outposts in /get town so that you can still see an enlarged map
+- Fixed town founded date always being the current date 
+ - This fixes /history town
 ## v2.9.1 (Feb 12 2024)
 - Dates now show weekday throughout the bot 
 - Fixed /history player visited_towns not working

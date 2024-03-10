@@ -12,7 +12,7 @@ Setup file!
 
 """
 
-version = "2.9.1"
+version = "2.9.3"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
@@ -25,7 +25,7 @@ request_channel = 985590035556479017 # Channel ID to send /request stuff
 mods = [368071242189897728] # List of User IDs who are "bot moderators". They can accept requests. First member of this list should be bot owner
 
 DEFAULT_TOWNS = ["RulerSpawn", "Sea", "Unclaimed"] # Ignore these towns in certain commands. Will still be tracked and can still be seen with /get
-DEFAULT_TOWNS_SUBSTRING = ["Quarry", "Trading"]
+DEFAULT_TOWNS_SUBSTRING = ["Quarry", "Trading", "Treasure Ship"]
 DONT_TRACK_TOWNS = ["Sea", "RulerSpawn", "Unclaimed"] # Ignore these towns while tracking.
 
 today_tracking_period = datetime.timedelta(minutes=30)
@@ -254,14 +254,15 @@ world_to_map = [ # Unused currently. Would be used for a potential /render comma
 
 # Template for town descriptions. Needs to be updated ASAP when server updates
 template = """<div><div style="text-align:left"> <img src="
-(.*)" /><p><span style="font-size:130%;font-weight:600">
-&#x1f3f0; (.*)</span></p> <hr /> <p><span style="font-size:120%;font-weight:600">&#x1f38c; (.*)</span></p> <hr /> <p><span style="font-size:100%">
-&#x1f6d0; (.*)</span></p> <p><span style="font-size:100%">
-&#x1f54e; (.*)</span></p> <hr /> <p><span style="font-size:120%;font-weight:600">&#x1f451; 
-Ruler:</span></p> <span style="font-size:100%">(.*)</span> <img style="border-width:1px;border-style:solid;border-color:#000;width:30px;height:30px" src="
-(.*)" /> <hr /> <p><span style="font-size:90%;font-weight:600">&#x1f465; 
-Residents:</span> (.*)<br /></p> <p><span style="font-size:90%;font-weight:600">
-⏳ Founded:</span> (.*)<br /></p> <p><span style="font-size:90%;font-weight:600">
-% Resident Tax:</span> (.*)<br /></p> <p><span style="font-size:90%"><span style="font-weight:600">
-&#x1f4b0; Bank:</span> (.*) Dollars</span></p> <p><span style="font-size:90%"><span style="font-weight:600">
-&#x1f6a5; Public:</span> (.*)</span></p> </div></div>""".replace("\n", "")
+(.*)" /><p><span style="font-size:130%;font-weight:600">&#x1f3f0; 
+(.*)</span></p> <hr /> <p><span style="font-size:120%;font-weight:600">&#x1f38c; 
+(.*)</span></p> <hr /> <p><span style="font-size:100%">&#x1f6d0; 
+(.*)</span></p> <p><span style="font-size:100%">&#x1f54e; 
+(.*)</span></p> <hr /> <p><span style="font-size:120%;font-weight:600">&#x1f451; Ruler:</span></p> <span style="font-size:100%">
+(.*)</span> <img style="border-width:1px;border-style:solid;border-color:#000;width:30px;height:30px" src="
+(.*)" /> <hr /> <p><span style="font-size:90%;font-weight:600">&#x1f465; Residents:</span> 
+(.*)<br /></p> <p><span style="font-size:90%;font-weight:600">⏳ Founded:</span> 
+(.*)<br /></p> <p><span style="font-size:90%;font-weight:600">% Resident Tax:</span> 
+(.*)<br /></p> <p><span style="font-size:90%"><span style="font-weight:600">&#x1f4b0; Bank:</span> 
+(.*) Dollars</span></p> <p><span style="font-size:90%"><span style="font-weight:600">&#x1f6a5; Public Teleport:</span> 
+(.*)</span></p> </div></div>""".replace("\n", "").replace(" ", "")

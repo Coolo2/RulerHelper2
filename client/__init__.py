@@ -435,7 +435,8 @@ class Client():
                 self.world._remove_player(player.name)
         for town in self.world.towns.copy():
             if not await town.exists_in_db:
-                await self.bot.get_channel(s.alert_channel).send(f"Removed town {town.name}")
+                sent += 1
+                if sent <= 10: await self.bot.get_channel(s.alert_channel).send(f"Removed town {town.name}")
                 self.world._remove_town(town.name)
                 for t in self.world.towns:
                     if t.spawn.x == town.spawn.x and t.spawn.z == town.spawn.z:

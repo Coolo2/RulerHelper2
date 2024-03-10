@@ -1,6 +1,7 @@
 
 import db
 import datetime
+import discord
 
 def generate_time(time):
     timeSeconds = time
@@ -24,7 +25,7 @@ def generate_time(time):
 def top_rankings_to_text(rankings : dict, object_name : str, notable_only = True) -> str:
     notable_statistics = ""
     for (leaderboard), (value, ranking, notable) in rankings.items():
-        if notable: notable_statistics += f"\n- {object_name} is **#{ranking}** on the **{leaderboard.replace('_', ' ')}** ranking"
+        if notable: notable_statistics += f"\n- {discord.utils.escape_markdown(object_name)} is **#{ranking}** on the **{leaderboard.replace('_', ' ')}** ranking"
     if not notable_only or notable_statistics == "": notable_statistics = "None"
 
     return notable_statistics

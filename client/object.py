@@ -302,10 +302,11 @@ class Nation(Object):
         rankings = {}
         for command in setup.top_commands["nation"]:
             value = (await self.world.client.objects_table.get_record(conditions=[db.CreationCondition("type", "nation"), db.CreationCondition("name", self.name)], attributes=[command["attribute"]])).attribute(command["attribute"])
-            ranking = await self.world.client.objects_table.count_rows(conditions=[db.CreationCondition("type", "nation"), db.CreationCondition(command["attribute"], value, ">")])
-            if command.get("reverse_notable"): ranking = len(self.world.nations)-ranking-1
-            notable = True if ranking <= len(self.world.nations)/2 else False
-            rankings[command.get("name") or command.get("attribute")] = [value, ranking+1, notable]
+            if value:
+                ranking = await self.world.client.objects_table.count_rows(conditions=[db.CreationCondition("type", "nation"), db.CreationCondition(command["attribute"], value, ">")])
+                if command.get("reverse_notable"): ranking = len(self.world.nations)-ranking-1
+                notable = True if ranking <= len(self.world.nations)/2 else False
+                rankings[command.get("name") or command.get("attribute")] = [value, ranking+1, notable]
         
         return dict(sorted(rankings.items(), key=lambda x: x[1][1]))
     
@@ -336,8 +337,8 @@ class Nation(Object):
         stats = []
         detached_area_perc = (self.total_detached_area / self.total_area) * 100
         if detached_area_perc > 0:
-            stats.append(f"Detached territories make up **{detached_area_perc:,.2f}%** of {self.name_formatted}'s claims")
-            stats.append(f"The average town balance in {self.name_formatted} is **${self.average_town_balance:,.2f}**")
+            stats.append(f"Detached territories make up **{detached_area_perc:,.2f}%** of {discord.utils.escape_markdown(self.name_formatted)}'s claims")
+            stats.append(f"The average town balance in {discord.utils.escape_markdown(self.name_formatted)} is **${self.average_town_balance:,.2f}**")
         return stats
     
     @property
@@ -609,10 +610,11 @@ class Town():
         rankings = {}
         for command in setup.top_commands["town"]:
             value = (await self.__world.client.towns_table.get_record(conditions=[db.CreationCondition("name", self.name)], attributes=[command["attribute"]])).attribute(command["attribute"])
-            ranking = await self.__world.client.towns_table.count_rows(conditions=[db.CreationCondition(command["attribute"], value, ">")])
-            if command.get("reverse_notable"): ranking = len(self.__world.towns)-ranking-1
-            notable = True if ranking <= len(self.__world.towns)/5 else False
-            rankings[command.get("name") or command.get("attribute")] = [value, ranking+1, notable]
+            if value:
+                ranking = await self.__world.client.towns_table.count_rows(conditions=[db.CreationCondition(command["attribute"], value, ">")])
+                if command.get("reverse_notable"): ranking = len(self.__world.towns)-ranking-1
+                notable = True if ranking <= len(self.__world.towns)/5 else False
+                rankings[command.get("name") or command.get("attribute")] = [value, ranking+1, notable]
         
         return dict(sorted(rankings.items(), key=lambda x: x[1][1]))
 
@@ -630,7 +632,7 @@ class Town():
         stats = []
         detached_area_perc = (self.detached_area / self.area) * 100
         if detached_area_perc > 0:
-            stats.append(f"Detached territories make up **{detached_area_perc:,.2f}%** of {self.name_formatted}'s claims")
+            stats.append(f"Detached territories make up **{detached_area_perc:,.2f}%** of {discord.utils.escape_markdown(self.name_formatted)}'s claims")
         return stats
 
     @property 
@@ -751,24 +753,24 @@ class Town():
             return
         
         if "Siege" not in desc:
-            r = re.match(setup.template, desc)
+            r = re.match(setup.template, desc.replace("\n", "").replace(" ", ""))
             if not r:
                 await self.__world.client.bot.get_channel(setup.alert_channel).send(f"Could not extract from desc.\n\n```{desc}```")
                 raise
             groups = r.groups()
             self.flag_url = groups[0]
             self.nation = Nation(self.__world, groups[2]) if groups[2].strip() != "" else None
-            self.religion = Religion(self.__world, groups[3].replace("Town Religion - ", "")) if "Select your" not in groups[3] else None
-            self.culture = Culture(self.__world, groups[4].replace("Culture - ", "")) if groups[4] != "Culture - " else None
+            self.religion = Religion(self.__world, groups[3].replace("TownReligion-", "")) if "Selectyour" not in groups[3] else None
+            self.culture = Culture(self.__world, groups[4].replace("Culture-", "")) if groups[4] != "Culture-" else None
             self.__mayor = groups[5]
             self.resident_count  = int(groups[7])
 
             try:
-                self.founded_date = datetime.datetime.strptime(groups[8], setup.DATE_STRFTIME).date()
+                self.founded_date = datetime.datetime.strptime(groups[8], "%b%d%Y").date()
             except ValueError:
                 self.founded_date = datetime.date.today()
 
-            self.resident_tax = Tax(float(groups[9].replace("%", "").replace(" Dollars", "").replace("$", "").strip()), "%" if "%" in groups[9] else "$")
+            self.resident_tax = Tax(float(groups[9].replace("%", "").replace("Dollars", "").replace("$", "").strip()), "%" if "%" in groups[9] else "$")
             
             self.bank = float(groups[10].replace(",", "").strip())
             self.public = True if "true" in groups[11] else False
@@ -887,10 +889,11 @@ class Player():
         rankings = {}
         for command in setup.top_commands["player"]:
             value = (await self.__world.client.players_table.get_record(conditions=[db.CreationCondition("name", self.name)], attributes=[command["attribute"]])).attribute(command["attribute"])
-            ranking = await self.__world.client.players_table.count_rows(conditions=[db.CreationCondition(command["attribute"], value, ">")])
-            if command.get("reverse_notable"): ranking = len(self.__world.players)-ranking-1
-            notable = True if ranking <= len(self.__world.players)/10 else False
-            rankings[command.get("name") or command.get("attribute")] = [value, ranking+1, notable]
+            if value:
+                ranking = await self.__world.client.players_table.count_rows(conditions=[db.CreationCondition(command["attribute"], value, ">")])
+                if command.get("reverse_notable"): ranking = len(self.__world.players)-ranking-1
+                notable = True if ranking <= len(self.__world.players)/10 else False
+                rankings[command.get("name") or command.get("attribute")] = [value, ranking+1, notable]
         
         return dict(sorted(rankings.items(), key=lambda x: x[1][1]))
 
