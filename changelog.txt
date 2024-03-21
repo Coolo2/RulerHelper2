@@ -1,6 +1,9 @@
-## 2.9.5 (Mar 09 2024)
+### v2.9.6 (Mar 21 2024)
+- Notifcations are now edited even if displayed in multiple channels
+- Other minor changes to notification send algorithms
+### v2.9.5 (Mar 09 2024)
 - Fixed a major bug with town refreshing
-### 2.9.4 (Feb 16 2024)
+### v2.9.4 (Feb 16 2024)
 - Stopped refresh hanging after bot regains connection
 - 'notable statistics' now ignore markdown formatting on object names 
 - Trasure ships are no longer seen throughout the bot 
@@ -142,12 +145,12 @@ newpage
 - Fixed a couple caching issues
 - A few database size optimisations
 newpage
-# 2.5.1 (Nov 20 2023)
+# v2.5.1 (Nov 20 2023)
 - Some fixes to refreshes
 - Fixed nation maps not displaying when first generated 
 - Fixed /compare commands and /bot info not working 
 - Fixed issues with paginator refreshes
-# 2.5.0 (Nov 20 2023)
+# v2.5.0 (Nov 20 2023)
 - Added "refresh" buttons to many commands which refresh the data in fields
  - This button works permanently, even after bot refreshes. 
  - It may be disabled for old messages in the future to keep server history 

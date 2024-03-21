@@ -82,7 +82,6 @@ class Notifications():
         notification_channels_records = await self.client.notifications_table.get_records(
             conditions=c
         )
-
         
         notification_channels : list[NotificationChannel] = []
 
@@ -102,18 +101,19 @@ class Notifications():
             ignore_players = self._players_ignore.get(town_name) or {}
             if not town:
                 continue
+            
 
-            for channel in channels:
-                if town.nation and channel.notification_type == "territory_enter" and channel.nation_name == town.nation.name:
-                    for player in players:
-                        if player.name in ignore_players:
-                            l = [player.location.x, player.location.z]
-                            ig = self._players_ignore[town_name][player.name]
-                            if len(ig[2]) == 0 or ig[2][-1] != l:
-                                ig[2].append(l)
-                            ig[0] += self.client.refresh_period
-                            continue
-                
+            for player in players:
+                if player.name in ignore_players:
+                    l = [player.location.x, player.location.z]
+                    ig = self._players_ignore[town_name][player.name]
+                    if len(ig[2]) == 0 or ig[2][-1] != l:
+                        ig[2].append(l)
+                    ig[0] += self.client.refresh_period
+                    continue
+
+                for channel in channels:
+                    if town.nation and channel.notification_type == "territory_enter" and channel.nation_name == town.nation.name:
                         likely_residency = await player.likely_residency
                         likely_residency_nation = likely_residency.nation.name_formatted if likely_residency and likely_residency.nation else "None"
 
@@ -138,41 +138,42 @@ class Notifications():
                             self._players_ignore[town_name] = {}
                         
                         if player.name not in self._players_ignore[town_name]:
-                            self._players_ignore[town_name][player.name] = [self.client.refresh_period, msg, []]
+                            self._players_ignore[town_name][player.name] = [self.client.refresh_period, [], []]
                         
-                        
+                        self._players_ignore[town_name][player.name][1].append(msg)      
         
         for town_name, players in self._players_ignore.copy().items():
 
             for player in players.copy():
                 time : int = self._players_ignore[town_name][player][0]
-                msg : discord.Message = self._players_ignore[town_name][player][1]
+                msgs : list[discord.Message] = self._players_ignore[town_name][player][1]
                 journey : list[list[int]] = self._players_ignore[town_name][player][2]
                     
                 if not self.client.world.towns_with_players.get(town_name) or player not in self.client.world.towns_with_players[town_name]:
-                    if msg:
 
-                        embed = msg.embeds[0]
-                        embed.set_field_at(4, name="Time spent", value=f"In town for {funcs.generate_time(time)}")
+                    t = self.client.world.get_town(town_name, False)
+                    if t:
+                        a = []
+                        for area in t.areas:
+                            for point in journey:
+                                if area.is_point_in_area(Point(point[0], 64, point[1])) and area not in a:
+                                    a.append(area)
+                        dpi = await self.client.image_generator.generate_area_map(a, False, False, False, False, None, [])
+                        await self.client.image_generator.layer_journey(journey)
+                        
 
-                        t = self.client.world.get_town(town_name, False)
-                        if t:
-                            a = []
-                            for area in t.areas:
-                                for point in journey:
-                                    if area.is_point_in_area(Point(point[0], 64, point[1])) and area not in a:
-                                        a.append(area)
-                            dpi = await self.client.image_generator.generate_area_map(a, False, False, False, False, None, [])
-                            await self.client.image_generator.layer_journey(journey)
-                            attachments = [discord.File(await self.client.image_generator.render_plt(dpi, None), "journey.png")]
+                    for msg in msgs:
+                        if msg:
+                            plt = await self.client.image_generator.render_plt(dpi, None)
+                            
+                            embed = msg.embeds[0]
                             embed.set_image(url="attachment://journey.png")
-                        else:
-                            attachments = []
+                            embed.set_field_at(4, name="Time spent", value=f"In town for {funcs.generate_time(time)}")
 
-                        try:
-                            await msg.edit(embed=embed, attachments=attachments)
-                        except Exception as e:
-                            print(e)
+                            try:
+                                await msg.edit(embed=embed, attachments=[discord.File(plt, "journey.png")] if t else [])
+                            except Exception as e:
+                                print(e)
 
                     del self._players_ignore[town_name][player]
             

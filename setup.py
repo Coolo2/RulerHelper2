@@ -12,7 +12,7 @@ Setup file!
 
 """
 
-version = "2.9.3"
+version = "2.9.6"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
