@@ -29,12 +29,13 @@ class Get(commands.GroupCog, name="bot", description="Commands relating to the b
         embed.add_field(name="Tracking time", value=f"{(await self.client.world.total_tracked).str_no_timestamp()}")
         embed.add_field(name="Servers", value=str(len(self.bot.guilds)))
         embed.add_field(name="Database size", value=f"{self.client.world.database_size}MB")
-        embed.add_field(name="Last refresh", value=f"<t:{round(self.client.world.last_refreshed.timestamp())}:R>")
         embed.add_field(name="Linked discord accounts", value=str(len(await self.client.world.linked_discords)))
-        embed.add_field(name="Current refresh time", value=f"{self.client.refresh_period}s")
+        embed.add_field(name="Last refresh", value="\n".join(f"{k.title()}: <t:{round(t.timestamp())}:R>" for k, t in self.client.last_refreshed.items()))
+        embed.add_field(name="Current refresh time", value="\n".join(f"{k.title()}: {round(t)}s" for k, t in self.client.refresh_period.items()))
 
         view = discord.ui.View()
         view.add_item(commands_view.RefreshButton(self.client, "bot info", []))
+        view.add_item(commands_view.CommandButton(self, commands_view.Command("history global database_size", "Database Size History", parameters=(), emoji="📁", row=1)))
 
         await send(embed=embed, view=view)
     

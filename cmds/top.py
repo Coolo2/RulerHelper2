@@ -76,13 +76,17 @@ def generate_command(
                 continue
             if is_religion and "Production" in r_name:
                 continue
-            if is_player and r_name not in l and on_date == datetime.date.today():
+            if r_name not in l and on_date == datetime.date.today():
+                continue
+
+            attval = record.attribute(attribute) or 0
+            if is_player and attribute=="bank" and not attval:
                 continue
             i += 1
             
             parsed = (parser(record.fields[1].value) if parser else record.fields[1].value) or 0
             val = formatter(parsed)
-            attval = record.attribute(attribute) or 0
+            
             if total > 0:
                 perc = (attval/total)*100 if type(attval) != datetime.date else (parsed/total)*100
             else:
@@ -118,6 +122,8 @@ def generate_command(
             embed.set_footer(text=f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
         elif attribute in ["messages", "mentions"]:
             embed.set_footer(text=f" Tracking chat for {(await interaction.client.client.world.total_tracked_chat).str_no_timestamp()}")
+        if attribute == "bank" and is_player:
+            embed.set_footer(text="Bank balance is only known for town mayors")
 
         view = paginator.PaginatorView(embed, log, index=interaction.extras.get("page"))
         view.add_item(commands_view.RefreshButton(c, f"top {o_type}s {attname}", (), 3))

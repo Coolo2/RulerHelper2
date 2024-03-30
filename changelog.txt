@@ -1,3 +1,42 @@
+# v2.10.0 (Mar 30 2024)
+- Town resident names now show on the map. This is now utilised in the bot:
+ - /get town now displays a list of residents in the town. You can select one from a new select box below
+ - 'Likely residency' calculation has been removed and replaced with 'Residency'. This affects /get player, /history ... visited, notifications 
+ - /history player: likely_nation renamed to residency_nation and likely_town renamed to residency_town
+ - /history town visited_players again shows if they are a resident for all players (not just first 100)
+- Town mayors' bank balance is now displayed on the map 
+ - New bank balance field added to /get player (displays as 'Unknown' if player is not a mayor)
+ - New commands: /top players bank (only shows mayors), /history player bank (only for mayors), /history_today player bank (only for mayors)
+ - New 'bank' field in /compare players
+ - New 'mayor bank value' field in /get world
+ - New command /history global mayor_value
+- Notifications and player locations now update faster (than map updates). This means that: 
+ - Notifications will show quicker; 
+ - The 'time spent' field will be more accurate; 
+ - Images will show a better path drawing and 
+ - Player locations will be more up-to-date around the bot.
+ - Both refresh periods will also be shown in /bot info
+- More notification fixes/improvements:
+ - First seen location of the player is now shown in the drawings again
+ - Notification channels are now remembered after the nation is renamed
+ - Notification message titles now show the nation name
+- New 'show claim radius' button added to /get nation which draws a circle to show where new towns can be added to the nation
+- Add economy history buttons to /get world
+- Added 'population density' field to /compare towns and /compare nations
+- /get nation now has a 'total outposts' field
+- 'retry command' button added to unknown error messages
+- /bot info now has a 'database size history' button
+- /get nation's town list is now sorted by resident count again
+- /history line graphs now connect to today if a player hasn't been online for a while
+- Changed embed colour to match old Discord changes
+- /get player now responds again if the bedrock head server is down
+- Line graphs' x axes no longer show weekdays 
+- Fixed /compare nations map being small for some nations
+- /top nations and /top towns no longer show towns/nations deleted since restart
+- Fixed a bug where the first page of /compare players showed reminants of a previous command's image
+- Discord's formatting is now ignored in /history player/town visitors commands' titles
+- Made embed colour for notification 'disable' messages in-line with the rest of the bot's design
+newpage
 ### v2.9.6 (Mar 21 2024)
 - Notifcations are now edited even if displayed in multiple channels
 - Other minor changes to notification send algorithms
@@ -22,17 +61,17 @@
 - Added /distribution ... visited_players
 # v2.9.0 (Feb 11 2024)
 - Outposts are now recognised 
- - Added "outposts" field to /get town which displays no. of outposts 
+ - Added 'outposts' field to /get town which displays no. of outposts 
  - Added /top towns outposts
 - In-game chat messages are now counted
  - Note: messages are not read, they are only used for counters (described below)
- - You can now see "mention counts" - number of times a town/nation/player/culture/religion was written in chat 
+ - You can now see 'mention counts' - number of times a town/nation/player/culture/religion was written in chat 
  - You can now see number of messages sent by a player since tracking began 
  - New commands: /top players/towns/nations/cultures/religions: mentions, /history player/town/nation/culture/religion mentions 
  - /top players messages, /history player messages, /history global messages
- - Added "message count" field to /get player and /get world
- - Added "mention count" field to /get player/town/nation/culture/religion
- - "Tracking for" embed footer now shows time reading chat
+ - Added 'message count' field to /get player and /get world
+ - Added 'mention count' field to /get player/town/nation/culture/religion
+ - 'Tracking for' embed footer now shows time reading chat
 - Map image generator has been rewritten
  - Background earth image is higher quality 
  - Lines are smoother and dots are smaller
@@ -46,7 +85,7 @@
  - Increased resolution of the lines 
 - /get player changes
  - Face images are now slightly larger 
- - "Full Skin" button added which shows their full skin body 
+ - 'Full Skin' button added which shows their full skin body 
  - Buttons split into 2 rows 
 - /top ... population_density is now in reversed order to match the name
 - Added /history global database_size
@@ -58,8 +97,8 @@
 - Outpost maps are now cached so may load faster
 - You can now get information about a player from their discord account (if found) by right clicking them > apps > Find user.
 - Fixed a bug where detached territories would not be removed if deleted in-game until daily restart
-- Added a $ to "average town balance" notable statistic
-- "Forgotten" players no longer show in /top players
+- Added a $ to 'average town balance' notable statistic
+- 'Forgotten' players no longer show in /top players
 - Made some performance improvements around the bot. Refreshes should be faster and certain commands will also respond faster
 - Fixed bug where notifications command was accessible from DMs 
 - Fixed bug where timelines would crash if over 5 objects
@@ -78,7 +117,7 @@ newpage
 - Fixed some search bugs
 ## v2.8.1 (Nov 29 2023)
 - Fixed a bug making line graphs show a decrease towards the end when there wasn't
-- Fixed "in town for 0s" on notifications
+- Fixed 'in town for 0s' on notifications
 - Fixed bugs causing some history values to be missing
 - Fixed irrelevent outposts displaying on notification drawings
 # v2.8.0 (Nov 28 2023)
@@ -92,7 +131,7 @@ newpage
 ## v2.7.1 (Nov 27 2023)
 - Various fixes to graph positioning and resolution 
 - Small changes to likely residency calculation
-- "Requested by" now shows display name rather than unique username
+- 'Requested by' now shows display name rather than unique username
 - Search is now lines up with autocomplete if command is run with an unfinished search query
 # v2.7.0 (Nov 26 2023)
 - Nation average town balance data 
@@ -103,7 +142,7 @@ newpage
 - Commands run by buttons/selects now display the user who requested the command
 - Compare commands' map images now load properly when viewing a second time
 - Removed more default towns from showing in commands
-- Fixed "on" attribute autocomplete for /top cultures and /top religions
+- Fixed 'on' attribute autocomplete for /top cultures and /top religions
 - Nation distribution in /get culture and /get religion is now formatted better 
 - Nation name in notifications is now formatted better
 - History can now be tracked forever in compare commands and globally around the bot 
@@ -128,7 +167,7 @@ newpage
 - Comma seperation added to y axis in bar charts and graphs
 - Lines are now displayed as a dot if there is only one data point 
 - History commands with no data will now properly show a message
-- Fixed a bug where "command" buttons would copy paginator location
+- Fixed a bug where 'command' buttons would copy paginator location
 # v2.6.0 (Nov 21 2023)
 - /get online list is now sorted by online time today
 - Objects in /top now highlight if they do not exist anymore
@@ -136,7 +175,7 @@ newpage
 - Removed objects that don't exist from select menus on /history visited
 - Name tracking
  - New commands /history nation name, /history town name 
- - New "previous names" field in /get town and /get nation
+ - New 'previous names' field in /get town and /get nation
 - History commands will now show history forever, it will not be culled after 45d 
  - Over time, graphs will display a lower and lower resolution of values. This has been tested for up to 4 years of data!
  - May be adjusted slightly as time goes on 
@@ -151,7 +190,7 @@ newpage
 - Fixed /compare commands and /bot info not working 
 - Fixed issues with paginator refreshes
 # v2.5.0 (Nov 20 2023)
-- Added "refresh" buttons to many commands which refresh the data in fields
+- Added 'refresh' buttons to many commands which refresh the data in fields
  - This button works permanently, even after bot refreshes. 
  - It may be disabled for old messages in the future to keep server history 
 - Total player activity tracking
@@ -159,20 +198,20 @@ newpage
  - /get world now displays total player activity
 - Totals in /top titles are now comma seperated if over 1000
 - Compare changes
- - Commands will now edit in the map images rather than "thinking"
- - "Compare ..." buttons will no longer show if all duplicates in /compare
+ - Commands will now edit in the map images rather than 'thinking'
+ - 'Compare ...' buttons will no longer show if all duplicates in /compare
  - Fixed certain /compare attribute titles having underscores in
 - Likely residency and nation tracking
  - New commands: /history player likely_town and /history player likely_nation
  - History of player residency can now be seen and tracked from today
-- Vastly sped up /bot info and added "current refresh time" attribute
+- Vastly sped up /bot info and added 'current refresh time' attribute
 - Improved quality and sizes of large drawings. They should look much cleaner now
-- "Command" buttons now work forever (even after refresh)
-- "Command" buttons no longer work if the user doesn't have send message permissions in the channel
+- 'Command' buttons now work forever (even after refresh)
+- 'Command' buttons no longer work if the user doesn't have send message permissions in the channel
 - Nation/Culture/Religion/Town names in timeline history commands are now formatted properly
 - Refresh period is now dynamic. Means tracking data will be more accurate and can refresh faster when less people are online
 - Fixed automatic nation merging choosing the merge nation incorrectly 
-- Fixed a bug where /distribution footer tips will always say "nation" and /history's wouldn't say religion/global
+- Fixed a bug where /distribution footer tips will always say 'nation' and /history's wouldn't say religion/global
 - Command registration has been updated (backend)
 - History values now properly merge
 - Fixed paginated footer not changing for skip buttons
@@ -202,11 +241,11 @@ newpage
 ## v2.3.1 (Nov 11 2023)
 - X-axis dates now format better in /history
 - /get world now has buttons to view global history 
-- Fixed a bug causing nations with "_" in their names to not be selectable
+- Fixed a bug causing nations with '_' in their names to not be selectable
 # v2.3.0 (Nov 07 2023)
-- New parameter "on" and return of parameter "highlight" to /top
- - "on" allows you to specify a date to rank from
- - "highlight" allows you to highlight one object on the chart
+- New parameter 'on' and return of parameter 'highlight' to /top
+ - 'on' allows you to specify a date to rank from
+ - 'highlight' allows you to highlight one object on the chart
 - Improved date formatting throughout the bot
 - Likely residency algorithm performance fixes
 - Added back outposts to many drawings, however they won't expand the map boundary past standard territory
@@ -255,7 +294,7 @@ newpage
  - Displays if player is online
  - Detects donator
 - /get culture and /get religion
- - Now display "nation make-up". This shows what nations make up the culture/religion
+ - Now display 'nation make-up'. This shows what nations make up the culture/religion
 - /compare
  - Now supports >2 objects as input
  - In a more blunt format
@@ -263,13 +302,13 @@ newpage
  - /get map drawings now show bordering towns in a dim colour
  - Certain map drawings will no longer re-render if already rendered (and not updated in-game since)
  - Higher quality background
- - Shows "generating map" instead of wait
+ - Shows 'generating map' instead of wait
 - Request commands
  - You can now request to merge old objects into their new names to restore history. 
  - You can set nation discord links and discords as before, however system is more robust
-- /get online now displays "playtime today" for each player
+- /get online now displays 'playtime today' for each player
 - Notable statistics are now more extensive
-- You now no longer need to complete input on command parameters; eg you can type "enderpig" instead of "enderpig992216" if there is no one else with "enderpig" in their name
+- You now no longer need to complete input on command parameters; eg you can type 'enderpig' instead of 'enderpig992216' if there is no one else with 'enderpig' in their name
 - Times now format correctly on x and y axis of graphs, if there is a gap it will be shown as a gap
 - Performance fixes
 - Top commands now allow you to visit a town/nation/culture/player's /get page from a select menu

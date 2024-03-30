@@ -127,8 +127,9 @@ def generate_command(
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         embed.set_image(url="attachment://graph.png")
 
-        
-        if s.see_more_footer:
+        if attribute=="bank" and is_player:
+            embed.set_footer(text="Bank balance is only tracked for town mayors")
+        elif s.see_more_footer:
             embed.set_footer(text=f"See more with /history {o_type} ... !" + (f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}" if attribute == "duration" else ""))
         elif attribute == "duration":
             embed.set_footer(text=f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
@@ -242,7 +243,9 @@ def generate_command_today(
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         embed.set_image(url="attachment://graph.png")
 
-        if s.see_more_footer:
+        if attribute=="bank" and is_player:
+            embed.set_footer(text="Bank balance is only tracked for town mayors")
+        elif s.see_more_footer:
             embed.set_footer(text=f"See more with /history_today {o_type} ... !")
 
         view = paginator.PaginatorView(embed, log, index=interaction.extras.get("page"))
@@ -281,7 +284,6 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             o = c.world.get_player(player, True)
             if not o: raise client.errors.MildError("Nothing found!")
             objects = await o.visited_towns
-            likely_residency = await o.likely_residency
             total = await c.visited_towns_table.total_column("duration", conditions=[db.CreationCondition("player", o.name)])
             l = [t.name for t in c.world.towns]
 
@@ -299,15 +301,15 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
 
             prefix = ""
             fmt = ""
-            if (total < 100 or perc >= 0.2) and obj.player and type(obj.player) != str:
-                if str(await obj.player.likely_residency) == str(o):
-                    prefix = s.likely_residency_prefix_history
+            
+            if obj.player and str(obj.player) in o._resident_names:
+                prefix = s.resident_prefix_history
             if obj.town and type(obj.town) != str:
                 towns.append(obj.town)
-                if str(likely_residency) == str(obj.town):
-                    prefix = s.likely_residency_prefix_history
+                if str(o.residency) == str(obj.town):
+                    prefix = s.resident_prefix_history
             
-            if datetime.datetime.now() - obj.last <= datetime.timedelta(seconds=c.refresh_period+5):
+            if datetime.datetime.now() - obj.last <= datetime.timedelta(seconds=c.refresh_period["map"]+5):
                 fmt = "**"
 
             format = fmt if is_known else "`"
@@ -317,7 +319,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
 
         opp = "player" if town else "town"
         
-        embed = discord.Embed(title=f"{str(o)} visited history ({len(objects)})", color=s.embed)
+        embed = discord.Embed(title=f"{discord.utils.escape_markdown(str(o))} visited history ({len(objects)})", color=s.embed)
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         embed.set_footer(text=await c.tracking_footer)
 

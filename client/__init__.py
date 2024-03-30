@@ -31,8 +31,8 @@ class Client():
         self.players_table : wrapper.Table = []
         self.visited_towns_table : wrapper.Table = []
 
-        self.refresh_period = s.default_refresh_period
-        self.last_refreshed : datetime.datetime = None
+        self.refresh_period : dict[str, int] = s.default_refresh_period
+        self.last_refreshed : dict[str, datetime.datetime] = {k:None for k in s.default_refresh_period}
         self.world = object.World(self) 
         self.notifications = notifications.Notifications(self)
 
@@ -93,6 +93,7 @@ class Client():
                     db.CreationAttribute("health", db.types.Int),
                     db.CreationAttribute("visited_towns", db.types.Int),
                     db.CreationAttribute("donator", db.types.Int),
+                    db.CreationAttribute("bank", db.types.Float),
                     db.CreationAttribute("messages", db.types.Int),
                     db.CreationAttribute("mentions", db.types.Int),
                     db.CreationAttribute("duration", db.types.Int),
@@ -180,6 +181,7 @@ class Client():
                     db.CreationAttribute("visited_towns", db.types.Int),
                     db.CreationAttribute("likely_town", db.types.String),
                     db.CreationAttribute("likely_nation", db.types.String),
+                    db.CreationAttribute("bank", db.types.Float),
                     db.CreationAttribute("messages", db.types.Int),
                     db.CreationAttribute("mentions", db.types.Int)
                 ]
@@ -193,6 +195,7 @@ class Client():
                     db.CreationAttribute("player", db.types.String),
                     db.CreationAttribute("time", db.types.Datetime),
                     db.CreationAttribute("duration", db.types.Int),
+                    db.CreationAttribute("bank", db.types.Float),
                     db.CreationAttribute("visited_towns", db.types.Int)
                 ]
             )
@@ -241,6 +244,7 @@ class Client():
                     db.CreationAttribute("residents", db.types.Int),
                     db.CreationAttribute("nations", db.types.Int),
                     db.CreationAttribute("town_value", db.types.Float),
+                    db.CreationAttribute("mayor_value", db.types.Float),
                     db.CreationAttribute("area", db.types.Int),
                     db.CreationAttribute("known_players", db.types.Int),
                     db.CreationAttribute("activity", db.types.Int),
@@ -354,23 +358,28 @@ class Client():
 
     async def create_session(self):
         if not self.session:
-            self.session = aiohttp.ClientSession()
+            self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2))
+
 
 
     async def fetch_world(self):
 
         await self.create_session()
 
-        map = await self.session.get(f"{self.url}/up/world/RulerEarth/0")
+        #map = await self.session.get(f"{self.url}/up/world/RulerEarth/0")
         map_data = await self.session.get(f"{self.url}/tiles/_markers_/marker_RulerEarth.json")
 
-        if map.status == 502 or map_data.status == 502:
-            return False
+        #if map.status == 502 or map_data.status == 502:
+        #    return False
         
-        await self.world.refresh(map.content, map_data.content)
+        await self.world.refresh(map_data.content)
     
-    async def fetch_chat_messages(self):
+    async def fetch_short(self):
         
+        # Mentions
+
+        r = await self.session.get(f"{self.url}/up/world/RulerEarth/{self.__dynmap_update_timestamp+1}")
+
         mentions = {}
         for town in self.world.towns: 
             mentions[town.name.lower()] = ("town", town.name)
@@ -378,10 +387,9 @@ class Client():
             for object in self.world._objects[object_type]: mentions[object.name.lower()] = (object_type[:-1], object.name) 
         for player in self.world.players:
             mentions[player.name.lower()] = ("player", player.name)
-
-        r = await self.session.get(f"{self.url}/up/world/RulerEarth/{self.__dynmap_update_timestamp+1}")
         
         dynmap_parts = ijson.kvitems_async(r.content, "", use_float=True)
+        player_list = None
 
         async for key, updates in dynmap_parts:
             if key == "updates":
@@ -406,7 +414,21 @@ class Client():
                             exists = await self.chat_message_counts_table.record_exists(cond2)
                             if not exists: await self.chat_message_counts_table.add_record([sender.name, 1, datetime.datetime.now()])
                             else: await self.chat_message_counts_table.update_record(cond2, [db.CreationField.add("amount", 1), db.CreationField("last", datetime.datetime.now())])
-    
+
+            # Players
+            if key == "currentcount":
+                self.world.player_count = updates or 0
+            elif key == "hasStorm":
+                self.world.is_stormy = updates or False
+            elif key  == "players":
+                player_list = updates
+            else:
+                continue
+        
+        self.world.towns_with_players = await self.world._update_player_list(player_list)
+                            
+        
+
     async def cull_db(self):
 
         await self.player_day_history_table.delete_records([db.CreationCondition("time", datetime.datetime.now()-datetime.timedelta(days=1), "<")])
@@ -470,12 +492,6 @@ class Client():
 
         # Must be done after because accesssed in cull
         await self.objects_table.delete_records([db.CreationCondition("last", datetime.datetime.now()-s.cull_objects_after, "<")])
-    
-    async def test(self):
-
-        for i in range(15):
-            num = (i+1)*35
-            await self.database.connection.execute(f"INSERT INTO town_history(town, date, nation, religion, culture, mayor, resident_count, resident_tax, bank, public, peaceful, area, duration, visited_players, current_name) SELECT town, DATE(date, '+{num} days'), nation, religion, culture, mayor, resident_count, resident_tax, bank, public, peaceful, area, duration, visited_players, current_name FROM town_history WHERE date <= ?", (datetime.date.today(),))
     
     async def backup_db_if_not(self):
         epoch = datetime.date(2022, 1, 1)
@@ -582,6 +598,8 @@ class Client():
             await self.nation_history_table.update_records([db.CreationCondition("capital", old_object_name)], db.CreationField("capital", obj.name))
             await self.player_history_table.update_records([db.CreationCondition("likely_town", old_object_name)], db.CreationField("likely_town", obj.name))
         elif object_type == "nation":
+
+            await self.database.connection.execute("UPDATE notifications SET object_name=? WHERE object_name=?", (obj.name, old_object_name))
 
             await self.database.connection.execute("UPDATE chat_mentions SET object_name=? WHERE object_name=? AND object_type='nation'", (obj.name, old_object_name))
 

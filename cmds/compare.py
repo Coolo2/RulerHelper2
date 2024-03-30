@@ -134,7 +134,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         
         async def im_map(twns : list[client.object.Town], capitals : list[client.object.Town]):
-            dpi = await self.client.image_generator.generate_area_map(twns, True, False, self.client.image_generator.MapBackground.AUTO, False, None, [], True, (1.25, 0.92+(0.08*len(capitals))))
+            dpi = await self.client.image_generator.generate_area_map(twns, True, False, self.client.image_generator.MapBackground.AUTO, False, None, [], False, (1.25, 0.92+(0.08*len(capitals))))
             await self.client.image_generator.layer_spawn_connections(capitals)
             return await self.client.image_generator.render_plt(dpi, None)
         image_generators.append((im_map, (twns, capitals)))
@@ -239,7 +239,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 desc += f"{s.compare_emojis[i]} {formatter(value)}\n"
 
                 if not attribute.get('no_history') and not attribute.get('qualitative'):
-                    total += value
+                    total += value or 0
                     history_r = await self.client.player_history_table.get_records([db.CreationCondition("player", player.name)], order=db.CreationOrder("date", db.types.OrderAscending), attributes=[history_name, "date"])
                     graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r.attribute("date"), r.attribute(history_name)) for r in history_r], player.name))
             
@@ -255,10 +255,10 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
             total_str = f"{total:,}" if type(total) in [int, float] else str(total)
             embed.add_field(name=f"{display_name} {('('+total_str+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
         
-        likely_residencies = [i for i in list(dict.fromkeys([(await p.likely_residency).name if (await p.likely_residency) else None for p in players])) if i != None]
+        residencies = [i for i in list(dict.fromkeys([p.residency.name if p.residency else None for p in players])) if i != None]
 
         view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False, temp_img_url="attachment://paginator_image.png" if edit else "attachment://map_waiting.jpg", render_image_after=True, index=interaction.extras.get("page"))
-        if len(likely_residencies) > 1: view.add_item(commands_view.CommandButton(self, commands_view.Command("compare towns", "Compare Likely Residencies", parameters=likely_residencies, emoji="🗾", row=2)))
+        if len(residencies) > 1: view.add_item(commands_view.CommandButton(self, commands_view.Command("compare towns", "Compare Residencies", parameters=residencies, emoji="🗾", row=2)))
         view.add_item(commands_view.RefreshButton(self.client, "compare players", player_names, row=0))
         
         f = discord.File(s.waiting_bg_path, "map_waiting.jpg")

@@ -189,6 +189,12 @@ class Object():
     @property 
     def total_residents(self) -> int: return self.__total(self.towns, "resident_count")
     @property 
+    def total_outposts(self) -> int:
+        t= 0
+        for town in self.towns:
+            t += len(town.outposts)
+        return t
+    @property 
     def total_area(self) -> int: return self.__total(self.towns, "area")
     @property 
     def total_value(self) -> float: return self.__total(self.towns, "bank")
@@ -341,9 +347,17 @@ class Nation(Object):
             stats.append(f"The average town balance in {discord.utils.escape_markdown(self.name_formatted)} is **${self.average_town_balance:,.2f}**")
         return stats
     
+    @property 
+    def upkeep(self) -> int:
+        return 100 + (self.total_residents//5)*50
+    
     @property
     def average_town_balance(self) -> float:
         return self.total_value/self.total_towns
+    
+    @property 
+    def population_density(self):
+        return int(self.total_area/self.total_residents)
 
     @property 
     async def activity(self) -> Activity:
@@ -391,7 +405,7 @@ class Nation(Object):
                 players_in += len(players)
         
         r = self.to_record_activity()
-        r[-2] = db.CreationField.add("duration", self.world.client.refresh_period*players_in)
+        r[-2] = db.CreationField.add("duration", self.world.client.refresh_period["map"]*players_in)
         if players_in == 0:
             r.pop()
         return r
@@ -469,6 +483,9 @@ class Town():
 
         self.outpost_spawns : list[Point] = []
         self.__areas : list[Area] = []
+        self._resident_names = None
+
+        self.residents : list[Player] = None
 
         self.search_boost = 0
 
@@ -485,6 +502,7 @@ class Town():
         self.founded_date : datetime.date = None 
         self.resident_tax : Tax = None 
         self.bank : float = None 
+        self.mayor_bank : float = None
         self.public : bool = None 
         self.peaceful : bool = False # Currently not on map. Defaults to false
 
@@ -521,14 +539,6 @@ class Town():
     @property 
     def area(self) -> int:
         return round((self.locations.area)/256)
-
-    @property 
-    async def likely_residents(self) -> list[Player]:
-        pls = []
-        for player in self.__world.players:
-            if await player.likely_residency == self:
-                pls.append(player)
-        return pls
 
     @property 
     async def activity(self) -> Activity:
@@ -657,6 +667,10 @@ class Town():
     @property 
     def outposts(self):
         return [a for a in self.areas if a.is_outpost]
+    
+    @property 
+    def population_density(self):
+        return int(self.area/self.resident_count)
 
     def to_record(self) -> list:
 
@@ -743,7 +757,7 @@ class Town():
 
     def to_record_activity_update(self, players : list[Player]) -> list:
         r = self.to_record_activity()
-        r[-2] = db.CreationField.add("duration", self.__world.client.refresh_period*len(players))
+        r[-2] = db.CreationField.add("duration", self.__world.client.refresh_period["map"]*len(players))
         if len(players) == 0:
             r.pop()
         return r
@@ -759,22 +773,33 @@ class Town():
                 raise
             groups = r.groups()
             self.flag_url = groups[0]
-            self.nation = Nation(self.__world, groups[2]) if groups[2].strip() != "" else None
+            self.nation = Nation(self.__world, groups[2]) if groups[2].strip() != "NoNation" else None
             self.religion = Religion(self.__world, groups[3].replace("TownReligion-", "")) if "Selectyour" not in groups[3] else None
             self.culture = Culture(self.__world, groups[4].replace("Culture-", "")) if groups[4] != "Culture-" else None
             self.__mayor = groups[5]
             self.resident_count  = int(groups[7])
+            self._resident_names = groups[8].strip().split(",")
 
             try:
-                self.founded_date = datetime.datetime.strptime(groups[8], "%b%d%Y").date()
+                self.founded_date = datetime.datetime.strptime(groups[9], "%b%d%Y").date()
             except ValueError:
                 self.founded_date = datetime.date.today()
 
-            self.resident_tax = Tax(float(groups[9].replace("%", "").replace("Dollars", "").replace("$", "").strip()), "%" if "%" in groups[9] else "$")
+            self.resident_tax = Tax(float(groups[10].replace("%", "").replace("Dollars", "").replace("$", "").strip()), "%" if "%" in groups[10] else "$")
             
-            self.bank = float(groups[10].replace(",", "").strip())
-            self.public = True if "true" in groups[11] else False
+            self.bank = float(groups[11].replace(",", "").strip())
+            self.mayor_bank = float(groups[12].replace(",", "").replace("$", "").strip())
+            self.public = True if "true" in groups[13] else False
             #self.peaceful = True if "true" in groups[12] else False
+
+            self.residents = []
+            for player_name in self._resident_names:
+                p = self.__world.get_player(player_name, False)
+                if p:
+                    if p.name == self.__mayor:
+                        p.bank = self.mayor_bank
+                    p.residency = self
+                    self.residents.append(p)
 
         self.__desc = desc
     
@@ -830,6 +855,8 @@ class Player():
         self.health : int = None
         self.online = False
         self.donator : bool = None
+        self.residency : Town = None
+        self.bank : float = None
 
         self.search_boost = 0
 
@@ -846,11 +873,14 @@ class Player():
     
     async def __fetch_skin_identifier(self):
         if self.is_bedrock:
-            user = await self.__world.client.session.get(f"https://api.geysermc.org/v2/xbox/xuid/{self.name.replace('.', '').replace('_', '%20')}")
-            user_json : dict = await user.json()
-            if user_json.get("xuid"):
-                texture = await self.__world.client.session.get(f"https://api.geysermc.org/v2/skin/{user_json['xuid']}")
-                self.__skin_identifier = (await texture.json())['texture_id']
+            try:
+                user = await self.__world.client.session.get(f"https://api.geysermc.org/v2/xbox/xuid/{self.name.replace('.', '').replace('_', '%20')}")
+                user_json : dict = await user.json()
+                if user_json.get("xuid"):
+                    texture = await self.__world.client.session.get(f"https://api.geysermc.org/v2/skin/{user_json['xuid']}")
+                    self.__skin_identifier = (await texture.json())['texture_id']
+            except Exception as e:
+                print(e)
         else:
             self.__skin_identifier = self.name 
         
@@ -954,24 +984,6 @@ class Player():
     async def mention_count(self): return (await self.total_mentions)[0]
     
     @property 
-    async def likely_residency(self) -> Town:
-
-        for town in self.__world.towns:
-            if town._mayor_raw == self.name:
-                return town 
-        
-        r = await self.__world.client.visited_towns_table.get_record(
-            [db.CreationCondition("player", self.name), db.CreationCondition("towns.name", None, "is not")], 
-            ["visited_towns.town AS town", "towns.resident_count AS residents"], 
-            group=["visited_towns.town"], 
-            order=db.CreationOrder("visited_towns.duration", db.types.OrderDescending),
-            join=db.CreationTableJoin(self.__world.client.towns_table, "visited_towns.town", "towns.name", "left") # Remove towns which don't exist anymore
-        )
-
-        if r and r.attribute("residents") != 1: # If town has one resident and player is not mayor they cannot be a resident
-            return self.__world.get_town(r.attribute("town"), False)
-    
-    @property 
     async def exists_in_db(self):
         return await self.__world.client.players_table.record_exists([db.CreationCondition("name", self.name)])
     
@@ -1028,9 +1040,10 @@ class Player():
             self.health, 
             0,
             int(self.donator),
+            self.bank,
             0, 
             0,
-            self.__world.client.refresh_period, 
+            self.__world.client.refresh_period["players"], 
             datetime.datetime.now()
         ]
 
@@ -1056,14 +1069,14 @@ class Player():
         return r
     
     async def to_record_history(self) -> list:
-        likely = await self.likely_residency
         return [
             self.name, 
             datetime.date.today(), 
             db.CreationField.external_query(self.__world.client.players_table, "duration", db.CreationCondition("name", self.name)), 
             db.CreationField.external_query(self.__world.client.visited_towns_table, "visited_towns", [db.CreationCondition("player", self.name)], query_attribute="COUNT(*)"),
-            likely.name if likely else None,
-            likely.nation.name if likely and likely.nation else None,
+            self.residency.name if self.residency else None,
+            self.residency.nation.name if self.residency and self.residency.nation else None,
+            db.CreationField.external_query(self.__world.client.players_table, "bank", db.CreationCondition("name", self.name)), 
             db.CreationField.external_query(
                     self.__world.client.chat_message_counts_table, "messages", [db.CreationCondition("player", self.name)], query_attribute="amount"
             ),
@@ -1074,14 +1087,14 @@ class Player():
     
     async def to_record_day_history(self) -> list:
         r = await self.to_record_history()
-        return [r[0], datetime.datetime.now(), r[2], r[3]]
+        return [r[0], datetime.datetime.now(), r[2], r[6], r[3]]
     
     def to_record_activity(self) -> list:
         return ["player", self.name, 0, datetime.datetime.now()]
 
     def to_record_activity_update(self) -> list:
         r = self.to_record_activity()
-        r[-2] = db.CreationField.add("duration", self.__world.client.refresh_period)
+        r[-2] = db.CreationField.add("duration", self.__world.client.refresh_period["players"])
         return r
 
     def __eq__(self, other):
@@ -1107,8 +1120,6 @@ class World():
         self.is_stormy : bool = None
 
         self.towns_with_players : typing.Dict[str, typing.List[Player]] = {}
-        self.last_refreshed : datetime.datetime = None
-        
 
     def get_object(self, array : list, name : str, search=False, multiple=False, max=25):
         multi = []
@@ -1179,13 +1190,14 @@ class World():
         return round(os.path.getsize('towny.db')/1000/1000, 2)
 
     async def to_record_history(self) -> list:
-        return [datetime.date.today(), len(self.towns), self.total_residents, len(self.nations), self.total_value, self.total_area, len(self.players), (await self.total_activity).total, await self.total_messages, self.database_size]
+        return [datetime.date.today(), len(self.towns), self.total_residents, len(self.nations), self.total_value, self.total_mayor_value, self.total_area, len(self.players), (await self.total_activity).total, await self.total_messages, self.database_size]
 
     async def to_record_day_history(self) -> list:
         r = await self.to_record_history()
         r[0] = datetime.datetime.now() 
         r.pop()
         r.append(self.player_count)
+        r.pop(5)
         return r
 
     @property 
@@ -1232,6 +1244,8 @@ class World():
     def total_area(self) -> int: return self.__total(self.towns, "area")
     @property 
     def total_value(self) -> float: return self.__total(self.towns, "bank")
+    @property 
+    def total_mayor_value(self) -> float: return self.__total(self.players, "bank")
 
     @property 
     async def total_activity(self) -> Activity:
@@ -1274,9 +1288,9 @@ class World():
             self._objects["nations"].remove(r)
         
 
-    async def refresh(self, map : StreamReader, map_data : StreamReader):
+    async def refresh(self, map_data : StreamReader):
 
-        objects_map = ijson.kvitems_async(map, "", use_float=True)
+        """objects_map = ijson.kvitems_async(map, "", use_float=True)
         
         player_list = None
         async for o in objects_map:
@@ -1287,7 +1301,7 @@ class World():
             elif o[0] == "players":
                 player_list = o[1]
             else:
-                continue
+                continue"""
         
         objects_map_data = ijson.kvitems_async(map_data, "sets.towny.markerset", use_float=True)
         areas = {}
@@ -1302,14 +1316,12 @@ class World():
 
         await self.__update_town_list(areas, markers)
         await self.__update_global()
-        if player_list: # Has to be done after towns are found
-            self.towns_with_players = await self.__update_player_list(player_list)
+        #if player_list: # Has to be done after towns are found
+        #    self.towns_with_players = await self.__update_player_list(player_list)
         
         await self.__update_objects()
         await self.__update_town_tracking()
         await self.__update_nations()
-        
-        self.last_refreshed = datetime.datetime.now()
 
     async def __update_objects(self):
         new_records = []
@@ -1391,10 +1403,10 @@ class World():
 
         if not await self.client.global_table.record_exists(db.CreationCondition("name", "total_tracked")):
             await self.client.global_table.add_record(["total_tracked", 0])
-        await self.client.global_table.update_record(db.CreationCondition("name", "total_tracked"), db.CreationField.add("value", self.client.refresh_period))
+        await self.client.global_table.update_record(db.CreationCondition("name", "total_tracked"), db.CreationField.add("value", self.client.refresh_period["map"]))
         if not await self.client.global_table.record_exists(db.CreationCondition("name", "total_tracked_chat")):
             await self.client.global_table.add_record(["total_tracked_chat", 0])
-        await self.client.global_table.update_record(db.CreationCondition("name", "total_tracked_chat"), db.CreationField.add("value", self.client.refresh_period))
+        await self.client.global_table.update_record(db.CreationCondition("name", "total_tracked_chat"), db.CreationField.add("value", self.client.refresh_period["map"]))
 
         cond = [db.CreationCondition("date", datetime.date.today())]
         exists = await self.client.global_history_table.record_exists(cond)
@@ -1447,6 +1459,9 @@ class World():
                     
                     if markers.get(f"{t.name}__home"):
                         await t.set_marker(markers[f"{t.name}__home"])
+
+                        
+
                     if t.name in outposts:
                         await t.set_outposts(outposts[t.name])
                     #await asyncio.sleep(0.001) # Allow "parallel" processing
@@ -1521,7 +1536,10 @@ class World():
 
             self.__players[p.name] = p
 
-    async def __update_player_list(self, players : list[dict]):
+    async def _update_player_list(self, players : list[dict]):
+        if not players:
+            return {}
+        
         add_players = []
         add_visited_towns = []
         add_player_history = []
@@ -1583,9 +1601,9 @@ class World():
                 exists = await self.client.visited_towns_table.record_exists(conds)
 
                 if not exists:
-                    add_visited_towns.append([p.name, town.name, self.client.refresh_period, datetime.datetime.now()])
+                    add_visited_towns.append([p.name, town.name, self.client.refresh_period["players"], datetime.datetime.now()])
                 else:
-                    await self.client.visited_towns_table.update_record(conds, *[p.name, town.name, db.CreationField.add("duration", self.client.refresh_period), datetime.datetime.now()])
+                    await self.client.visited_towns_table.update_record(conds, *[p.name, town.name, db.CreationField.add("duration", self.client.refresh_period["players"]), datetime.datetime.now()])
         
         if len(new_records_activity) > 0:
             await self.client.activity_table.add_record(new_records_activity)

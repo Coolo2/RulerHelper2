@@ -8,12 +8,12 @@ import setup as s
 
 import client as c
 
+from funcs import commands_view
+
 class ErrorHandling(commands.Cog):
     def __init__(self, bot : commands.Bot, client : c.Client):
         self.client = client 
     
-
-        
         @bot.tree.error 
         async def on_error(interaction : discord.Interaction, error : app_commands.CommandInvokeError|Exception):
             error_original = error.original if hasattr(error, "original") else error 
@@ -37,10 +37,14 @@ class ErrorHandling(commands.Cog):
                 known = True
 
             if known or s.PRODUCTION_MODE:
+                view = discord.ui.View()
+                if hasattr(error, "command"):
+                    view.add_item(commands_view.CommandButton(self, commands_view.Command(error.command.qualified_name, "Retry Command", parameters=list(interaction.namespace.__dict__.values()), emoji="🔃", row=1)))
+
                 try:
-                    return await interaction.response.send_message(embed=embed, ephemeral=True)
+                    return await interaction.response.send_message(embed=embed, ephemeral=True, view=view)
                 except:
-                    return await interaction.followup.send(embed=embed, ephemeral=True)
+                    return await interaction.followup.send(embed=embed, ephemeral=True, view=view)
             
             raise error
 

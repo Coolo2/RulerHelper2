@@ -12,7 +12,7 @@ Setup file!
 
 """
 
-version = "2.9.6"
+version = "2.10.0"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
@@ -48,12 +48,12 @@ map_bordering_town_opacity = 10 # 1-100 opacity for bordering towns on /get town
 earth_bg_path = "earth.png"
 earth_bg_path_whole = "earth_wholequality.png"
 waiting_bg_path = "map_waiting.jpg"
-likely_residency_prefix_history = "`[R]` "
+resident_prefix_history = "`[R]` "
 
 DATE_STRFTIME = "%a %b %d %Y"
 
 map_url = "https://map.rulercraft.com" # Base map URL
-default_refresh_period = 20 # Duration in seconds to refresh
+default_refresh_period = {"players":5, "map":20} # Duration in seconds to refresh
 map_link_zoom = 10 # Zoom level for map links. Eg "Location" in /get player
 
 #cull_history_from = timedelta(days=60) # Duration of time to remove history from the database after
@@ -73,7 +73,7 @@ see_more_footer = True # Show a footer saying "see more with /command..." under 
 
 show_earth_bg_if_over = 2000 # Shows earth background on maps if over this number (blocks) high or wide
 
-embed = 0x2F3136
+embed = 0x2B2D31
 embedFail = 0xFF0000
 embedSuccess = 0x32CD32
 
@@ -83,9 +83,10 @@ compare_attributes = {
         {"attribute":"total_visited_players", "qualitative":False, "name":"visited players", "inline":True, "history_attribute":"visited_players", "inline":True},
         {"attribute":"founded_date", "qualitative":False, "formatter":lambda x: f"{(datetime.date.today()-x).days:,} days ({x.strftime(DATE_STRFTIME)})", "parser":lambda x: (datetime.date.today() - x).days, "name":"age", "y":"Age (days)", "no_history":True},
         {"attribute":"bank", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Bank ($)", "inline":True},
-        {"attribute":"resident_count", "qualitative":False, "name":"residents", "inline":True},
+        {"attribute":"resident_count", "qualitative":False, "name":"residents", "inline":False},
         {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":None, "y":"Area (plots)", "inline":True},
-        {"attribute":"resident_tax", "qualitative":False, "name":"daily_tax", "y":"Tax (%)", "inline":True},
+        {"attribute":"population_density", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":None, "y":"Density (plots/resident)", "inline":True, "history_attribute":"area/resident_count"},
+        {"attribute":"resident_tax", "qualitative":False, "name":"daily_tax", "y":"Tax (%)", "inline":False},
         {"attribute":"mayor", "qualitative":True, "inline":True, "formatter":lambda x: escape_markdown(x.name if hasattr(x, 'name') else x)},
         {"attribute":"nation", "qualitative":True, "formatter":lambda n: n.name_formatted if n else "None", "inline":True},
         {"attribute":"mention_count", "qualitative":False, "inline":True, "history_attribute":"mentions"}
@@ -94,9 +95,10 @@ compare_attributes = {
         {"attribute":"activity", "qualitative":False, "y_formatter":ImageGenerator.YTickFormatter.TIME, "history_attribute":"duration"},
         {"attribute":"total_towns", "qualitative":False, "inline":True, "name":"towns", "history_attribute":"towns"},
         {"attribute":"total_residents", "qualitative":False, "name":"residents", "inline":True, "history_attribute":"residents"},
+        {"attribute":"total_value", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Town Value ($)", "inline":False, "history_attribute":"town_balance"},
         {"attribute":"total_area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":None, "y":"Area (plots)", "inline":True, "history_attribute":"area"},
-        {"attribute":"total_value", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Town Value ($)", "inline":True, "history_attribute":"town_balance"},
-        {"attribute":"leader", "qualitative":True, "inline":True, "formatter":lambda x: escape_markdown(x.name if hasattr(x, 'name') else x)},
+        {"attribute":"population_density", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":None, "y":"Density (plots/resident)", "inline":True, "history_attribute":"area/residents"},
+        {"attribute":"leader", "qualitative":True, "inline":False, "formatter":lambda x: escape_markdown(x.name if hasattr(x, 'name') else x)},
         {"attribute":"capital", "qualitative":True, "inline":True},
         {"attribute":"average_town_balance", "qualitative":False, "inline":True, "formatter":lambda x: f"${x:,.2f}", "name":None, "y":"Town Value ($)", "history_attribute":"town_balance/towns"},
         {"attribute":"mention_count", "qualitative":False, "inline":True, "history_attribute":"mentions"}
@@ -106,7 +108,8 @@ compare_attributes = {
         {"attribute":"total_visited_towns", "qualitative":False, "name":"visited towns", "inline":True, "history_attribute":"visited_towns"},
         {"attribute":"location", "qualitative":True, "formatter":lambda x: f"{int(x.x)}, {int(x.y)}, {int(x.z)}", "inline":False},
         {"attribute":"town", "qualitative":True, "inline":True},
-        {"attribute":"likely_residency", "qualitative":True, "inline":True},
+        {"attribute":"residency", "qualitative":True, "inline":True},
+        {"attribute":"bank", "qualitative":False, "formatter":lambda x: f"${x:,.2f}" if x else '*Unknown (not mayor)*', "name":None, "y":"Bank ($)", "inline":False},
         {"attribute":"message_count", "qualitative":False, "inline":True, "history_attribute":"messages"},
         {"attribute":"mention_count", "qualitative":False, "inline":True, "history_attribute":"mentions"}
         
@@ -134,8 +137,9 @@ history_commands = {
     "player":[
             {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":ImageGenerator.YTickFormatter.TIME, "description":"The player's time online throughout history"},
             {"attribute":"visited_towns", "qualitative":False, "formatter":None, "name":"visited_town_count", "parser":None, "y":"Towns", "description":"Number of towns the player has visited over time"},
-            {"attribute":"likely_town", "qualitative":True, "formatter":None, "parser":lambda x: str(x).replace("_", " "), "start_at":datetime.date(2023, 11, 20), "description":"History of the player's likely town residence"},
-            {"attribute":"likely_nation", "qualitative":True, "formatter":None, "parser":lambda x: str(x).replace("_", " "), "start_at":datetime.date(2023, 11, 20), "description":"History of the player's likely nation residence"},
+            {"attribute":"likely_town", "name":"residency_town", "qualitative":True, "formatter":None, "parser":lambda x: str(x).replace("_", " "), "start_at":datetime.date(2023, 11, 20), "description":"History of the player's likely town residence"},
+            {"attribute":"likely_nation", "name":"residency_nation", "qualitative":True, "formatter":None, "parser":lambda x: str(x).replace("_", " "), "start_at":datetime.date(2023, 11, 20), "description":"History of the player's likely nation residence"},
+            {"attribute":"bank", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "parser":None, "y":"Bank ($)"},
             {"attribute":"messages", "qualitative":False, "formatter":lambda x: f"{x:,}", "parser":None, "y":"Messages", "description":"History of the number of messages a player's sent"},
             {"attribute":"mentions", "qualitative":False, "formatter":lambda x: f"{x:,}", "parser":None, "y":"Mentions", "description":"History of the amount of times a player's mentioned in chat"}
     ],
@@ -162,6 +166,7 @@ history_commands = {
     "global":[
             {"attribute":"towns", "qualitative":False, "formatter":None, "name":"towns", "parser":None},
             {"attribute":"town_value", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":"town_value", "parser":None, "y":"Bank ($)"},
+            {"attribute":"mayor_value", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":"mayor_value", "parser":None, "y":"Bank ($)"},
             {"attribute":"residents", "qualitative":False, "formatter":lambda x: f"{x:,}", "name":"residents", "parser":None},
             {"attribute":"area", "qualitative":False, "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":"area", "parser":None, "y":"Area (plots)"},
             {"attribute":"nations", "qualitative":False, "formatter":None, "name":"nations", "parser":None},
@@ -175,7 +180,7 @@ history_commands = {
 
 # Uses history settings 
 history_today_commands = {
-    "player":["activity", "visited_town_count"],
+    "player":["activity", "visited_town_count", "bank"],
     "town":["residents", "tax", "bank", "area", "activity"],
     "nation":["towns", "town_value", "residents", "area", "activity"],
     "global":["towns", "town_value", "residents", "area", "nations", "known_players", "total_player_activity", "messages", "online_players"]
@@ -197,6 +202,7 @@ top_commands = {
     "player":[
         {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":ImageGenerator.YTickFormatter.TIME},
         {"attribute":"visited_towns", "qualitative":False, "formatter":None, "name":None, "parser":None, "y":"Towns"},
+        {"attribute":"bank", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "parser":None, "y":"Bank ($)"},
         {"attribute":"messages", "formatter":lambda x: f"{x:,}", "parser":None},
         {"attribute":"mentions", "formatter":lambda x: f"{x:,}", "parser":None},
     ],
@@ -239,30 +245,21 @@ flags = {
     }
 }
 
-world_to_map = [ # Unused currently. Would be used for a potential /render command. DOn't change
-            2,
-            0,
-            -1.2246467991473532e-16,
-            -1.2246467991473532e-16,
-            0,
-            -2,
-            0,
-            1,
-            0
-]
-
-
 # Template for town descriptions. Needs to be updated ASAP when server updates
-template = """<div><div style="text-align:left"> <img src="
+template = """
+<div><div style="text-align:left"> <img src="
 (.*)" /><p><span style="font-size:130%;font-weight:600">&#x1f3f0; 
-(.*)</span></p> <hr /> <p><span style="font-size:120%;font-weight:600">&#x1f38c; 
-(.*)</span></p> <hr /> <p><span style="font-size:100%">&#x1f6d0; 
+(.*)</span></p><hr /> <p><span style="font-size:120%;font-weight:600">&#x1f38c; 
+(.*)</span></p><hr /> <p><span style="font-size:100%">&#x1f6d0; 
 (.*)</span></p> <p><span style="font-size:100%">&#x1f54e; 
 (.*)</span></p> <hr /> <p><span style="font-size:120%;font-weight:600">&#x1f451; Ruler:</span></p> <span style="font-size:100%">
 (.*)</span> <img style="border-width:1px;border-style:solid;border-color:#000;width:30px;height:30px" src="
 (.*)" /> <hr /> <p><span style="font-size:90%;font-weight:600">&#x1f465; Residents:</span> 
-(.*)<br /></p> <p><span style="font-size:90%;font-weight:600">⏳ Founded:</span> 
+(.*)<br /></p>
+<span style="font-size:88%">(.*)</span><p><span style="font-size:90%;font-weight:600">⏳ Founded:</span>
 (.*)<br /></p> <p><span style="font-size:90%;font-weight:600">% Resident Tax:</span> 
 (.*)<br /></p> <p><span style="font-size:90%"><span style="font-weight:600">&#x1f4b0; Bank:</span> 
-(.*) Dollars</span></p> <p><span style="font-size:90%"><span style="font-weight:600">&#x1f6a5; Public Teleport:</span> 
-(.*)</span></p> </div></div>""".replace("\n", "").replace(" ", "")
+(.*) Dollars<b>Mayor:</b> 
+(.*)</span></p> <p><span style="font-size:90%"><span style="font-weight:600">&#x1f6a5; Public Teleport:</span> 
+(.*)</span></p></div></div>
+""".replace("\n", "").replace(" ", "")

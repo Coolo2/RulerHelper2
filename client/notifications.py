@@ -101,7 +101,6 @@ class Notifications():
             ignore_players = self._players_ignore.get(town_name) or {}
             if not town:
                 continue
-            
 
             for player in players:
                 if player.name in ignore_players:
@@ -109,23 +108,22 @@ class Notifications():
                     ig = self._players_ignore[town_name][player.name]
                     if len(ig[2]) == 0 or ig[2][-1] != l:
                         ig[2].append(l)
-                    ig[0] += self.client.refresh_period
+                    ig[0] += self.client.refresh_period["players"]
                     continue
 
                 for channel in channels:
                     if town.nation and channel.notification_type == "territory_enter" and channel.nation_name == town.nation.name:
-                        likely_residency = await player.likely_residency
-                        likely_residency_nation = likely_residency.nation.name_formatted if likely_residency and likely_residency.nation else "None"
-
                         
-                        if channel.ignore_if_resident and likely_residency and likely_residency.nation == town.nation:
+                        residency_nation = player.residency.nation.name_formatted if player.residency and player.residency.nation else "None"
+                        
+                        if channel.ignore_if_resident and player.residency and player.residency.nation == town.nation:
                             continue
                             
-                        embed = discord.Embed(title="Player entered territory", color=s.embed)
+                        embed = discord.Embed(title=f"Player entered {town.nation.name_formatted} territory", color=s.embed)
                         embed.add_field(name="Player name", value=discord.utils.escape_markdown(player.name))
                         embed.add_field(name="Coordinates", value=f"[{int(player.location.x)}, {int(player.location.y)}, {int(player.location.z)}]({self.client.url}?x={int(player.location.x)}&z={int(player.location.z)}&zoom={s.map_link_zoom})")
                         embed.add_field(name="Town", value=town.name_formatted)
-                        embed.add_field(name="Likely residency", value=f"{likely_residency} ({likely_residency_nation})" if likely_residency else "Unknown")
+                        embed.add_field(name="Residency (origin)", value=f"{player.residency.name_formatted} ({residency_nation})" if player.residency else "Unknown")
                         embed.add_field(name="Time spent", value="This will be edited when they exit")
                         embed.set_thumbnail(url=await player.face_url)
 
@@ -138,7 +136,7 @@ class Notifications():
                             self._players_ignore[town_name] = {}
                         
                         if player.name not in self._players_ignore[town_name]:
-                            self._players_ignore[town_name][player.name] = [self.client.refresh_period, [], []]
+                            self._players_ignore[town_name][player.name] = [self.client.refresh_period["players"], [], [[player.location.x, player.location.z]]]
                         
                         self._players_ignore[town_name][player.name][1].append(msg)      
         

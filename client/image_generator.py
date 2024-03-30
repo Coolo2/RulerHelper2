@@ -101,7 +101,6 @@ class ImageGenerator():
         
         def make_relative(self, minimum : ImageGenerator.Vertex):
             return (self.x_num - minimum.x_num, self.y)
-            #return (self.x_num - minimum.x_num, self.y) if type(self.x) not in [datetime.datetime, datetime.timedelta, datetime.date] else ((self.x_num - minimum.x_num)//60, self.y)
 
         def __repr__(self):
             return f"<Vertex {self.x} {self.y}>"
@@ -121,6 +120,12 @@ class ImageGenerator():
 
         @property 
         def abstracted_points(self):
+            sorted_points = self.sorted_points
+
+            if len(sorted_points) > 0 and type(sorted_points[-1].x) == datetime.date:
+                if sorted_points[-1].x < datetime.date.today():
+                    self.raw_points.append(ImageGenerator.Vertex(datetime.date.today(), sorted_points[-1].y))
+
             return self.sorted_points
         
         def decode_points(self, line_graph : client_pre.image_generator.ImageGenerator.LineGraph):
@@ -134,8 +139,8 @@ class ImageGenerator():
             return points
 
     class XTickFormatter:
-        DATETIME = lambda initial, x: datetime.datetime.strftime(initial + datetime.timedelta(seconds=x), f"{s.DATE_STRFTIME} %H:%M")
-        DATE = lambda initial, x: datetime.datetime.strftime(initial + datetime.timedelta(seconds=x), s.DATE_STRFTIME)
+        DATETIME = lambda initial, x: datetime.datetime.strftime(initial + datetime.timedelta(seconds=x), "%b %d %Y %H:%M")
+        DATE = lambda initial, x: datetime.datetime.strftime(initial + datetime.timedelta(seconds=x), "%b %d %Y")
         NUMBER = lambda initial, x: str(x)
     
     class YTickFormatter:
@@ -377,6 +382,8 @@ class ImageGenerator():
         return x_lim
 
     async def init_map(self):
+        plt.close()
+        
         ax = plt.gca()
         ax.set_aspect('equal', adjustable='box')
         plt.axis('off')
@@ -397,7 +404,8 @@ class ImageGenerator():
             cache_item : CacheItem,
             dimmed_areas : list[typing.Union[o_pre.Area, o_pre.Town, o_pre.Object]] = [],
             maintain_aspect_ratio : bool = True,
-            expand_limits_multiplier : tuple[float] = (1, 1)
+            expand_limits_multiplier : tuple[float] = (1, 1),
+            
     ):
         plt.close()
 
@@ -412,9 +420,12 @@ class ImageGenerator():
 
         if cache_item and cache_item.valid:
             dpi = int(cache_item.extra.split("+")[0])
-            lims = [float(n) for n in cache_item.extra.split("+")[1:]]
             img = plt.imread(cache_item.path)
-            plt.imshow(img, extent=[lims[0], lims[1], lims[2], lims[3]], origin='lower')
+
+            if show_whole_earth:
+                plt.imshow(img, extent=[0-self.map_width, self.map_width, 0-self.map_height, self.map_height], origin='lower')
+            else:
+                plt.imshow(img, extent=[float(n) for n in cache_item.extra.split("+")[1:]], origin='lower')
         else:
             # Plot towns and dimmed towns
             for o in areas :
@@ -436,8 +447,9 @@ class ImageGenerator():
             
             if not show_whole_earth:
                 if maintain_aspect_ratio:
-                    x_lim = self.__calculate_limits(x_lim, y_lim, self.map_width, 2)
+                    #
                     y_lim = self.__calculate_limits(y_lim, x_lim, self.map_height, 0.3)
+                    x_lim = self.__calculate_limits(x_lim, y_lim, self.map_width, 2)
             
             x_lim, y_lim = (max(x_lim[0], 0-self.map_width), min(x_lim[1], self.map_width)), (max(y_lim[0], 0-self.map_height), min(y_lim[1], self.map_height))
             
@@ -520,6 +532,10 @@ class ImageGenerator():
             d = [current[0]-prev[0], current[1]-prev[1]]
 
             plt.arrow(prev[0], prev[1], d[0], d[1], length_includes_head=True, head_width=5, head_length=10, color="#FFFFFFB4", zorder=5, lw=0.5, linestyle='dashed')
+    
+    async def layer_claim_circle(self, centre : tuple[int], radius : int):
+        
+        plt.gca().add_patch(plt.Circle(centre, radius, color='#FF0000', alpha=0.1, zorder=11))
     
     async def layer_spawn_connections(self, towns : list[client.object.Town]):
         done = []

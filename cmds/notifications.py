@@ -78,7 +78,7 @@ class Notifications(commands.GroupCog, name="notifications", description="Setup 
         channels = await self.client.notifications.get_notification_channels(channel)
         if len(channels) > 0:
             await self.client.notifications.delete_notifications_channel(channel=channel)
-            return await interaction.response.send_message(embed=discord.Embed(title="Disabled", description="Successfully disabled notifications in this channel")) 
+            return await interaction.response.send_message(embed=discord.Embed(title="Disabled", description="Successfully disabled notifications in this channel", color=s.embed)) 
         
         raise client.errors.MildError("No notifications set up there...")
     

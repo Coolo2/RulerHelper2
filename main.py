@@ -27,25 +27,41 @@ async def on_ready():
     print(bot.user.name, "online")
 
     _refresh.start()
-    _chat_refresh.start()
+    _short_refresh.start()
 
     for guild in bot.guilds:
         print(guild.name, guild.owner)
 
-@tasks.loop(seconds=10)
-async def _chat_refresh():
-    try:
-        await c.fetch_chat_messages()
-    except Exception as e:
-        print(e)
+@tasks.loop(seconds=c.refresh_period["players"])
+async def _short_refresh():
+    # Refresh chat and player locations
+    d = datetime.datetime.now()
+    if c.refresh_no > 0:
+        try:
+            await c.fetch_short()
 
-@tasks.loop(seconds=c.refresh_period)
+            try:
+                await c.notifications.refresh()
+            except Exception as e:
+                await bot.get_channel(s.alert_channel).send(f"Notifications refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
+        except Exception as e:
+            print(e)
+    
+    refresh_time = datetime.datetime.now()-d
+    c.refresh_period["players"] = math.ceil((refresh_time.total_seconds()+1) / 10) * 10
+    c.last_refreshed["players"] = datetime.datetime.now()
+    _short_refresh.change_interval(seconds=c.refresh_period["players"])
+
+@tasks.loop(seconds=c.refresh_period["map"])
 async def _refresh():
+
+    # Refresh towns/nations (map)
+
     c.refresh_no += 1
     c.messages_sent = 0
 
     t = datetime.datetime.now()
-    print("Refreshing", c.refresh_period)
+    print("Refreshing", c.refresh_period["map"])
     w = False
     try:
         w = await c.fetch_world()
@@ -53,11 +69,6 @@ async def _refresh():
         if w != False:
             await c.cull_db()
             await c.database.commit()
-
-            try:
-                await c.notifications.refresh()
-            except Exception as e:
-                await bot.get_channel(s.alert_channel).send(f"Notifications refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
             
             await c.backup_db_if_not()
             
@@ -65,10 +76,10 @@ async def _refresh():
         print(e)
         await bot.get_channel(s.alert_channel).send(f"Refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
 
-    c.last_refreshed = datetime.datetime.now()
-    refresh_time = c.last_refreshed-t
-    c.refresh_period = math.ceil((refresh_time.total_seconds()+1) / 10) * 10
-    _refresh.change_interval(seconds=c.refresh_period)
+    c.last_refreshed["map"] = datetime.datetime.now()
+    refresh_time = c.last_refreshed["map"]-t
+    c.refresh_period["map"] = math.ceil((refresh_time.total_seconds()+1) / 10) * 10
+    _refresh.change_interval(seconds=c.refresh_period["map"])
     print("Refreshed", refresh_time)
     await bot.change_presence(activity=discord.CustomActivity(name=f"{c.world.player_count} online | v{s.version} | /changelog"))
 
