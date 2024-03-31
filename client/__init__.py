@@ -70,6 +70,7 @@ class Client():
                     db.CreationAttribute("founded_date", db.types.Date),
                     db.CreationAttribute("resident_tax", db.types.Float),
                     db.CreationAttribute("bank", db.types.Float),
+                    db.CreationAttribute("mayor_bank", db.types.Float),
                     db.CreationAttribute("public", db.types.Int),
                     db.CreationAttribute("peaceful", db.types.Int),
                     db.CreationAttribute("area", db.types.Int),
@@ -358,7 +359,7 @@ class Client():
 
     async def create_session(self):
         if not self.session:
-            self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2))
+            self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5))
 
 
 

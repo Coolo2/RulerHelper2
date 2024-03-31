@@ -52,7 +52,9 @@ def generate_command(
                 group=["player"]
             )
             total = 0
-            for r in rs: total += r.attribute(attribute) or 0
+            for r in rs: 
+                attr = r.attribute(attribute)
+                total += (attr if type(attr) != str else None) or 0
             l = [p.name for p in c.world.players]
         else: # is nation
             rs = await c.nation_history_table.get_records(conditions=[db.CreationCondition("date", on_date)], attributes=["nation AS name", attribute], order=db.CreationOrder(attribute, db.types.OrderDescending))
@@ -80,7 +82,7 @@ def generate_command(
                 continue
 
             attval = record.attribute(attribute) or 0
-            if is_player and attribute=="bank" and not attval:
+            if is_player and attribute=="bank" and (not attval or type(attval) == str):
                 continue
             i += 1
             

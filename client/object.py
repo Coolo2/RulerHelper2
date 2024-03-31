@@ -19,8 +19,13 @@ import discord
 from client import funcs
 import traceback
 
-import random
 import os
+
+def _total(arr : list, attr : str):
+    t = 0
+    for o in arr:
+        t += getattr(o, attr) or 0
+    return t
 
 class Area():
     def __init__(self, town : client_pre.object.Town, verticies : list, name : str = None):
@@ -149,11 +154,7 @@ class Object():
     def name_formatted(self):
         return self.name.replace("_", " ")
     
-    def __total(self, arr : list, attr : str):
-        t = 0
-        for o in arr:
-            t += getattr(o, attr) or 0
-        return t
+    
 
     def to_record(self):
         res_count = self.total_residents
@@ -187,7 +188,7 @@ class Object():
     async def mention_count(self): return (await self.total_mentions)[0]
 
     @property 
-    def total_residents(self) -> int: return self.__total(self.towns, "resident_count")
+    def total_residents(self) -> int: return _total(self.towns, "resident_count")
     @property 
     def total_outposts(self) -> int:
         t= 0
@@ -195,14 +196,14 @@ class Object():
             t += len(town.outposts)
         return t
     @property 
-    def total_area(self) -> int: return self.__total(self.towns, "area")
+    def total_area(self) -> int: return _total(self.towns, "area")
     @property 
-    def total_value(self) -> float: return self.__total(self.towns, "bank")
+    def total_value(self) -> float: return _total(self.towns, "bank")
     @property 
-    def total_detached_area(self) -> int: return self.__total(self.towns, "detached_area")
+    def total_detached_area(self) -> int: return _total(self.towns, "detached_area")
     @property
     def vertex_count(self) -> int:
-        return self.__total(self.towns, "vertex_count")
+        return _total(self.towns, "vertex_count")
     
     @property 
     def outpost_spawns(self) -> list[tuple[float]]:
@@ -343,6 +344,7 @@ class Nation(Object):
         stats = []
         detached_area_perc = (self.total_detached_area / self.total_area) * 100
         if detached_area_perc > 0:
+            stats.append(f"The total mayor bank balance for {discord.utils.escape_markdown(self.name_formatted)} is **${_total(self.towns, 'mayor_bank'):,.2f}**")
             stats.append(f"Detached territories make up **{detached_area_perc:,.2f}%** of {discord.utils.escape_markdown(self.name_formatted)}'s claims")
             stats.append(f"The average town balance in {discord.utils.escape_markdown(self.name_formatted)} is **${self.average_town_balance:,.2f}**")
         return stats
@@ -686,6 +688,7 @@ class Town():
             self.founded_date, 
             self.resident_tax.for_record(), 
             self.bank, 
+            self.mayor_bank,
             int(self.public), 
             int(self.peaceful), 
             area,
@@ -1231,21 +1234,15 @@ class World():
             if not p.online:
                 ps.append(p)
         return ps
-    
-    def __total(self, arr : list, attr : str):
-        t = 0
-        for o in arr:
-            t += getattr(o, attr) or 0
-        return t
 
     @property 
-    def total_residents(self) -> int: return self.__total(self.towns, "resident_count")
+    def total_residents(self) -> int: return _total(self.towns, "resident_count")
     @property 
-    def total_area(self) -> int: return self.__total(self.towns, "area")
+    def total_area(self) -> int: return _total(self.towns, "area")
     @property 
-    def total_value(self) -> float: return self.__total(self.towns, "bank")
+    def total_value(self) -> float: return _total(self.towns, "bank")
     @property 
-    def total_mayor_value(self) -> float: return self.__total(self.players, "bank")
+    def total_mayor_value(self) -> float: return _total(self.players, "bank")
 
     @property 
     async def total_activity(self) -> Activity:

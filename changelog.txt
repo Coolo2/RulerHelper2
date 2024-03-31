@@ -1,3 +1,11 @@
+## v2.10.1 (Mar 30 2024)
+- New command /distribution nation mayor_bank which shows the mayor's bank for each town 
+- 'Total mayor balance' notable statistic added to /get nation
+- 'Ranking' notable statistics have been slightly reformatted so the nation name isn't repeated (making it fit on one line always)
+- /get commands' fields have been slightly re-ordered
+- Fixed a bug with /top players bank
+- /distribution commands' descriptions no longer say 'history'
+- Fixed some emergency refreshing issues
 # v2.10.0 (Mar 30 2024)
 - Town resident names now show on the map. This is now utilised in the bot:
  - /get town now displays a list of residents in the town. You can select one from a new select box below

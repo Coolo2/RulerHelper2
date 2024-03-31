@@ -23,16 +23,45 @@ def generate_time(time):
     return f"{day}{hour}{minutes}".lstrip()
 
 def top_rankings_to_text(rankings : dict, object_name : str, notable_only = True) -> str:
-    notable_statistics = ""
+    notable_statistics = f"\n- {discord.utils.escape_markdown(object_name)} is:"
     for (leaderboard), (value, ranking, notable) in rankings.items():
-        if notable: notable_statistics += f"\n- {discord.utils.escape_markdown(object_name)} is **#{ranking}** on the **{leaderboard.replace('_', ' ')}** ranking"
+        if notable: notable_statistics += f"\n - **#{ranking}** on the **{leaderboard.replace('_', ' ')}** ranking"
     if not notable_only or notable_statistics == "": notable_statistics = "None"
 
     return notable_statistics
 
 async def update_db(c):
 
-        tables = [['players','bank','real','NULL',[db.CreationAttribute('name',db.types.String,primary_key=True),db.CreationAttribute('location',db.types.String),db.CreationAttribute('town',db.types.String),db.CreationAttribute('armor',db.types.Int),db.CreationAttribute('health',db.types.Int),db.CreationAttribute('visited_towns',db.types.Int),db.CreationAttribute('donator',db.types.Int),db.CreationAttribute('bank',db.types.Float),db.CreationAttribute('messages',db.types.Int),db.CreationAttribute('mentions',db.types.Int),db.CreationAttribute('duration',db.types.Int),db.CreationAttribute('last',db.types.Datetime)],['name','location','town','armor','health','visited_towns','donator','messages','mentions','duration','last'],None],['player_history','bank','real','NULL',[db.CreationAttribute('player',db.types.String),db.CreationAttribute('date',db.types.Date),db.CreationAttribute('duration',db.types.Int),db.CreationAttribute('visited_towns',db.types.Int),db.CreationAttribute('likely_town',db.types.String),db.CreationAttribute('likely_nation',db.types.String),db.CreationAttribute('bank',db.types.Float),db.CreationAttribute('messages',db.types.Int),db.CreationAttribute('mentions',db.types.Int)],['player','date','duration','visited_towns','likely_town','likely_nation','messages','mentions'],None],['player_day_history','bank','real','NULL',[db.CreationAttribute('player',db.types.String),db.CreationAttribute('time',db.types.Datetime),db.CreationAttribute('duration',db.types.Int),db.CreationAttribute('bank',db.types.Float),db.CreationAttribute('visited_towns',db.types.Int)],['player','time','duration','visited_towns'],None],['global_history','mayor_value','real','NULL',[db.CreationAttribute('date',db.types.Date),db.CreationAttribute('towns',db.types.Int),db.CreationAttribute('residents',db.types.Int),db.CreationAttribute('nations',db.types.Int),db.CreationAttribute('town_value',db.types.Float),db.CreationAttribute('mayor_value',db.types.Float),db.CreationAttribute('area',db.types.Int),db.CreationAttribute('known_players',db.types.Int),db.CreationAttribute('activity',db.types.Int),db.CreationAttribute('messages',db.types.Int),db.CreationAttribute('database_size',db.types.Float)],['date','towns','residents','nations','town_value','area','known_players','activity','messages','database_size'],None]]
+        tables = [['players','bank','real','NULL',[db.CreationAttribute('name',db.types.String,primary_key=True),db.CreationAttribute('location',db.types.String),db.CreationAttribute('town',db.types.String),db.CreationAttribute('armor',db.types.Int),db.CreationAttribute('health',db.types.Int),db.CreationAttribute('visited_towns',db.types.Int),db.CreationAttribute('donator',db.types.Int),db.CreationAttribute('bank',db.types.Float),db.CreationAttribute('messages',db.types.Int),db.CreationAttribute('mentions',db.types.Int),db.CreationAttribute('duration',db.types.Int),db.CreationAttribute('last',db.types.Datetime)],['name','location','town','armor','health','visited_towns','donator','messages','mentions','duration','last'],None],['player_history','bank','real','NULL',[db.CreationAttribute('player',db.types.String),db.CreationAttribute('date',db.types.Date),db.CreationAttribute('duration',db.types.Int),db.CreationAttribute('visited_towns',db.types.Int),db.CreationAttribute('likely_town',db.types.String),db.CreationAttribute('likely_nation',db.types.String),db.CreationAttribute('bank',db.types.Float),db.CreationAttribute('messages',db.types.Int),db.CreationAttribute('mentions',db.types.Int)],['player','date','duration','visited_towns','likely_town','likely_nation','messages','mentions'],None],['player_day_history','bank','real','NULL',[db.CreationAttribute('player',db.types.String),db.CreationAttribute('time',db.types.Datetime),db.CreationAttribute('duration',db.types.Int),db.CreationAttribute('bank',db.types.Float),db.CreationAttribute('visited_towns',db.types.Int)],['player','time','duration','visited_towns'],None],['global_history','mayor_value','real','NULL',[db.CreationAttribute('date',db.types.Date),db.CreationAttribute('towns',db.types.Int),db.CreationAttribute('residents',db.types.Int),db.CreationAttribute('nations',db.types.Int),db.CreationAttribute('town_value',db.types.Float),db.CreationAttribute('mayor_value',db.types.Float),db.CreationAttribute('area',db.types.Int),db.CreationAttribute('known_players',db.types.Int),db.CreationAttribute('activity',db.types.Int),db.CreationAttribute('messages',db.types.Int),db.CreationAttribute('database_size',db.types.Float)],['date','towns','residents','nations','town_value','area','known_players','activity','messages','database_size'],None],
+                  [
+                "towns",
+                "mayor_bank",
+                "float",
+                "NULL",
+                [
+                    db.CreationAttribute("name", db.types.String, primary_key=True),
+                    db.CreationAttribute("nation", db.types.String),
+                    db.CreationAttribute("religion", db.types.String),
+                    db.CreationAttribute("culture", db.types.String),
+                    db.CreationAttribute("mayor", db.types.String),
+                    db.CreationAttribute("resident_count", db.types.Int),
+                    db.CreationAttribute("founded_date", db.types.Date),
+                    db.CreationAttribute("resident_tax", db.types.Float),
+                    db.CreationAttribute("bank", db.types.Float),
+                    db.CreationAttribute("mayor_bank", db.types.Float),
+                    db.CreationAttribute("public", db.types.Int),
+                    db.CreationAttribute("peaceful", db.types.Int),
+                    db.CreationAttribute("area", db.types.Int),
+                    db.CreationAttribute("mentions", db.types.Int),
+                    db.CreationAttribute("outposts", db.types.Int),
+                    db.CreationAttribute("visited_players", db.types.Int),
+                    db.CreationAttribute("duration", db.types.Int),
+                    db.CreationAttribute("last_seen", db.types.Datetime)
+                ],
+                ["name", "nation", "religion", "culture", "mayor", "resident_count", "founded_date", "resident_tax", "bank", "public", "peaceful", "area", "mentions", "outposts", "visited_players", "duration", "last_seen"],
+                "UPDATE temptowns SET mayor_bank=(SELECT bank FROM players WHERE players.name = mayor)" #None if don't want
+            ],
+                  ]
         
         for table in tables:
             table_name = table[0]

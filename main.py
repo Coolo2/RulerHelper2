@@ -35,6 +35,8 @@ async def on_ready():
 @tasks.loop(seconds=c.refresh_period["players"])
 async def _short_refresh():
     # Refresh chat and player locations
+    if not _refresh.is_running():
+        _refresh.start()
     d = datetime.datetime.now()
     if c.refresh_no > 0:
         try:

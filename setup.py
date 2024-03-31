@@ -5,6 +5,7 @@ from discord.utils import escape_markdown
 from client.funcs import generate_time
 from client.image_generator import ImageGenerator
 import datetime
+import os
 
 """
 Setup file!
@@ -12,7 +13,7 @@ Setup file!
 
 """
 
-version = "2.10.0"
+version = "2.10.1"
 
 refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
@@ -52,7 +53,7 @@ resident_prefix_history = "`[R]` "
 
 DATE_STRFTIME = "%a %b %d %Y"
 
-map_url = "https://map.rulercraft.com" # Base map URL
+map_url = os.getenv("base_url") # Base map URL
 default_refresh_period = {"players":5, "map":20} # Duration in seconds to refresh
 map_link_zoom = 10 # Zoom level for map links. Eg "Location" in /get player
 
@@ -232,6 +233,9 @@ distribution_commands = {
         {"attribute":"area", "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":"area", "parser":None},
         {"attribute":"duration", "formatter":lambda x: generate_time(x*60), "name":"activity", "parser":lambda x: x/60},
         {"attribute":"visited_players", "formatter":lambda x: f"{x:,}", "name":None, "parser":None},
+    ],
+    "nation":[
+        {"attribute":"mayor_bank", "formatter":lambda x: f"${x:,.2f}", "name":None, "parser":None},
     ]
 }
 
@@ -261,5 +265,5 @@ template = """
 (.*)<br /></p> <p><span style="font-size:90%"><span style="font-weight:600">&#x1f4b0; Bank:</span> 
 (.*) Dollars<b>Mayor:</b> 
 (.*)</span></p> <p><span style="font-size:90%"><span style="font-weight:600">&#x1f6a5; Public Teleport:</span> 
-(.*)</span></p></div></div>
+(.*)</span></p>(.*)</div></div>
 """.replace("\n", "").replace(" ", "")

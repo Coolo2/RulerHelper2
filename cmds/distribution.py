@@ -93,20 +93,26 @@ class Distribution(commands.Cog):
         
         for attribute in s.distribution_commands["object"]:
             name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"History for nation {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_nation=True, attname=name))
+            command = app_commands.command(name=name, description=f"Distribution of nation {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_nation=True, attname=name))
             command.autocomplete("nation")(autocompletes.nation_autocomplete)
             nation.add_command(command)
 
             name = attribute.get("name") or attribute.get("attribute")
-            command = app_commands.command(name=name, description=f"History for culture {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_culture=True, attname=name))
+            command = app_commands.command(name=name, description=f"Distribution of culture {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_culture=True, attname=name))
             command.autocomplete("culture")(autocompletes.culture_autocomplete)
             culture.add_command(command)
 
             name = attribute.get("name") or attribute.get("attribute")
             name = "followers" if name == "residents" else name
-            command = app_commands.command(name=name, description=f"History for religion {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_religion=True, attname=name))
+            command = app_commands.command(name=name, description=f"Distribution of religion {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_religion=True, attname=name))
             command.autocomplete("religion")(autocompletes.religion_autocomplete)
             religion.add_command(command)
+        
+        for attribute in s.distribution_commands["nation"]:
+            name = attribute.get("name") or attribute.get("attribute")
+            command = app_commands.command(name=name, description=f"Distribution of nation {name}")(generate_command(self.client, attribute.get("attribute"), attribute.get("formatter") or str, attribute.get("parser"), is_nation=True, attname=name))
+            command.autocomplete("nation")(autocompletes.nation_autocomplete)
+            nation.add_command(command)
 
         self.bot.tree.add_command(distribution)
 
