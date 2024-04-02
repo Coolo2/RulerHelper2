@@ -26,7 +26,6 @@ c.bot = bot
 async def on_ready():
     print(bot.user.name, "online")
 
-    _refresh.start()
     _short_refresh.start()
 
     for guild in bot.guilds:

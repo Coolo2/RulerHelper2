@@ -779,7 +779,7 @@ class Town():
             self.nation = Nation(self.__world, groups[2]) if groups[2].strip() != "NoNation" else None
             self.religion = Religion(self.__world, groups[3].replace("TownReligion-", "")) if "Selectyour" not in groups[3] else None
             self.culture = Culture(self.__world, groups[4].replace("Culture-", "")) if groups[4] != "Culture-" else None
-            self.__mayor = groups[5]
+            self.__mayor = groups[6]
             self.resident_count  = int(groups[7])
             self._resident_names = groups[8].strip().split(",")
 

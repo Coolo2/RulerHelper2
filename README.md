@@ -24,16 +24,15 @@ Too many to list here [try the bot](https://rctools.coolo2.repl.co/bot) to see
 
 ## Set-up
 
-- Create a file named `.env` with the following:
+1. Create a file named `.env` with the following:
 ```
 token="discord bot token"
-webhook="a webhook to send to when the bot is added to a new server. if left blank will cause a non-fatal error when bot is added to server"
+base_url="Base URL for the map, probably https://map.rulercraft.com"
 ```
-- Open setup.py
-- Set refresh_commands to True
-- Add your Discord ID to mods
-- Ensure the bot profile has "server members intent" enabled on [discord developers](https://discord.com/developers)
-- Config anything else in setup.py
+2. Open setup.py:
+  - Change the IDs in the "Adjust these on first run" section.
+  - Set refresh_commands to True in the "Adjust these when bot is updated" section
+3. Ensure the bot profile has "server members intent" enabled on [discord developers](https://discord.com/developers)
 
 ## Running
 

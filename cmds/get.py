@@ -291,7 +291,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
                 c = self.client.image_generator.town_cache_item(f"NationClaimRadius+{nation.name}", nation.towns).check_cache()
                 dpi = await self.client.image_generator.generate_area_map(nation.towns, True, True, self.client.image_generator.MapBackground.ON, True, c, self.client.world.towns)
                 if not c.valid:
-                    await self.client.image_generator.layer_claim_circle([capital.spawn.x, capital.spawn.z], 12500)
+                    await self.client.image_generator.layer_claim_circle([capital.spawn.x, capital.spawn.z], 12430)
                 file = discord.File(await self.client.image_generator.render_plt(dpi, c), "nation_map_claim.png")
 
                 interaction.message.embeds[0].set_thumbnail(url=None)

@@ -15,16 +15,20 @@ Setup file!
 
 version = "2.10.1"
 
-refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
-
 commands = True # Whether to listen for commands
 
+"""Adjust these on first run. They need to be filled with IDs bot has access to"""
 mod_guild = Object(id=985589916794765332) # Guild to add mod commands to
 alert_channel = 1155439092423733359 # Channel ID to send heavy error messages to
 request_channel = 985590035556479017 # Channel ID to send /request stuff
 mods = [368071242189897728] # List of User IDs who are "bot moderators". They can accept requests. First member of this list should be bot owner
 
+"""Adjust these when bot is updated"""
+refresh_commands = False # Whether to update slash commands. Prefer to keep this at False (unless needed) for faster startup and less likely to get rate limited
+MIGRATE_DB = False # Migrates the database using client/funcs/def update_db. Breaks program if enabled and DB isn't created yet
+
+"""These rarely need to be changed"""
 DEFAULT_TOWNS = ["RulerSpawn", "Sea", "Unclaimed"] # Ignore these towns in certain commands. Will still be tracked and can still be seen with /get
 DEFAULT_TOWNS_SUBSTRING = ["Quarry", "Trading", "Treasure Ship"]
 DONT_TRACK_TOWNS = ["Sea", "RulerSpawn", "Unclaimed"] # Ignore these towns while tracking.
@@ -35,7 +39,7 @@ production_today_tracking_minutes = [0, 30]
 IMAGE_DPI_GRAPH = 100 # DPI (image quality) for graphs (bar charts, pie charts, line graphs)
 IMAGE_DPI_DRAWING = 300 # DPI (image quality) for drawings (maps)
 IMAGE_DPI_DRAWING_BIG = 500 # DPI (image quality) for big drawings (maps)
-IMAGE_DPI_RENDER = 600
+
 timeline_colors = ["red", "green", "brown", "orange", "purple", "pink"] # Colours for timelines 
 compare_emojis = [":red_square:", ":orange_square:", ":yellow_square:", ":green_square:", ":blue_square:"] # Emojis for compare commands
 compare_line_colors = ["red", "orange", "yellow", "green", "cyan"]
@@ -256,14 +260,17 @@ template = """
 (.*)</span></p><hr /> <p><span style="font-size:120%;font-weight:600">&#x1f38c; 
 (.*)</span></p><hr /> <p><span style="font-size:100%">&#x1f6d0; 
 (.*)</span></p> <p><span style="font-size:100%">&#x1f54e; 
-(.*)</span></p> <hr /> <p><span style="font-size:120%;font-weight:600">&#x1f451; Ruler:</span></p> <span style="font-size:100%">
-(.*)</span> <img style="border-width:1px;border-style:solid;border-color:#000;width:30px;height:30px" src="
-(.*)" /> <hr /> <p><span style="font-size:90%;font-weight:600">&#x1f465; Residents:</span> 
-(.*)<br /></p>
-<span style="font-size:88%">(.*)</span><p><span style="font-size:90%;font-weight:600">⏳ Founded:</span>
+(.*)</span></p> <hr /> <p><span style="font-size:120%;font-weight:600">&#x1f451; Ruler:</span></p><img style="border-width:1px;border-style:solid;border-color:#000;width:30px;height:30px" src="
+(.*)" /> <span style="font-size:100%">
+(.*)</span><hr /> <p><span style="font-size:90%;font-weight:600">&#x1f465; Residents:</span> 
+(.*)<br /></p><span style="font-size:88%">
+(.*)</span> <p><span style="font-size:90%;font-weight:600">⏳ Founded:</span> 
 (.*)<br /></p> <p><span style="font-size:90%;font-weight:600">% Resident Tax:</span> 
 (.*)<br /></p> <p><span style="font-size:90%"><span style="font-weight:600">&#x1f4b0; Bank:</span> 
-(.*) Dollars<b>Mayor:</b> 
+(.*) Dollars <b>Mayor:</b> 
 (.*)</span></p> <p><span style="font-size:90%"><span style="font-weight:600">&#x1f6a5; Public Teleport:</span> 
-(.*)</span></p>(.*)</div></div>
+(.*)</span></p>
+(.*)</div></div>
+
+
 """.replace("\n", "").replace(" ", "")
