@@ -39,14 +39,16 @@ async def _short_refresh():
     d = datetime.datetime.now()
     if c.refresh_no > 0:
         try:
-            await c.fetch_short()
+            sh = await c.fetch_short()
 
-            try:
-                await c.notifications.refresh()
-            except Exception as e:
-                await bot.get_channel(s.alert_channel).send(f"Notifications refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
+            if sh != False:
+                try:
+                    await c.notifications.refresh()
+                except Exception as e:
+                    await bot.get_channel(s.alert_channel).send(f"Notifications refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
         except Exception as e:
             print(e)
+            await bot.get_channel(s.alert_channel).send(f"Short refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
     
     refresh_time = datetime.datetime.now()-d
     c.refresh_period["players"] = math.ceil((refresh_time.total_seconds()+1) / 10) * 10
@@ -100,7 +102,7 @@ async def setup_hook():
         await bot.tree.sync()
         await bot.tree.sync(guild=s.mod_guild)
     
-    await c.init_db(client.funcs.update_db(c))
+    await c.init_db(client.migrate.upgrade_db(c))
     #await c.test()
     
     await c.world.initialise_player_list()

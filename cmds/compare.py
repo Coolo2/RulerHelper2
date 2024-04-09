@@ -33,7 +33,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         if len(town_names) == 1:
             raise client.errors.MildError("Cannot compare a town to itself")
 
-        towns : list[client.object.Town] = []
+        towns : list[client.objects.Town] = []
         for i, town_name in enumerate(town_names):
             town = self.client.world.get_town(town_name, True)
             if not town:
@@ -49,7 +49,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
 
         attributes = s.compare_attributes["town"]
 
-        async def im_map(twns : list[client.object.Town]):
+        async def im_map(twns : list[client.objects.Town]):
             dpi = await self.client.image_generator.generate_area_map(twns, True, False, self.client.image_generator.MapBackground.AUTO, False, None, [], True, (1.25, 0.92+(0.08*len(twns))))
             await self.client.image_generator.layer_spawn_connections(twns)
             return await self.client.image_generator.render_plt(dpi, None)
@@ -115,9 +115,9 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         if len(nation_names) == 1:
             raise client.errors.MildError("Cannot compare a nation to itself")
         
-        twns : list[client.object.Town] = []
-        capitals : list[client.object.Town] = []
-        nations : list[client.object.Nation] = []
+        twns : list[client.objects.Town] = []
+        capitals : list[client.objects.Town] = []
+        nations : list[client.objects.Nation] = []
         for i, nation_name in enumerate(nation_names):
             nation = self.client.world.get_nation(nation_name, True)
             if not nation:
@@ -133,7 +133,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         )
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         
-        async def im_map(twns : list[client.object.Town], capitals : list[client.object.Town]):
+        async def im_map(twns : list[client.objects.Town], capitals : list[client.objects.Town]):
             dpi = await self.client.image_generator.generate_area_map(twns, True, False, self.client.image_generator.MapBackground.AUTO, False, None, [], False, (1.25, 0.92+(0.08*len(capitals))))
             await self.client.image_generator.layer_spawn_connections(capitals)
             return await self.client.image_generator.render_plt(dpi, None)
@@ -199,7 +199,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         if len(player_names) == 1:
             raise client.errors.MildError("Cannot compare a player to itself")
 
-        players : list[client.object.Player] = []
+        players : list[client.objects.Player] = []
         for i, player_name in enumerate(player_names):
             player = self.client.world.get_player(player_name, True)
             if not player:
@@ -213,7 +213,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         )
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
 
-        async def im_map(players : list[client.object.Player]):
+        async def im_map(players : list[client.objects.Player]):
             await self.client.image_generator.init_map()
 
             await self.client.image_generator.layer_player_locations(players, [], show_background=True, expand_limits_multiplier=(1.4, 0.92+(0.08*len(players))))

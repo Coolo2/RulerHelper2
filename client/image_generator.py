@@ -2,10 +2,7 @@ from __future__ import annotations
 import typing
 if typing.TYPE_CHECKING:
     import client as client_pre
-    from client import object as o_pre
-
-import setup as s
-import client.object
+    from client.objects import properties as o_pre
 
 import io
 import os
@@ -16,6 +13,14 @@ import datetime
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.style as mplstyle
+from matplotlib.collections import PatchCollection as MPatchCollection
+from matplotlib.patches import Polygon as MPolygon
+
+# SVG Conversion
+from svgpath2mpl import parse_path
+import xml.etree.ElementTree as etree
+
+from client import funcs
 
 matplotlib.use('Agg') 
 mplstyle.use('fast')
@@ -32,6 +37,15 @@ import warnings
 warnings.filterwarnings("ignore")
 
 CACHE_SPLIT_STRING = "_+_"
+
+class XTickFormatter:
+    DATETIME = lambda initial, x: datetime.datetime.strftime(initial + datetime.timedelta(seconds=x), "%b %d %Y %H:%M")
+    DATE = lambda initial, x: datetime.datetime.strftime(initial + datetime.timedelta(seconds=x), "%b %d %Y")
+    NUMBER = lambda initial, x: str(x)
+
+class YTickFormatter:
+    TIME = lambda y: funcs.generate_time(y)
+    DEFAULT = lambda x: str(int(x))
 
 class CacheItem():
     def __init__(self, name : str, id : str, extra : str = None):
@@ -78,7 +92,11 @@ class ImageGenerator():
     def __init__(self, client : client_pre.Client):
         self.client = client 
 
-        self.map_width, self.map_height = 36864, 18400
+        self.map_width, self.map_height = 36863, 18431
+
+        self.__map_polys : list[MPolygon] = self.__load_map() 
+
+    import setup as s
     
     class Vertex():
         def __init__(self, x : typing.Union[datetime.datetime, int], y : float):
@@ -138,22 +156,16 @@ class ImageGenerator():
             
             return points
 
-    class XTickFormatter:
-        DATETIME = lambda initial, x: datetime.datetime.strftime(initial + datetime.timedelta(seconds=x), "%b %d %Y %H:%M")
-        DATE = lambda initial, x: datetime.datetime.strftime(initial + datetime.timedelta(seconds=x), "%b %d %Y")
-        NUMBER = lambda initial, x: str(x)
-    
-    class YTickFormatter:
-        TIME = lambda y: client.funcs.generate_time(y)
-        DEFAULT = lambda x: str(int(x))
+    YTickFormatter = YTickFormatter
+    XTickFormatter = XTickFormatter
 
     class LineGraph():
-        def __init__(self, x_tick_formatter : ImageGenerator.XTickFormatter, y_tick_formatter = None, colors : list[str] = None):
+        def __init__(self, x_tick_formatter : XTickFormatter, y_tick_formatter = None, colors : list[str] = None):
             self.lines : list[ImageGenerator.Line] = [] 
             self.colors = colors
 
             if not y_tick_formatter:
-                y_tick_formatter = ImageGenerator.YTickFormatter.DEFAULT
+                y_tick_formatter = YTickFormatter.DEFAULT
 
             self.__min_x, self.__max_x = None, None 
             self.__x_tick_formatter, self.__y_tick_formatter = x_tick_formatter, y_tick_formatter
@@ -212,11 +224,11 @@ class ImageGenerator():
         self.__config_graph_chart(title, x_label, y_label)
 
         if not lg.colors:
-            lg.colors = s.compare_line_colors
+            lg.colors = self.s.compare_line_colors
 
         total_points = 0
         for i, line in enumerate(lg.lines):
-            color_i = s.line_color if len(lg.lines) == 1 else lg.colors[i%len(lg.colors)]
+            color_i = self.s.line_color if len(lg.lines) == 1 else lg.colors[i%len(lg.colors)]
             points = line.decode_points(lg)
             total_points += len(points)
 
@@ -226,6 +238,7 @@ class ImageGenerator():
                 plt.plot([p[0] for p in points], [p[1] for p in points], color=color_i, label=line.name, alpha=1 if len(lg.lines) == 1 else 0.75)
 
         gca = plt.gca()
+        gca.set_facecolor("#00000000")
 
         gca.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
 
@@ -243,16 +256,17 @@ class ImageGenerator():
         if len(lg.lines) > 1:
             plt.legend(bbox_to_anchor=(0, 1.05, 1, 0.2), loc="lower left", prop={'size':10}, frameon=False, mode="expand", borderaxespad=0, ncol=3)
     
-    async def plot_barchart(self, data : list[ImageGenerator.Vertex], title : str, x_label : str, y_label : str, y_formatter : ImageGenerator.YTickFormatter, highlight : str = None ):
+    async def plot_barchart(self, data : list[ImageGenerator.Vertex], title : str, x_label : str, y_label : str, y_formatter : YTickFormatter, highlight : str = None ):
         plt.close()
         if not y_formatter:
-            y_formatter = ImageGenerator.YTickFormatter.DEFAULT
+            y_formatter = YTickFormatter.DEFAULT
         
         self.__config_graph_chart(title, x_label, y_label)
 
-        barlist = plt.bar([d.x for d in data], [d.y for d in data], color=s.bar_color)
+        barlist = plt.bar([d.x for d in data], [d.y for d in data], color=self.s.bar_color)
 
         gca = plt.gca()
+        gca.set_facecolor("#00000000")
 
         gca.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
 
@@ -270,6 +284,7 @@ class ImageGenerator():
         plt.close()
 
         plt.rcParams["figure.figsize"] = [6.4*1.6, 4.8]
+        plt.gca().set_facecolor("#00000000")
 
         def _autopct(pct):
             return ('%.1f' % pct) + "%" if pct > 3 else ''
@@ -290,6 +305,7 @@ class ImageGenerator():
         minimum = min(points, key=lambda p: p.x_num)
         today = ImageGenerator.Vertex(datetime.date.today(), 1).make_relative(minimum)[0]
         gca = plt.gca()
+        gca.set_facecolor("#00000000")
 
         last = None
         bar_spaces : dict[str, list[tuple[int, int]]]= {}
@@ -323,42 +339,47 @@ class ImageGenerator():
         gca.set_xticks(x_ticks)
         gca.set_xticklabels(x_ticklabels)
 
-        colors = s.timeline_colors
+        colors = self.s.timeline_colors
         if boolean_values:
-            colors = s.timeline_colors_bool if points[0].y == True else list(reversed(s.timeline_colors_bool))
+            colors = self.s.timeline_colors_bool if points[0].y == True else list(reversed(self.s.timeline_colors_bool))
 
         for i, (name, spaces) in enumerate(bar_spaces.items()):
             plt.broken_barh(spaces, (start_y+i, 1), facecolors =(f'tab:{colors[i%len(colors)]}'))
 
-
-    
     class MapBackground:
         AUTO = "auto" 
         ON = True 
         OFF = False
+
+    def __load_map(self):
+        
+        tree = etree.parse("earth.svg")
+        root = tree.getroot()
+
+        ax = plt.gca()
+        ax.set_aspect('equal', adjustable='box')
+
+        path_elems = root.findall('.//{http://www.w3.org/2000/svg}path')
+
+        polys = []
+        for path in path_elems:
+
+            if (not path.attrib.get("fill") or path.attrib["fill"] != "#000000") and path.get('d') and "cls-1" not in str(path.get("class")) and "010101" not in str(path.attrib.get("style")):
+                path_parsed = parse_path(path.attrib['d'])
+                coords = path_parsed.to_polygons()
+                if coords:
+
+                    coords[0] = coords[0]*(self.map_width/self.s.earth_svg_width)*2  
+                    coords[0] = coords[0] - (self.map_width*self.s.stretch_earth_bg[0], self.map_height*self.s.stretch_earth_bg[1])
+                    polys.append(MPolygon(coords[0]))
+        
+        return polys
     
-    def __plot_area(self, area : client_pre.object.Area, dimmed : bool, show_whole_earth : bool):
+    def __plot_map(self, ax):
+        ax.set_facecolor("#1c1c1c")
+        ax.add_collection(MPatchCollection(self.__map_polys, facecolor="#292929", zorder=-1))
 
-        if not dimmed:
-            plt.fill(
-                *area.polygon.exterior.xy, 
-                fc=area.fill_color + "20", 
-                ec=area.border_color, 
-                zorder=3, 
-                lw=0.2 if show_whole_earth == True else 0.3,
-                rasterized=True
-            )
-        else:
-            plt.fill(
-                *area.polygon.exterior.xy, 
-                fc=s.map_bordering_town_fill_colour + f"{s.map_bordering_town_opacity:02}", 
-                ec=area.border_color + f"{s.map_bordering_town_opacity//2:02}", 
-                zorder=2, 
-                lw=0.2 if show_whole_earth == True else 0.3,
-                rasterized=True
-            )
-
-    def town_cache_item(self, name : str, towns : list[client_pre.object.Town]):
+    def town_cache_item(self, name : str, towns : list[client_pre.objects.Town]):
         total_vertex_count = total_area = 0
         for town in towns:
             total_vertex_count += town.vertex_count
@@ -389,9 +410,24 @@ class ImageGenerator():
         plt.axis('off')
         return ax
     
+
+    def __add_margin(self, x_lim, y_lim, margin_amount):
+
+        x_lim_centre = (x_lim[1]+x_lim[0])/2
+        y_lim_centre = (y_lim[1]+y_lim[0])/2
+
+        x_lim_distance = x_lim[1] - x_lim_centre
+        y_lim_distance = y_lim[1] - y_lim_centre
+
+        x_lim = x_lim_centre-(x_lim_distance*margin_amount), x_lim_centre+(x_lim_distance*margin_amount)
+        y_lim = y_lim_centre-(y_lim_distance*margin_amount), y_lim_centre+(y_lim_distance*margin_amount)
+        
+        return x_lim, y_lim
+    
     def __expand_limits(self, x_lim, y_lim, expand_limits_multiplier):
         x_lim = x_lim[1]-((x_lim[1]-x_lim[0])*expand_limits_multiplier[0]), x_lim[1]
         y_lim = y_lim[0], (y_lim[0]+(expand_limits_multiplier[1]*(y_lim[1]-y_lim[0])))
+        
         return x_lim, y_lim
 
     async def generate_area_map(
@@ -409,9 +445,7 @@ class ImageGenerator():
     ):
         plt.close()
 
-        bg_path = s.earth_bg_path
-
-        towns : list[client.object.Town] = []
+        towns : list[client_pre.objects.Town] = []
 
         ax = await self.init_map()
 
@@ -419,6 +453,8 @@ class ImageGenerator():
             cache_item.check_cache()
 
         if cache_item and cache_item.valid:
+            ax.set_facecolor("#00000000")
+
             dpi = int(cache_item.extra.split("+")[0])
             img = plt.imread(cache_item.path)
 
@@ -427,55 +463,86 @@ class ImageGenerator():
             else:
                 plt.imshow(img, extent=[float(n) for n in cache_item.extra.split("+")[1:]], origin='lower')
         else:
-            # Plot towns and dimmed towns
+
+            polys = []
+            facecolors = []
+            edgecolors = []
+
+            x_lim = [9999999, -999999]
+            y_lim = [9999999, -999999]
+
             for o in areas :
-                _areas = [o] if type(o) == client.object.Area else o.areas
+                _areas = [o] if type(o) == self.client.objects.Area else o.areas
                 for area in _areas:
                     if area.town not in towns:
                         towns.append(area.town)
-                    if area.is_mainland or show_outposts:
-                        self.__plot_area(area, False, show_whole_earth)
 
-            x_lim, y_lim = ax.get_xlim(), ax.get_ylim()
-
-            # Plot dimmed areas after getting limits
-            for o in dimmed_areas:
-                _areas = [o] if type(o) == client.object.Area else o.areas
-                for area in _areas:
                     if area.is_mainland or show_outposts:
-                        self.__plot_area(area, True, show_whole_earth)
+                        
+                        # Calculate drawing boundaries
+                        bounds = area.polygon.bounds
+                        if bounds[0] < x_lim[0]:
+                            x_lim[0] = bounds[0]
+                        if bounds[2] > x_lim[1]:
+                            x_lim[1] = bounds[2]
+                        if bounds[1] < y_lim[0]:
+                            y_lim[0] = bounds[1]
+                        if bounds[3] > y_lim[1]:
+                            y_lim[1] = bounds[3]
+
+                        polys.append(area.matpolygon)
+                        facecolors.append(area.fill_color + "20")
+                        edgecolors.append(area.border_color)
+
+            # Add towns to drawing
+            patches = MPatchCollection(polys, zorder=3, lw=0.2 if show_whole_earth == True else 0.3, )
+            ax.add_collection(patches)
+            patches.set_facecolor(facecolors)
+            patches.set_edgecolor(edgecolors)
             
             if not show_whole_earth:
+                x_lim, y_lim = self.__add_margin(x_lim, y_lim, 1.1) # Add margin to limits
+
                 if maintain_aspect_ratio:
-                    #
                     y_lim = self.__calculate_limits(y_lim, x_lim, self.map_height, 0.3)
                     x_lim = self.__calculate_limits(x_lim, y_lim, self.map_width, 2)
             
             x_lim, y_lim = (max(x_lim[0], 0-self.map_width), min(x_lim[1], self.map_width)), (max(y_lim[0], 0-self.map_height), min(y_lim[1], self.map_height))
             
             if town_spawn_dot:
-                if town_spawn_dot == True: town_spawn_dot : int = 7
-                biggest_boundary = max(x_lim[1]-x_lim[0], y_lim[1]-y_lim[0])
+                if town_spawn_dot == True: town_spawn_dot : int = 15 # if town spawn dot is enabled with no size then set to default 
+
+                # Gather colours and points for spawn dots and put into dictionary
+                colors_points = {}
+                biggest_boundary = max(x_lim[1]-x_lim[0], y_lim[1]-y_lim[0]) if not show_whole_earth else self.map_width*2 # Calculate boundary to choose a more sutiable dot size
                 for town in towns:
-                    plt.scatter([town.spawn.x], [town.spawn.z], color=town.border_color, zorder=3, s=(min(1000/biggest_boundary, 1))*town_spawn_dot)
+                    if town.border_color not in colors_points:
+                        colors_points[town.border_color] = ([], [])
+                    colors_points[town.border_color][0].append(town.spawn.x)
+                    colors_points[town.border_color][1].append(town.spawn.z)
+                
+                # Scatter the gathered points 
+                for color, points in colors_points.items():
+                    plt.scatter(points[0], points[1], color=color, zorder=4, s=(min(3000/biggest_boundary, 2))*town_spawn_dot, linewidths=0)
 
             if show_background == self.MapBackground.AUTO:
-                show_background = x_lim[1]-x_lim[0] > s.show_earth_bg_if_over or y_lim[1]-y_lim[0] > s.show_earth_bg_if_over
+                show_background = x_lim[1]-x_lim[0] > self.s.show_earth_bg_if_over or y_lim[1]-y_lim[0] > self.s.show_earth_bg_if_over
 
-            if (show_whole_earth or (x_lim[1]-x_lim[0] > self.map_width*1.7 or y_lim[1]-y_lim[0] > self.map_height*1.5)):
-                bg_path = s.earth_bg_path_whole
-                dpi = s.IMAGE_DPI_DRAWING_BIG
-            else:
-                dpi = s.IMAGE_DPI_DRAWING
-        
-            if show_background == True:
-                plt.imshow(plt.imread(bg_path), extent=[0-self.map_width, self.map_width, 0-self.map_height, self.map_height], origin='lower')
-            
+            dpi = self.s.IMAGE_DPI_DRAWING
+
             x_lim, y_lim = self.__expand_limits(x_lim, y_lim, expand_limits_multiplier)
+
+            if show_background == True:
+                self.__plot_map(ax)
+            else:
+                ax.set_facecolor("#00000000")
             
             if not show_whole_earth:
                 ax.set_xlim(x_lim)
                 ax.set_ylim(y_lim)
+            else:
+                ax.set_xlim((0-self.map_width, self.map_width))
+                ax.set_ylim((0-self.map_height, self.map_height))
             
             if cache_item:
                 cache_item.extra = f"{dpi}+{x_lim[0]:.2f}+{x_lim[1]:.2f}+{y_lim[0]:.2f}+{y_lim[1]:.2f}"
@@ -511,9 +578,9 @@ class ImageGenerator():
         
         x_lim, y_lim = ax.get_xlim(), ax.get_ylim()
         if show_background == self.MapBackground.AUTO:
-            show_background = x_lim[1]-x_lim[0] > s.show_earth_bg_if_over or y_lim[1]-y_lim[0] > s.show_earth_bg_if_over
+            show_background = x_lim[1]-x_lim[0] > self.s.show_earth_bg_if_over or y_lim[1]-y_lim[0] > self.s.show_earth_bg_if_over
         if show_background == True:
-            plt.imshow(plt.imread(s.earth_bg_path_whole), extent=[0-self.map_width, self.map_width, 0-self.map_height, self.map_height], origin='lower')
+            self.__plot_map(ax)
         
         x_lim, y_lim = self.__expand_limits(x_lim, y_lim, expand_limits_multiplier)
 
@@ -537,21 +604,22 @@ class ImageGenerator():
         
         plt.gca().add_patch(plt.Circle(centre, radius, color='#FF0000', alpha=0.1, zorder=11))
     
-    async def layer_spawn_connections(self, towns : list[client.object.Town]):
+    async def layer_spawn_connections(self, towns : list[client_pre.objects.Town]):
         done = []
         for i, ts in enumerate(itertools.product(towns, repeat=2)):
             if ts[0].name == ts[1].name or [ts[0].name, ts[1].name] in done:
                 continue 
             
             distance = math.sqrt((ts[0].spawn.x-ts[1].spawn.x)**2 + (ts[0].spawn.z-ts[1].spawn.z)**2)
-            plt.plot([t.spawn.x for t in ts], [t.spawn.z for t in ts], color=s.connection_line_colours[i%len(s.connection_line_colours)], zorder=4, lw=0.5, label=f"{int(distance):,} blocks ({ts[0].name[:2]}->{ts[1].name[:2]})")
+            plt.plot([t.spawn.x for t in ts], [t.spawn.z for t in ts], color=self.s.connection_line_colours[i%len(self.s.connection_line_colours)], zorder=4, lw=0.5, label=f"{int(distance):,} blocks ({ts[0].name[:2]}->{ts[1].name[:2]})")
             done.append([ts[0].name, ts[1].name])
             done.append([ts[1].name, ts[0].name])
         plt.legend(loc="upper left", prop={'size':5}, frameon=False)
     
     async def render_plt(self, dpi : int, cache_item : CacheItem = None, pad : bool = False):
+        
         buf = io.BytesIO()
-        plt.savefig(buf, dpi=dpi, transparent=True, bbox_inches="tight", pad_inches = None if pad else 0 )
+        plt.savefig(buf, dpi=dpi, transparent=True, bbox_inches="tight", pad_inches = None if pad else 0, facecolor=plt.gca().get_facecolor())
 
         if cache_item and not cache_item.valid:
             await cache_item.save(buf)
@@ -559,7 +627,3 @@ class ImageGenerator():
         buf.seek(0)
 
         return buf
-    
-
-        
-

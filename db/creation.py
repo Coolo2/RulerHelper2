@@ -149,7 +149,7 @@ class CreationTable():
         db.create_table(self)
 
     def _create_table_query(self):
-        attributes_as_string = ", ".join(a.for_table() for a in self.attributes)
+        attributes_as_string = ", ".join((a.for_table() if hasattr(a, "for_table") else a) for a in self.attributes)
         return f"CREATE TABLE {self.name} ({attributes_as_string});"
 
     def __eq__(self, other):

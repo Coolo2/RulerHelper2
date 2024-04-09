@@ -61,6 +61,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Visited Towns", value=f"{visited_towns_total} ({(visited_towns_total/len(self.client.world.towns))*100:.1f}%)")
         embed.add_field(name="Likely Discord", value=str(dc.mention if dc else "Unknown"))
         embed.add_field(name="Donator?", value="Yes" if player.donator == True else "Unlikely" if player.donator == False else "Unknown")
+        embed.add_field(name="Nickname", value=player.nickname_no_tags if player.nickname_no_tags != player.name else "None")
         embed.add_field(name="Notable Statistics", value=notable_statistics, inline=False)
         embed.add_field(name="Sent messages", value=f"{total_messages:,}" + (f" <t:{int(last_message.timestamp())}:R>" if total_messages != 0 else ""))
         embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
@@ -72,7 +73,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         c_view.add_item(commands_view.RefreshButton(self.client, "get player", (player.name,)))
 
         button = discord.ui.Button(label="Full Skin", emoji="🧍", row=1, style=discord.ButtonStyle.primary)
-        def full_skin(player : client.object.Player, view : discord.ui.View):
+        def full_skin(player : client.objects.Player, view : discord.ui.View):
             async def full_skin_callback(interaction : discord.Interaction):
                 for item in view.children:
                     if item.label == "Full Skin":
@@ -157,14 +158,14 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         
         outposts = True if len(town.outpost_spawns) > 0 and len(town.areas) > 1 else False
         button = discord.ui.Button(label="Expand Outposts" if outposts else "Expand Map", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
-        def outposts_button(town : client.object.Town, view : discord.ui.View, borders, outposts : bool):
+        def outposts_button(town : client.objects.Town, view : discord.ui.View, borders, outposts : bool):
             async def outposts_button_callback(interaction : discord.Interaction):
                 for item in view.children:
-                    if item.label in ("Expand Outposts", "Expand Map"):
+                    if hasattr(item, "label") and item.label in ("Expand Outposts", "Expand Map"):
                         item.disabled = True 
                 
                 c = self.client.image_generator.town_cache_item(f"TownOutposts+{town.name}", [town]).check_cache()
-                dpi = await self.client.image_generator.generate_area_map([town], True, True, self.client.image_generator.MapBackground.AUTO if outposts else False, False, c, borders)
+                dpi = await self.client.image_generator.generate_area_map([town], True, True, self.client.image_generator.MapBackground.AUTO, False, c, borders)
                 file = discord.File(await self.client.image_generator.render_plt(dpi, c), "town_outpost_map.png")
 
                 interaction.message.embeds[0].set_thumbnail(url=None)
@@ -255,7 +256,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         c_view.add_item(commands_view.RefreshButton(self.client, "get nation", (nation.name,)))
 
         button = discord.ui.Button(label="Expand Outposts", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
-        def outposts_button(nation : client.object.Nation, view : discord.ui.View, borders):
+        def outposts_button(nation : client.objects.Nation, view : discord.ui.View, borders):
             async def outposts_button_callback(interaction : discord.Interaction):
                 await interaction.response.defer()
                 for item in view.children:
@@ -278,7 +279,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             c_view.add_item(button)
         
         button = discord.ui.Button(label="Show Claim Radius", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
-        def claims_button(nation : client.object.Nation, view : discord.ui.View, capital : client.object.Town):
+        def claims_button(nation : client.objects.Nation, view : discord.ui.View, capital : client.objects.Town):
             async def claims_button_callback(interaction : discord.Interaction):
                 await interaction.response.defer()
                 for item in view.children:
@@ -527,7 +528,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             view.add_item(commands_view.CommandSelect(self, list(reversed(cmds))[:25], "Get Player Info...", 2))
 
         button = discord.ui.Button(label="Show offline players", emoji="🧍", row=1, style=discord.ButtonStyle.primary)
-        def off_players(world : client.object.World, view : discord.ui.View, embed : discord.Embed):
+        def off_players(world : client.objects.World, view : discord.ui.View, embed : discord.Embed):
             async def off_players_callback(interaction : discord.Interaction):
                 for item in view.children:
                     if hasattr(item, "label") and item.label == "Show offline players":

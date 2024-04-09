@@ -1,8 +1,10 @@
 
 import aiohttp
-from client import object, errors, image_generator, notifications
+from client import errors, image_generator, notifications, migrate, objects, funcs, refresh
+from client.continents import continents
 
 import datetime
+from client.objects import properties
 import setup as s
 
 import db
@@ -13,19 +15,19 @@ from discord.ext import commands
 import shutil
 import os
 
-import ijson.backends.yajl2_c as ijson
+import asyncio 
 
 class Client():
     def __init__(self):
 
         self.refresh_no : int = 0
-        self.__dynmap_update_timestamp = 0
+        self.dynmap_update_timestamp = 0
         self.messages_sent = 0
         
         self.session : aiohttp.ClientSession= None
         self.database = db.Database("towny.db", auto_commit=False)
         self.bot : commands.Bot = None
-        self.url = s.map_url
+        self.url = "https://map.rulercraft.com"
 
         self.towns_table : wrapper.Table = []
         self.players_table : wrapper.Table = []
@@ -33,26 +35,31 @@ class Client():
 
         self.refresh_period : dict[str, int] = s.default_refresh_period
         self.last_refreshed : dict[str, datetime.datetime] = {k:None for k in s.default_refresh_period}
-        self.world = object.World(self) 
+        self.world = objects.World(self) 
         self.notifications = notifications.Notifications(self)
 
         self.image_generator = image_generator.ImageGenerator(self)
     
     errors = errors
+    objects = objects 
+    continents = continents
+    funcs = funcs
 
     async def init_db(self, update_coro = None):
         await self.database.connect()
         await self.database.connection.execute("PRAGMA auto_vacuum = FULL")
 
-        if update_coro:
-            await update_coro
+        await self.database.connection.execute('PRAGMA journal_mode = WAL')
+        await self.database.connection.execute('PRAGMA synchronous = 1')
+        await self.database.connection.execute('PRAGMA cache_size = -64000')
+        
 
         self.global_table = await self.database.create_or_get_table(
             db.CreationTable(
                 "global",
                 [
-                    db.CreationAttribute("name", db.types.String),
-                    db.CreationAttribute("value", db.types.Any)
+                    "name STRING PRIMARY KEY",
+                    "value"
                 ]
             )
         )
@@ -61,24 +68,24 @@ class Client():
             db.CreationTable(
                 "towns",
                 [
-                    db.CreationAttribute("name", db.types.String, primary_key=True),
-                    db.CreationAttribute("nation", db.types.String),
-                    db.CreationAttribute("religion", db.types.String),
-                    db.CreationAttribute("culture", db.types.String),
-                    db.CreationAttribute("mayor", db.types.String),
-                    db.CreationAttribute("resident_count", db.types.Int),
-                    db.CreationAttribute("founded_date", db.types.Date),
-                    db.CreationAttribute("resident_tax", db.types.Float),
-                    db.CreationAttribute("bank", db.types.Float),
-                    db.CreationAttribute("mayor_bank", db.types.Float),
-                    db.CreationAttribute("public", db.types.Int),
-                    db.CreationAttribute("peaceful", db.types.Int),
-                    db.CreationAttribute("area", db.types.Int),
-                    db.CreationAttribute("mentions", db.types.Int),
-                    db.CreationAttribute("outposts", db.types.Int),
-                    db.CreationAttribute("visited_players", db.types.Int),
-                    db.CreationAttribute("duration", db.types.Int),
-                    db.CreationAttribute("last_seen", db.types.Datetime)
+                    "name STRING PRIMARY KEY",
+                    "nation STRING",
+                    "religion STRING",
+                    "culture STRING",
+                    "mayor STRING",
+                    "resident_count INTEGER",
+                    "founded_date DATE",
+                    "resident_tax REAL",
+                    "bank REAL",
+                    "mayor_bank REAL",
+                    "public INTEGER",
+                    "peaceful INTEGER",
+                    "area INTEGER",
+                    "mentions INTEGER",
+                    "outposts INTEGER",
+                    "visited_players INTEGER",
+                    "duration INTEGER",
+                    "last_seen TIMESTAMP"
                 ]
             )
         )
@@ -87,18 +94,18 @@ class Client():
             db.CreationTable(
                 "players",
                 [
-                    db.CreationAttribute("name", db.types.String, primary_key=True),
-                    db.CreationAttribute("location", db.types.String),
-                    db.CreationAttribute("town", db.types.String),
-                    db.CreationAttribute("armor", db.types.Int),
-                    db.CreationAttribute("health", db.types.Int),
-                    db.CreationAttribute("visited_towns", db.types.Int),
-                    db.CreationAttribute("donator", db.types.Int),
-                    db.CreationAttribute("bank", db.types.Float),
-                    db.CreationAttribute("messages", db.types.Int),
-                    db.CreationAttribute("mentions", db.types.Int),
-                    db.CreationAttribute("duration", db.types.Int),
-                    db.CreationAttribute("last", db.types.Datetime)
+                    "name STRING PRIMARY KEY",
+                    "location STRING",
+                    "town STRING",
+                    "armor INTEGER",
+                    "health INTEGER",
+                    "visited_towns INTEGER",
+                    "nickname STRING",
+                    "bank REAL",
+                    "messages INTEGER",
+                    "mentions INTEGER",
+                    "duration INTEGER",
+                    "last TIMESTAMP"
                 ]
             )
         )
@@ -107,15 +114,16 @@ class Client():
             db.CreationTable(
                 "objects",
                 [
-                    db.CreationAttribute("type", db.types.String),
-                    db.CreationAttribute("name", db.types.String),
-                    db.CreationAttribute("towns", db.types.Int),
-                    db.CreationAttribute("town_balance", db.types.Float),
-                    db.CreationAttribute("residents", db.types.Int),
-                    db.CreationAttribute("area", db.types.Int),
-                    db.CreationAttribute("mentions", db.types.Int),
-                    db.CreationAttribute("duration", db.types.Int),
-                    db.CreationAttribute("last", db.types.Datetime)
+                    "type STRING",
+                    "name STRING",
+                    "towns INTEGER",
+                    "town_balance REAL",
+                    "residents INTEGER",
+                    "area INTEGER",
+                    "mentions INTEGER",
+                    "duration INTEGER",
+                    "last TIMESTAMP",
+                    "PRIMARY KEY(type, name)"
                 ]
             )
         )
@@ -124,10 +132,11 @@ class Client():
             db.CreationTable(
                 "visited_towns",
                 [
-                    db.CreationAttribute("player", db.types.String),
-                    db.CreationAttribute("town", db.types.String),
-                    db.CreationAttribute("duration", db.types.Int),
-                    db.CreationAttribute("last", db.types.Datetime)
+                    "player STRING",
+                    "town STRING",
+                    "duration INTEGER",
+                    "last TIMESTAMP",
+                    "PRIMARY KEY(player, town)"
                 ]
             )
         )
@@ -136,22 +145,23 @@ class Client():
             db.CreationTable(
                 "town_history",
                 [
-                    db.CreationAttribute("town", db.types.String),
-                    db.CreationAttribute("date", db.types.Date),
-                    db.CreationAttribute("nation", db.types.String),
-                    db.CreationAttribute("religion", db.types.String),
-                    db.CreationAttribute("culture", db.types.String),
-                    db.CreationAttribute("mayor", db.types.String),
-                    db.CreationAttribute("resident_count", db.types.Int),
-                    db.CreationAttribute("resident_tax", db.types.Float),
-                    db.CreationAttribute("bank", db.types.Float),
-                    db.CreationAttribute("public", db.types.Int),
-                    db.CreationAttribute("peaceful", db.types.Int),
-                    db.CreationAttribute("area", db.types.Int),
-                    db.CreationAttribute("duration", db.types.Int),
-                    db.CreationAttribute("visited_players", db.types.Int),
-                    db.CreationAttribute("current_name", db.types.String),
-                    db.CreationAttribute("mentions", db.types.Int)
+                    "town STRING",
+                    "date DATE",
+                    "nation STRING",
+                    "religion STRING",
+                    "culture STRING",
+                    "mayor STRING",
+                    "resident_count INTEGER",
+                    "resident_tax REAL",
+                    "bank REAL",
+                    "public INTEGER",
+                    "peaceful INTEGER",
+                    "area INTEGER",
+                    "duration INTEGER",
+                    "visited_players INTEGER",
+                    "current_name STRING",
+                    "mentions INTEGER",
+                    "PRIMARY KEY (town, date)"
                 ]
             )
         )
@@ -160,14 +170,15 @@ class Client():
             db.CreationTable(
                 "town_day_history",
                 [
-                    db.CreationAttribute("town", db.types.String),
-                    db.CreationAttribute("time", db.types.Datetime),
-                    db.CreationAttribute("resident_count", db.types.Int),
-                    db.CreationAttribute("resident_tax", db.types.Float),
-                    db.CreationAttribute("bank", db.types.Float),
-                    db.CreationAttribute("area", db.types.Int),
-                    db.CreationAttribute("duration", db.types.Int),
-                    db.CreationAttribute("visited_players", db.types.Int)
+                    "town STRING",
+                    "time TIMESTAMP",
+                    "resident_count INTEGER",
+                    "resident_tax REAL",
+                    "bank REAL",
+                    "area INTEGER",
+                    "duration INTEGER",
+                    "visited_players INTEGER",
+                    "PRIMARY KEY (town, time)"
                 ]
             )
         )
@@ -176,15 +187,16 @@ class Client():
             db.CreationTable(
                 "player_history",
                 [
-                    db.CreationAttribute("player", db.types.String),
-                    db.CreationAttribute("date", db.types.Date),
-                    db.CreationAttribute("duration", db.types.Int),
-                    db.CreationAttribute("visited_towns", db.types.Int),
-                    db.CreationAttribute("likely_town", db.types.String),
-                    db.CreationAttribute("likely_nation", db.types.String),
-                    db.CreationAttribute("bank", db.types.Float),
-                    db.CreationAttribute("messages", db.types.Int),
-                    db.CreationAttribute("mentions", db.types.Int)
+                    "player STRING",
+                    "date DATE",
+                    "duration INTEGER",
+                    "visited_towns INTEGER",
+                    "likely_town STRING",
+                    "likely_nation STRING",
+                    "bank REAL",
+                    "messages INTEGER",
+                    "mentions INTEGER",
+                    "PRIMARY KEY (player, date)"
                 ]
             )
         )
@@ -193,11 +205,12 @@ class Client():
             db.CreationTable(
                 "player_day_history",
                 [
-                    db.CreationAttribute("player", db.types.String),
-                    db.CreationAttribute("time", db.types.Datetime),
-                    db.CreationAttribute("duration", db.types.Int),
-                    db.CreationAttribute("bank", db.types.Float),
-                    db.CreationAttribute("visited_towns", db.types.Int)
+                    "player STRING",
+                    "time TIMESTAMP",
+                    "duration INTEGER",
+                    "bank REAL",
+                    "visited_towns INTEGER",
+                    "PRIMARY KEY(player, time)"
                 ]
             )
         )
@@ -206,17 +219,18 @@ class Client():
             db.CreationTable(
                 "nation_history",
                 [
-                    db.CreationAttribute("nation", db.types.String),
-                    db.CreationAttribute("date", db.types.Date),
-                    db.CreationAttribute("towns", db.types.Int),
-                    db.CreationAttribute("town_balance", db.types.Float),
-                    db.CreationAttribute("residents", db.types.Int),
-                    db.CreationAttribute("capital", db.types.String),
-                    db.CreationAttribute("leader", db.types.String),
-                    db.CreationAttribute("area", db.types.Int),
-                    db.CreationAttribute("duration", db.types.Int),
-                    db.CreationAttribute("current_name", db.types.String),
-                    db.CreationAttribute("mentions", db.types.Int)
+                    "nation STRING",
+                    "date STRING",
+                    "towns INTEGER",
+                    "town_balance REAL",
+                    "residents INTEGER",
+                    "capital STRING",
+                    "leader STRING",
+                    "area INTEGER",
+                    "duration INTEGER",
+                    "current_name STRING",
+                    "mentions INTEGER",
+                    "PRIMARY KEY(nation, date)"
                 ]
             )
         )
@@ -225,13 +239,14 @@ class Client():
             db.CreationTable(
                 "nation_day_history",
                 [
-                    db.CreationAttribute("nation", db.types.String),
-                    db.CreationAttribute("time", db.types.Datetime),
-                    db.CreationAttribute("towns", db.types.Int),
-                    db.CreationAttribute("town_balance", db.types.Float),
-                    db.CreationAttribute("residents", db.types.Int),
-                    db.CreationAttribute("area", db.types.Int),
-                    db.CreationAttribute("duration", db.types.Int),
+                    "nation STRING",
+                    "time TIMESTAMP",
+                    "towns INTEGER",
+                    "town_balance REAL",
+                    "residents INTEGER",
+                    "area INTEGER",
+                    "duration INTEGER",
+                    "PRIMARY KEY(nation, time)"
                 ]
             )
         )
@@ -240,17 +255,17 @@ class Client():
             db.CreationTable(
                 "global_history",
                 [
-                    db.CreationAttribute("date", db.types.Date),
-                    db.CreationAttribute("towns", db.types.Int),
-                    db.CreationAttribute("residents", db.types.Int),
-                    db.CreationAttribute("nations", db.types.Int),
-                    db.CreationAttribute("town_value", db.types.Float),
-                    db.CreationAttribute("mayor_value", db.types.Float),
-                    db.CreationAttribute("area", db.types.Int),
-                    db.CreationAttribute("known_players", db.types.Int),
-                    db.CreationAttribute("activity", db.types.Int),
-                    db.CreationAttribute("messages", db.types.Int),
-                    db.CreationAttribute("database_size", db.types.Float)
+                    "date DATE PRIMARY KEY",
+                    "towns INTEGER",
+                    "residents INTEGER",
+                    "nations INTEGER",
+                    "town_value REAL",
+                    "mayor_value REAL",
+                    "area INTEGER",
+                    "known_players INTEGER",
+                    "activity INTEGER",
+                    "messages INTEGER",
+                    "database_size REAL"
                 ]
             )
         )
@@ -259,16 +274,16 @@ class Client():
             db.CreationTable(
                 "global_day_history",
                 [
-                    db.CreationAttribute("time", db.types.Datetime),
-                    db.CreationAttribute("towns", db.types.Int),
-                    db.CreationAttribute("residents", db.types.Int),
-                    db.CreationAttribute("nations", db.types.Int),
-                    db.CreationAttribute("town_value", db.types.Float),
-                    db.CreationAttribute("area", db.types.Int),
-                    db.CreationAttribute("known_players", db.types.Int),
-                    db.CreationAttribute("activity", db.types.Int),
-                    db.CreationAttribute("messages", db.types.Int),
-                    db.CreationAttribute("online_players", db.types.Int)
+                    "time TIMESTAMP PRIMARY KEY",
+                    "towns INTEGER",
+                    "residents INTEGER",
+                    "nations INTEGER",
+                    "town_value REAL",
+                    "area INTEGER",
+                    "known_players INTEGER",
+                    "activity INTEGER",
+                    "messages INTEGER",
+                    "online_players INTEGER"
                 ],
             )
         )
@@ -277,14 +292,15 @@ class Client():
             db.CreationTable(
                 "object_history",
                 [
-                    db.CreationAttribute("date", db.types.Date),
-                    db.CreationAttribute("type", db.types.String),
-                    db.CreationAttribute("object", db.types.String),
-                    db.CreationAttribute("towns", db.types.Int),
-                    db.CreationAttribute("town_balance", db.types.Float),
-                    db.CreationAttribute("residents", db.types.Int),
-                    db.CreationAttribute("area", db.types.Int),
-                    db.CreationAttribute("mentions", db.types.Int)
+                    "date DATE",
+                    "type STRING",
+                    "object STRING",
+                    "towns INTEGER",
+                    "town_balance REAL",
+                    "residents INTEGER",
+                    "area INTEGER",
+                    "mentions INTEGER",
+                    "PRIMARY KEY(date, type, object)"
                 ]
             )
         )
@@ -305,10 +321,11 @@ class Client():
             db.CreationTable(
                 "activity",
                 [
-                    db.CreationAttribute("object_type", db.types.String),
-                    db.CreationAttribute("object_name", db.types.String),
-                    db.CreationAttribute("duration", db.types.Int),
-                    db.CreationAttribute("last", db.types.Datetime)
+                    "object_type STRING",
+                    "object_name STRING",
+                    "duration INTEGER DEFAULT 0",
+                    "last TIMESTAMP",
+                    "PRIMARY KEY (object_type, object_name)"
                 ]
             )
         )
@@ -330,9 +347,9 @@ class Client():
             db.CreationTable(
                 "chat_message_counts",
                 [
-                    db.CreationAttribute("player", db.types.String),
-                    db.CreationAttribute("amount", db.types.Int),
-                    db.CreationAttribute("last", db.types.Datetime)
+                    "player STRING PRIMARY KEY",
+                    "amount INTEGER",
+                    "last TIMESTAMP"
                 ]
             )
         )
@@ -341,21 +358,33 @@ class Client():
             db.CreationTable(
                 "chat_mentions",
                 [
-                    db.CreationAttribute("object_type", db.types.String),
-                    db.CreationAttribute("object_name", db.types.String),
-                    db.CreationAttribute("amount", db.types.Int),
-                    db.CreationAttribute("last", db.types.Datetime)
+                    "object_type STRING",
+                    "object_name STRING",
+                    "amount INTEGER",
+                    "last TIMESTAMP",
+                    "PRIMARY KEY(object_type, object_name)"
                 ]
             )
         )
 
+        if update_coro:
+            await update_coro
 
+        
         #await self.database.connection.execute('PRAGMA synchronous = OFF')
-        await self.database.connection.execute('PRAGMA journal_mode = WAL')
+        
         
     @property 
     async def tracking_footer(self):
         return f"Tracked: game for {(await self.world.total_tracked).str_no_timestamp()}, chat for {(await self.world.total_tracked_chat).str_no_timestamp()}"
+    
+    @property 
+    async def db_version(self) -> int:
+
+        val = await (await self.database.connection.execute("SELECT value FROM global WHERE name='db_version'")).fetchone()
+        return val[0] if val else 0
+
+    
 
     async def create_session(self):
         if not self.session:
@@ -367,66 +396,24 @@ class Client():
 
         await self.create_session()
 
-        #map = await self.session.get(f"{self.url}/up/world/RulerEarth/0")
-        map_data = await self.session.get(f"{self.url}/tiles/_markers_/marker_RulerEarth.json")
+        map_data = await self.session.get(f"{s.refresh_map_url}/tiles/_markers_/marker_RulerEarth.json")
 
-        #if map.status == 502 or map_data.status == 502:
-        #    return False
+        if map_data.status == 502:
+            return False
         
-        await self.world.refresh(map_data.content)
+        await refresh.main_refresh(self.world, map_data.content)
     
     async def fetch_short(self):
         
         # Mentions
 
-        r = await self.session.get(f"{self.url}/up/world/RulerEarth/{self.__dynmap_update_timestamp+1}")
+        r = await self.session.get(f"{s.refresh_map_url}/up/world/RulerEarth/{self.dynmap_update_timestamp+1}")
 
-        mentions = {}
-        for town in self.world.towns: 
-            mentions[town.name.lower()] = ("town", town.name)
-        for object_type in self.world._objects: 
-            for object in self.world._objects[object_type]: mentions[object.name.lower()] = (object_type[:-1], object.name) 
-        for player in self.world.players:
-            mentions[player.name.lower()] = ("player", player.name)
+        if r.status == 502:
+            return False
+
+        await refresh.refresh_short(self.world, r.content)
         
-        dynmap_parts = ijson.kvitems_async(r.content, "", use_float=True)
-        player_list = None
-
-        async for key, updates in dynmap_parts:
-            if key == "updates":
-                for update in updates:
-                    if update["type"] == "chat":
-                        self.__dynmap_update_timestamp = update["timestamp"]
-
-                        sender = self.world.get_player(update["account"], False)
-                        message : str = update['message']
-
-                        for word in message.split(" "):
-                            if word.lower() in mentions:
-                                mention = mentions[word.lower()]
-
-                                cond2 = [db.CreationCondition("object_type", mention[0]), db.CreationCondition("object_name", mention[1])]
-                                exists = await self.chat_mentions_table.record_exists(cond2)
-                                if not exists: await self.chat_mentions_table.add_record([mention[0], mention[1], 1, datetime.datetime.now()])
-                                else: await self.chat_mentions_table.update_record(cond2, [db.CreationField.add("amount", 1), db.CreationField("last", datetime.datetime.now())])
-
-                        if sender:
-                            cond2 = [db.CreationCondition("player", sender.name)]
-                            exists = await self.chat_message_counts_table.record_exists(cond2)
-                            if not exists: await self.chat_message_counts_table.add_record([sender.name, 1, datetime.datetime.now()])
-                            else: await self.chat_message_counts_table.update_record(cond2, [db.CreationField.add("amount", 1), db.CreationField("last", datetime.datetime.now())])
-
-            # Players
-            if key == "currentcount":
-                self.world.player_count = updates or 0
-            elif key == "hasStorm":
-                self.world.is_stormy = updates or False
-            elif key  == "players":
-                player_list = updates
-            else:
-                continue
-        
-        self.world.towns_with_players = await self.world._update_player_list(player_list)
                             
         
 

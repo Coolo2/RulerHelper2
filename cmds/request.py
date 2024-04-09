@@ -14,7 +14,7 @@ from funcs import autocompletes
 
 class AcceptView(discord.ui.View):
 
-    def __init__(self, client : client.Client, flag_name : str, flag_value, object : client.object.Object):
+    def __init__(self, client : client.Client, flag_name : str, flag_value, object : client.objects.Object):
 
         self.client = client
 
@@ -33,7 +33,7 @@ class AcceptView(discord.ui.View):
         
         await self.object.set_flag(self.flag_name, self.flag_value)
 
-        if self.flag_name == "discord" and type(self.object) == client.object.Player:
+        if self.flag_name == "discord" and type(self.object) == client.objects.Player:
             try:
                 await self.client.bot.get_user(int(self.flag_value)).send(f"Your request has been accepted! You are now linked to {self.object.name}")
             except:

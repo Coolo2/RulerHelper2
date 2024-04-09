@@ -7,8 +7,10 @@ sql/
 cache/*.png
 render_towns.py
 earthold.png
-
+renderer/
 test.py
+sqlite3.exe
+pypy/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -17,7 +19,6 @@ __pycache__/
 *.pickle
 
 *.json
-assets/
 
 # C extensions
 *.so

@@ -4,3 +4,4 @@ python-dotenv
 matplotlib
 shapely
 ijson
+svgpath2mpl

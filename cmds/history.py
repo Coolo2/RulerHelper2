@@ -273,7 +273,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
 
         edit = interaction.extras.get("edit")
 
-        objects : list[client.object.Activity] = []
+        objects : list[client.objects.Activity] = []
         if town:
             o = c.world.get_town(town, True)
             if not o: raise client.errors.MildError("Nothing found!")
@@ -345,7 +345,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             
             if player:
                 button = discord.ui.Button(label="Map", emoji="🗺️", row=1)
-                def map_button(towns : list[client.object.Town], view : discord.ui.View):
+                def map_button(towns : list[client.objects.Town], view : discord.ui.View):
                     async def map_button_callback(interaction : discord.Interaction):
                         await interaction.response.defer()
 
