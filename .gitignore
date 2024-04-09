@@ -12,6 +12,7 @@ test.py
 sqlite3.exe
 pypy/
 
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
