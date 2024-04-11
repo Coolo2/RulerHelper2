@@ -8,7 +8,6 @@ import datetime
 from shapely.geometry import MultiPolygon
 
 import setup 
-import db
 
 import discord
 
@@ -38,7 +37,7 @@ class Object():
 
     @property 
     async def total_mentions(self) -> tuple[int, datetime.datetime]: 
-        r = await (await self.world.client.database.connection.execute("SELECT amount, last FROM chat_mentions WHERE object_type=? AND object_name=?", (self.object_type, self.name))).fetchone()
+        r = await (await self.world.client.execute("SELECT amount, last FROM chat_mentions WHERE object_type=? AND object_name=?", (self.object_type, self.name))).fetchone()
 
         if r:
             return r
@@ -75,23 +74,15 @@ class Object():
         return t
 
     async def set_flag(self, flag_name : str, flag_value):
-        cond = [db.CreationCondition("object_type", self.object_type), db.CreationCondition("object_name", self.name)]
-        val = [self.object_type, self.name, flag_name, flag_value]
-
-        if setup.flags[self.object_type][flag_name].get("unique"):
-            await self.world.client.flags_table.delete_records([db.CreationCondition("object_type", self.object_type), db.CreationCondition("name", flag_name), db.CreationCondition("value", flag_value)])
-
-        a = await self.world.client.flags_table.add_record_if_not_exists(val, cond)
-        if not a:
-            await self.world.client.flags_table.update_record(cond, *val)
+        await self.world.client.funcs.set_flag(self.world.client, self.object_type, self.name, flag_name, flag_value)
     
     @property
     async def flags(self) -> dict:
-        rs = await self.world.client.flags_table.get_records([db.CreationCondition("object_type", self.object_type), db.CreationCondition("object_name", self.name)], ["name", "value"])
+        rs = await (await self.world.client.execute("SELECT name, value FROM flags WHERE object_type=? AND object_name=?", (self.object_type, self.name))).fetchall()
         d = {}
         for r in rs:
-            if r.attribute("value"):
-                d[r.attribute("name")] = r.attribute("value")
+            if r[1]:
+                d[r[0]] = r[1]
         return d
     
     @property 
@@ -100,11 +91,6 @@ class Object():
         for town in self.towns:
             l += town.areas
         return l
-    
-
-    @property 
-    async def exists_in_db(self):
-        return await self.world.client.objects_table.record_exists([db.CreationCondition("type", self.object_type), db.CreationCondition("name", self.name)])
 
     def reset_town_cache(self):
         self._towns_cache = None
@@ -162,11 +148,9 @@ class Nation(Object):
         rankings = {}
         for command in setup.top_commands["nation"]:
 
-            r1 = await (await self.world.client.database.connection.execute(f"""SELECT {command['attribute']} FROM objects WHERE type='nation' AND name=?""", (self.name,))).fetchone()
-            print(r1)
+            r1 = await (await self.world.client.execute(f"""SELECT {command['attribute']} FROM objects WHERE type='nation' AND name=?""", (self.name,))).fetchone()
             if r1 and r1 != (None,):
-                r2 = await (await self.world.client.database.connection.execute(f"""SELECT COUNT(*) FROM objects WHERE type='nation' AND {command['attribute']}>?""", (r1[0],))).fetchone()
-                print("2 ", r2)
+                r2 = await (await self.world.client.execute(f"""SELECT COUNT(*) FROM objects WHERE type='nation' AND {command['attribute']}>?""", (r1[0],))).fetchone()
                 ranking = r2[0]
                 if command.get("reverse_notable"): ranking = len(self.world.nations)-ranking-1
                 notable = True if ranking <= len(self.world.nations)/2 else False
@@ -220,14 +204,14 @@ class Nation(Object):
 
     @property 
     async def activity(self) -> client_pre.objects.Activity:
-        r = await (await self.world.client.database.connection.execute("SELECT duration, last FROM activity WHERE object_type='nation' AND object_name=?", (self.name,))).fetchone()
+        r = await (await self.world.client.execute("SELECT duration, last FROM activity WHERE object_type='nation' AND object_name=?", (self.name,))).fetchone()
 
         return self.world.client.objects.Activity.from_record(r)
 
     @property 
     async def previous_names(self) -> list[str]:
-        rs = await self.world.client.nation_history_table.get_records([db.CreationCondition("nation", self.name), db.CreationCondition("current_name", self.name, "!=")], ["current_name"], group=["current_name"], order=db.CreationOrder("date", db.types.OrderDescending))
-        return [r.attribute("current_name") for r in rs]
+        rs = await (await self.world.client.execute("SELECT current_name FROM nation_history WHERE nation=? AND current_name != ? GROUP BY current_name ORDER BY date DESC", (self.name, self.name))).fetchall()
+        return [r[0] for r in rs]
 
 class Culture(Object):
     def __init__(self, world, name : str):

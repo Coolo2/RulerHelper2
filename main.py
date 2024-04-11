@@ -59,31 +59,35 @@ async def _short_refresh():
 async def _refresh():
 
     # Refresh towns/nations (map)
-
+    
     c.refresh_no += 1
     c.messages_sent = 0
+    refresh_time = None
 
     t = datetime.datetime.now()
-    print("Refreshing", c.refresh_period["map"])
+    if s.debug_mode: print("Refreshing", c.refresh_period["map"])
     w = False
     try:
         w = await c.fetch_world()
 
         if w != False:
-            await c.cull_db()
-            await c.database.commit()
+            dbcull = await client.cull.cull_db(c)
+            await c.database.connection.commit()
             
             await c.backup_db_if_not()
+
+            if dbcull != False:
+                c.last_refreshed["map"] = datetime.datetime.now()
+                refresh_time = c.last_refreshed["map"]-t
+                c.refresh_period["map"] = math.ceil((refresh_time.total_seconds()+1) / 10) * 10
+                _refresh.change_interval(seconds=c.refresh_period["map"])
             
     except Exception as e:
         print(e)
         await bot.get_channel(s.alert_channel).send(f"Refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
 
-    c.last_refreshed["map"] = datetime.datetime.now()
-    refresh_time = c.last_refreshed["map"]-t
-    c.refresh_period["map"] = math.ceil((refresh_time.total_seconds()+1) / 10) * 10
-    _refresh.change_interval(seconds=c.refresh_period["map"])
-    print("Refreshed", refresh_time)
+    
+    if s.debug_mode: print("Refreshed", refresh_time)
     await bot.change_presence(activity=discord.CustomActivity(name=f"{c.world.player_count} online | v{s.version} | /changelog"))
 
 extensions = [file.replace(".py", "") for file in os.listdir('./cmds') if file.endswith(".py")]
@@ -102,7 +106,7 @@ async def setup_hook():
         await bot.tree.sync()
         await bot.tree.sync(guild=s.mod_guild)
     
-    await c.init_db(client.migrate.upgrade_db(c))
+    await c.database.initialise(client.migrate.upgrade_db(c))
     #await c.test()
     
     await c.world.initialise_player_list()

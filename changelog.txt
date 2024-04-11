@@ -1,11 +1,14 @@
 # v2.11 (~)
-- Huge backend changes to map image generation 
+- Huge backend changes (to map image generation), meaning: 
  - Maps will no longer look blurry when zoomed in and have smooth edges 
  - Map images generate around 5x faster 
  - Tweaked town spawn dot size 
  - Images are a slightly higher resolution
 - Fixed bug causing 'expand outposts' button to not work
 - New 'nickname' field in /get player
+- Refresh times have been vastly optimised, data should be more up-to-date
+- Fixed leaderboard ranking notable statistics still having heading if there are none for the object
+- Fixed a bug where objects are forgotten briefly on server restart / bot disconnect
 newpage
 ## v2.10.1 (Mar 30 2024)
 - New command /distribution nation mayor_bank which shows the mayor's bank for each town 

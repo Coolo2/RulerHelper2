@@ -13,9 +13,10 @@ Setup file!
 
 """
 
-version = "2.10.1" # Version number displayed on bot status etc 
+version = "2.11.0" # Version number displayed on bot status etc 
 
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
+debug_mode = False # Prints debug stuff in console
 commands = True # Whether to listen for commands
 
 """Adjust these on first run. They need to be filled with IDs bot has access to"""
@@ -61,7 +62,7 @@ default_refresh_period = {"players":5, "map":20} # Duration in seconds to refres
 map_link_zoom = 6 # Zoom level for map links. Eg "Location" in /get player
 
 cull_players_from = timedelta(days=45) # Duration of time to remove players from the database after
-cull_objects_after = timedelta(minutes=2) # Duration of time to remove deleted towns/nations from the database after. Does not clear history, just concurrent data used in /top etc
+cull_objects_after = timedelta(minutes=1) # Duration of time to remove deleted towns/nations from the database after. Does not clear history, just concurrent data used in /top etc
 
 history_abstraction_thresholds = [
     (timedelta(days=45), "1"),
@@ -69,6 +70,8 @@ history_abstraction_thresholds = [
     (timedelta(days=200), "1, 3, 5"),
     (timedelta(days=365), "1, 2, 3, 4, 5")
 ] 
+cull_insignificant_activity_after = timedelta(days=90)
+
 
 top_graph_object_count = 40 # Number of towns/players/nations to display in "/top" bar charts
 history_skip_if_object_unknown = False # If True and an object (town/player) is not known, ignore it completely in history commands. If False will still display but with diff. format

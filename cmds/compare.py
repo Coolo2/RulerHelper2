@@ -8,10 +8,6 @@ from discord import app_commands
 from discord.ext import commands
 
 import client
-import db 
-import numpy as np
-
-from matplotlib.pyplot import bar, plot
 
 class Compare(commands.GroupCog, name="compare", description="Compare two (or more) objects"):
 
@@ -73,8 +69,8 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
 
                 if not attribute.get('no_history') and not attribute.get('qualitative'):
                     total =  total + value
-                    history_r = await self.client.town_history_table.get_records([db.CreationCondition("town", town.name)], order=db.CreationOrder("date", db.types.OrderAscending), attributes=[history_name, "date"])
-                    graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r.attribute("date"), r.attribute(history_name)) for r in history_r], town.name))
+                    history_r = await (await self.client.execute(f"SELECT {history_name}, date FROM town_history WHERE town=? ORDER BY date ASC", (town.name,))).fetchall()
+                    graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r[1], r[0]) for r in history_r], town.name))
             
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name
@@ -158,8 +154,8 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
 
                 if not attribute.get('no_history') and not attribute.get('qualitative'):
                     total += value
-                    history_r = await self.client.nation_history_table.get_records([db.CreationCondition("nation", nation.name)], order=db.CreationOrder("date", db.types.OrderAscending), attributes=[history_name, "date"])
-                    graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r.attribute("date"), r.attribute(history_name)) for r in history_r], nation.name))
+                    history_r = await (await self.client.execute(f"SELECT {history_name}, date FROM nation_history WHERE nation=? ORDER BY date ASC", (nation.name,))).fetchall()
+                    graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r[1], r[0]) for r in history_r], nation.name))
             
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name
@@ -240,8 +236,8 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
 
                 if not attribute.get('no_history') and not attribute.get('qualitative'):
                     total += value or 0
-                    history_r = await self.client.player_history_table.get_records([db.CreationCondition("player", player.name)], order=db.CreationOrder("date", db.types.OrderAscending), attributes=[history_name, "date"])
-                    graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r.attribute("date"), r.attribute(history_name)) for r in history_r], player.name))
+                    history_r = await (await self.client.execute(f"SELECT {history_name}, date FROM player_history WHERE player=? ORDER BY date ASC", (player.name,))).fetchall()
+                    graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r[1], r[0]) for r in history_r], player.name))
             
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name

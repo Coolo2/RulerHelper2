@@ -53,14 +53,14 @@ class Notifications(commands.GroupCog, name="notifications", description="Setup 
                 if channels[0].ignore_if_resident == ignore_if_resident and channels[0].nation_name == nation.name:
                     raise client.errors.MildError("Channel already exists with this config")
                 else:
-                    await self.client.notifications.update_notifications_channel(channel, "territory_enter", nation_name, ignore_if_resident)     
+                    await self.client.notifications.set_notification_config(channel, "territory_enter", nation_name, ignore_if_resident)     
                     return await interaction.response.send_message(embed=discord.Embed(title="Updated", description="Updated notifications in this channel!", color=s.embedSuccess))   
             else:
                 await self.client.notifications.delete_notifications_channel(channel=channel, notification_type="territory_enter")
                 return await interaction.response.send_message(embed=discord.Embed(title="Deleted", description="Deleted notification channel", color=s.embedSuccess))   
         else:
             if enabled:
-                await self.client.notifications.add_notification_channel(channel, "territory_enter", nation_name, ignore_if_resident)    
+                await self.client.notifications.set_notification_config(channel, "territory_enter", nation_name, ignore_if_resident)    
                 try:
                     await channel.send("> Notifications have been enabled in this channel. See config with `/notifications config view`")
                     return await interaction.response.send_message(embed=discord.Embed(title="Enabled", description="Enabled notifications there!", color=s.embedSuccess))  

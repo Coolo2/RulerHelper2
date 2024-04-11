@@ -7,8 +7,6 @@ from funcs import paginator, autocompletes, commands_view
 from discord import app_commands
 from discord.ext import commands
 
-import db
-
 import client
 
 def generate_command(c : client.Client, attribute : str, formatter = str, parser = None, is_nation=False, is_culture=False, is_religion=False,attname : str = None):
@@ -29,18 +27,18 @@ def generate_command(c : client.Client, attribute : str, formatter = str, parser
             typeatt = "religion"
             if not o: raise client.errors.MildError("Nothing found!")
 
-        rs = await c.towns_table.get_records(conditions=[db.CreationCondition(typeatt, o.name)], attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderDescending))
-        total = await c.towns_table.total_column(attribute, conditions=[db.CreationCondition(typeatt, o.name)])
+        rs = await (await c.execute(f"SELECT name, {attribute} FROM towns WHERE {typeatt}=? ORDER BY {attribute} DESC", (o.name,))).fetchall()
+        total = (await (await c.execute(f"SELECT SUM({attribute}) FROM towns WHERE {typeatt}=?", (o.name,))).fetchone())[0]
 
         attnameformat = attname.replace('_', ' ')
 
         log = ""
         values : list[c.image_generator.Vertex] = []
-        for i, record in enumerate(rs):
-            parsed = parser(record.attribute(attribute)) if parser else record.attribute(attribute)
-            name = str(record.attribute('name').replace("_", " "))
+        for i, (name, value) in enumerate(rs):
+            parsed = parser(value) if parser else value
+            name = str(name.replace("_", " "))
             val = formatter(parsed)
-            perc = (record.attribute(attribute)/total)*100
+            perc = (value/total)*100
 
             log = log + f"{i+1}. **{discord.utils.escape_markdown(name)}**: {val} ({perc:,.1f}%)\n"
 

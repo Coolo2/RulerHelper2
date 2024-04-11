@@ -7,8 +7,6 @@ from funcs import paginator, commands_view, autocompletes
 from discord import app_commands
 from discord.ext import commands
 
-import db
-
 import client
 
 import datetime
@@ -38,42 +36,37 @@ def generate_command(
 
         if is_town:
             if not_in_history:
-                rs = await c.towns_table.get_records(attributes=["name", attribute], order=db.CreationOrder(attribute, db.types.OrderDescending))
-                total = await c.towns_table.total_column(attribute)
+                rs = await (await c.execute(f"SELECT name, {attribute} FROM towns ORDER BY {attribute} DESC")).fetchall()
+                total = (await (await c.execute(f"SELECT SUM({attribute}) FROM towns")).fetchone())[0]
             else:
-                rs = await c.town_history_table.get_records(attributes=["town AS name", attribute], order=db.CreationOrder(attribute, db.types.OrderDescending), conditions=[db.CreationCondition("date", on_date)])
-                total = await c.town_history_table.total_column(attribute, conditions=[db.CreationCondition("date", on_date)])
+                rs = await (await c.execute(f"SELECT town, {attribute} FROM town_history WHERE date=? ORDER BY {attribute} DESC", (on_date,))).fetchall()
+                total = (await (await c.execute(f"SELECT SUM({attribute}) FROM town_history WHERE date=?", (on_date,))).fetchone())[0]
             l = [t.name for t in c.world.towns]
         elif is_player:
-            rs = await c.player_history_table.get_records(
-                attributes=["player AS name", f"MAX({attribute}) AS {attribute}"], 
-                order=db.CreationOrder(attribute, db.types.OrderDescending),
-                conditions=[db.CreationCondition("date", on_date, "<=")],
-                group=["player"]
-            )
+            rs = await (await c.execute(f"SELECT player, MAX({attribute}) FROM player_history WHERE date <= ? GROUP BY player ORDER BY {attribute} DESC", (on_date,))).fetchall()
             total = 0
             for r in rs: 
-                attr = r.attribute(attribute)
-                total += (attr if type(attr) != str else None) or 0
+                total += (r[1] if type(r[1]) != str else None) or 0
             l = [p.name for p in c.world.players]
         else: # is nation
-            rs = await c.nation_history_table.get_records(conditions=[db.CreationCondition("date", on_date)], attributes=["nation AS name", attribute], order=db.CreationOrder(attribute, db.types.OrderDescending))
-            total = await c.nation_history_table.total_column(attribute, conditions=[db.CreationCondition("date", on_date)])
+            rs = await (await c.execute(f"SELECT nation, {attribute} FROM nation_history WHERE date=? ORDER BY {attribute} DESC", (on_date,))).fetchall()
+            total = (await (await c.execute(f"SELECT SUM({attribute}) FROM nation_history WHERE date=?", (on_date,))).fetchone())[0]
+
             l = [n.name for n in c.world.nations]
 
         o_type = "nation" if is_nation else "town" if is_town else "player" if is_player else "culture" if is_culture else "religion"
         attnameformat = attname.replace('_', ' ')
 
         if is_culture or is_religion:
-            rs = await c.object_history_table.get_records(conditions=[db.CreationCondition("type", o_type), db.CreationCondition("date", on_date)], attributes=["object AS name", attribute], order=db.CreationOrder(attribute, db.types.OrderDescending))
-            total = await c.object_history_table.total_column(attribute, conditions=[db.CreationCondition("type", o_type), db.CreationCondition("date", on_date)])
+            rs = await (await c.execute(f"SELECT object, {attribute} FROM object_history WHERE date=? ORDER BY {attribute} DESC", (on_date,))).fetchall()
+            total = (await (await c.execute(f"SELECT SUM({attribute}) FROM object_history WHERE date=?", (on_date,))).fetchone())[0]
+
             l = [o.name for o in c.world._objects[o_type + "s"]]
 
         log = ""
         values : list[c.image_generator.Vertex] = []
         i = -1
-        for record in (reversed(rs) if reverse else rs):
-            r_name = record.attribute("name")
+        for (r_name, value) in (reversed(rs) if reverse else rs):
             if is_town and (r_name in s.DEFAULT_TOWNS or True in [l in r_name for l in s.DEFAULT_TOWNS_SUBSTRING]):
                 continue
             if is_religion and "Production" in r_name:
@@ -81,12 +74,12 @@ def generate_command(
             if r_name not in l and on_date == datetime.date.today():
                 continue
 
-            attval = record.attribute(attribute) or 0
+            attval = value or 0
             if is_player and attribute=="bank" and (not attval or type(attval) == str):
                 continue
             i += 1
             
-            parsed = (parser(record.fields[1].value) if parser else record.fields[1].value) or 0
+            parsed = (parser(value) if parser else value) or 0
             val = formatter(parsed)
             
             if total > 0:

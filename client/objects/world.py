@@ -136,14 +136,14 @@ class World():
 
     @property 
     async def total_activity(self) -> client_pre.objects.Activity:
-        r = await (await self.client.database.connection.execute("SELECT SUM(duration) FROM activity WHERE object_type='player'")).fetchone()
+        r = await (await self.client.execute("SELECT SUM(duration) FROM activity WHERE object_type='player'")).fetchone()
 
         return self.client.objects.Activity(r[0])
 
     @property 
     async def total_tracked(self) -> client_pre.objects.Activity:
         try:
-            r = await (await self.client.database.connection.execute("SELECT value FROM global WHERE name='total_tracked'")).fetchone()
+            r = await (await self.client.execute("SELECT value FROM global WHERE name='total_tracked'")).fetchone()
 
             if r:
                 return self.client.objects.Activity(r[0])
@@ -151,14 +151,14 @@ class World():
             return self.client.objects.Activity()
     @property 
     async def total_tracked_chat(self) -> client_pre.objects.Activity:
-        r = await (await self.client.database.connection.execute("SELECT value FROM global WHERE name='total_tracked_chat'")).fetchone()
+        r = await (await self.client.execute("SELECT value FROM global WHERE name='total_tracked_chat'")).fetchone()
 
         if r:
             return self.client.objects.Activity(r[0])
     
     @property 
     async def total_messages(self) -> int: 
-        return await self.client.chat_message_counts_table.total_column("amount")
+        return (await (await self.client.execute("SELECT SUM(amount) FROM chat_message_counts")).fetchone())[0]
     
     @property 
     async def linked_discords(self) -> list[tuple[client_pre.objects.Player, discord.Member]]:
@@ -193,16 +193,16 @@ class World():
     
 
     async def initialise_player_list(self):
-        players = await self.client.players_table.get_records()
+        player_records = await (await self.client.execute("SELECT name, location, armor, health, nickname FROM players")).fetchall()
 
-        for player in players:
+        for (name, location, armor, health, nickname) in player_records:
             p = self.client.objects.Player(self)
 
-            p.name = str(player.attribute("name"))
-            p.location = Point(float(c) for c in player.attribute("location").split(","))
-            p.armor = player.attribute("armor")
-            p.health = player.attribute("health")
-            p.nickname = player.attribute("nickname")
+            p.name = str(name)
+            p.location = Point(float(c) for c in location.split(","))
+            p.armor = armor
+            p.health = health
+            p.nickname = nickname
 
             self.__players[p.name] = p
 

@@ -7,7 +7,6 @@ from funcs import autocompletes, commands_view, paginator
 from discord import app_commands
 from discord.ext import commands
 
-import db
 import client
 
 import datetime
@@ -32,41 +31,43 @@ def generate_command(
 
         edit = interaction.extras.get("edit")
         conditions = []
+        bindings = []
 
         o_type = "town" if town else "player" if player else "nation" if nation else "culture" if culture else "religion" if religion else "global"
         table_name = "town_history" if town else "player_history" if player else "nation_history" if nation else "object_history" if culture or religion else "global_history"
         name_attribute = "town" if town else "player" if player else "nation" if nation else "object" if culture or religion else None
 
-        if start_at: conditions.append(db.CreationCondition("date", start_at, ">="))
+        if start_at: 
+            conditions.append("date >= ?")
+            bindings.append(start_at)
 
         if town:
             o = c.world.get_town(town, True)
-            conditions.append(db.CreationCondition("date", o.founded_date, ">="))
+            conditions.append("date >= ?")
+            bindings.append(o.founded_date)
         elif player:
             o = c.world.get_player(player, True)
         elif nation:
             o = c.world.get_nation(nation, True)
         elif culture:
             o = c.world.get_culture(culture, True)
-            conditions.append(db.CreationCondition("type", o.object_type))
+            conditions.append("type = ?")
+            bindings.append(o.object_type)
         elif religion:
             o = c.world.get_religion(religion, True)
-            conditions.append(db.CreationCondition("type", o.object_type))
+            conditions.append("type = ?")
+            bindings.append(o.object_type)
         else:
             o = None
-            #rs = await c.global_history_table.get_records(attributes=["date", attribute], order=db.CreationOrder("date", db.types.OrderAscending), conditions=conditions)
-
-        table = await c.database.get_table(table_name)
 
         if o_type != "global":
             if not o: raise client.errors.MildError("Nothing found!")
-            conditions.append(db.CreationCondition(name_attribute, o.name))
+            conditions.append(f"{name_attribute} = ?")
+            bindings.append(o.name)
         
-        rs = await table.get_records(
-            conditions, 
-            ["date", attribute], 
-            order=db.CreationOrder("date", db.types.OrderAscending)
-        )
+        statement = f"SELECT date, {attribute} FROM {table_name}{' WHERE ' if len(conditions) > 0 else ''}{' AND '.join(conditions)} ORDER BY date ASC"
+
+        rs = await (await c.execute(statement, bindings)).fetchall()
 
         name = o.name_formatted + "'s" if o else 'Global'
         attnameformat = attname.replace('_', ' ')
@@ -76,26 +77,26 @@ def generate_command(
         values = {}
         parsed_values = {}
         timeline_points = []
-        for record in rs:
+        for (date, value) in rs:
             
-            if record.attribute(attribute) == None and not qualitative:
+            if value == None and not qualitative:
                 continue
             
-            parsed = parser(record.attribute(attribute)) if parser else record.attribute(attribute)
+            parsed = parser(value) if parser else value
             if qualitative and last == parsed:
                 continue
             
             if not qualitative:
-                parsed_values[str(record.attribute('date'))] = parsed
+                parsed_values[str(date)] = parsed
             else:
-                timeline_points.append(c.image_generator.Vertex(record.attribute('date'), parsed))
+                timeline_points.append(c.image_generator.Vertex(date, parsed))
 
             if not qualitative:
                 change = parsed-last if last else None
                 change = (("+" if change >= 0 else "-") + formatter(change).replace("-", "")) if change not in [None, 0] else ""
             val = formatter(parsed)
             
-            log = f"**{record.attribute('date').strftime(s.DATE_STRFTIME)}**: {discord.utils.escape_markdown(str(val))}" + (f" (`{change}`)\n" if last and not qualitative and len(change)>0 else "\n") + log
+            log = f"**{date.strftime(s.DATE_STRFTIME)}**: {discord.utils.escape_markdown(str(val))}" + (f" (`{change}`)\n" if last and not qualitative and len(change)>0 else "\n") + log
             last = parsed
         
         if not qualitative:
@@ -112,7 +113,7 @@ def generate_command(
         
         if not qualitative:
             lg = c.image_generator.LineGraph(c.image_generator.XTickFormatter.DATE, y_formatter)
-            lg.add_line(c.image_generator.Line([c.image_generator.Vertex(r.fields[0].value, r.fields[1].value) for r in rs]))
+            lg.add_line(c.image_generator.Line([c.image_generator.Vertex(r[0], r[1]) for r in rs]))
             await c.image_generator.plot_linegraph(
                 lg, f"{name} {attnameformat} history", "Date", y or "Value"
             )
@@ -177,6 +178,7 @@ def generate_command_today(
 
         edit = interaction.extras.get("edit")
         conditions = []
+        bindings = []
 
         o_type = "town" if town else "player" if player else "nation" if nation else "global"
         table_name = "town_day_history" if town else "player_day_history" if player else "nation_day_history" if nation else "global_day_history"
@@ -191,17 +193,12 @@ def generate_command_today(
         else:
             o = None
 
-        table = await c.database.get_table(table_name)
-
         if o_type != "global":
             if not o: raise client.errors.MildError("Nothing found!")
-            conditions.append(db.CreationCondition(name_attribute, o.name))
+            conditions.append(f"{name_attribute}=?" )
+            bindings.append(o.name)
         
-        rs = await table.get_records(
-            conditions, 
-            ["time", attribute], 
-            order=db.CreationOrder("time", db.types.OrderAscending)
-        )
+        rs = await (await c.execute(f"SELECT time, {attribute} FROM {table_name}{' WHERE ' if len(conditions) > 0 else ''}{' AND '.join(conditions)} ORDER BY time ASC", bindings)).fetchall()
 
         if len(rs) == 0:
             raise client.errors.MildError(f"No data to show yet! Wait until some is available (max 20 minutes)")
@@ -213,26 +210,25 @@ def generate_command_today(
         last = None
         values = {}
         parsed_values = {}
-        for record in rs:
-            
-            if record.attribute(attribute) == None:
+        for (time, value) in rs:
+            if value == None:
                 continue
             
-            parsed = parser(record.attribute(attribute)) if parser else record.attribute(attribute)
+            parsed = parser(value) if parser else value
             
-            parsed_values[str(record.attribute('time'))] = parsed
+            parsed_values[str(time)] = parsed
 
             change = parsed-last if last else None
             change = (("+" if change >= 0 else "-") + formatter(change).replace("-", "")) if change not in [None, 0] else ""
             val = formatter(parsed)
             
-            log = f"**<t:{int(record.attribute('time').timestamp())}:f>**: {discord.utils.escape_markdown(str(val))}" + (f" (`{change}`)\n" if last and len(change)>0 else "\n") + log
+            log = f"**<t:{int(time.timestamp())}:f>**: {discord.utils.escape_markdown(str(val))}" + (f" (`{change}`)\n" if last and len(change)>0 else "\n") + log
             last = parsed
         
-            values[str(record.attribute('time'))] = int(parsed)
+            values[str(time)] = int(parsed)
         
         lg = c.image_generator.LineGraph(c.image_generator.XTickFormatter.DATETIME, y_formatter)
-        lg.add_line(c.image_generator.Line([c.image_generator.Vertex(r.fields[0].value, r.fields[1].value) for r in rs]))
+        lg.add_line(c.image_generator.Line([c.image_generator.Vertex(r[0], r[1]) for r in rs]))
         await c.image_generator.plot_linegraph(
             lg, f"{name} {attnameformat} history today", "Time (GMT)", y or "Value"
         )
@@ -278,13 +274,13 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             o = c.world.get_town(town, True)
             if not o: raise client.errors.MildError("Nothing found!")
             objects = await o.visited_players
-            total = await c.visited_towns_table.total_column("duration", conditions=[db.CreationCondition("town", o.name)])
+            total = (await (await c.execute("SELECT SUM(duration) FROM visited_towns WHERE town=?", (o.name,))).fetchone())[0]
             l = [p.name for p in c.world.players]
         elif player:
             o = c.world.get_player(player, True)
             if not o: raise client.errors.MildError("Nothing found!")
             objects = await o.visited_towns
-            total = await c.visited_towns_table.total_column("duration", conditions=[db.CreationCondition("player", o.name)])
+            total = (await (await c.execute("SELECT SUM(duration) FROM visited_towns WHERE player=?", (o.name,))).fetchone())[0]
             l = [t.name for t in c.world.towns]
 
         log = ""

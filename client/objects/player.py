@@ -9,7 +9,6 @@ from shapely.geometry import Point
 import re
 
 import setup 
-import db
 
 import discord
 
@@ -33,7 +32,7 @@ class Player():
         self._town_cache = None
 
     async def activity_in(self, town : client_pre.objects.Town) -> client_pre.objects.Activity:
-        r = await (await self.__world.client.database.connection.execute("SELECT duration, last FROM visited_towns WHERE player=? AND town=?", (self.name, town.name))).fetchone()
+        r = await (await self.__world.client.execute("SELECT duration, last FROM visited_towns WHERE player=? AND town=?", (self.name, town.name))).fetchone()
 
         return self.__world.client.objects.Activity.from_record(r)
     
@@ -89,9 +88,9 @@ class Player():
         rankings = {}
         for command in setup.top_commands["player"]:
 
-            r1 = await (await self.__world.client.database.connection.execute(f"""SELECT {command['attribute']} FROM players WHERE name=?""", (self.name,))).fetchone()
+            r1 = await (await self.__world.client.execute(f"""SELECT {command['attribute']} FROM players WHERE name=?""", (self.name,))).fetchone()
             if r1 and r1 != (None,):
-                r2 = await (await self.__world.client.database.connection.execute(f"""SELECT COUNT(*) FROM players WHERE {command['attribute']}>?""", (r1[0],))).fetchone()
+                r2 = await (await self.__world.client.execute(f"""SELECT COUNT(*) FROM players WHERE {command['attribute']}>?""", (r1[0],))).fetchone()
                 ranking = r2[0]
                 if command.get("reverse_notable"): ranking = len(self.__world.players)-ranking-1
                 notable = True if ranking <= len(self.__world.players)/10 else False
@@ -122,33 +121,31 @@ class Player():
 
     @property 
     async def activity(self) -> client_pre.objects.Activity:
-        r = await (await self.__world.client.database.connection.execute("SELECT duration, last FROM activity WHERE object_type='player' AND object_name=?", (self.name,))).fetchone()
+        r = await (await self.__world.client.execute("SELECT duration, last FROM activity WHERE object_type='player' AND object_name=?", (self.name,))).fetchone()
 
         return self.__world.client.objects.Activity.from_record(r)
     
     @property 
     async def visited_towns(self) -> list[client_pre.objects.Activity]:
-        rs = await self.__world.client.visited_towns_table.get_records(
-            [db.CreationCondition("player", self.name)], 
-            ["town", "duration", "last"], group=["town"], order=db.CreationOrder("duration", db.types.OrderDescending)
-        )
-        return [self.__world.client.objects.Activity(r.attribute("duration"), r.attribute("last"), self.__world.get_town(r.attribute("town"), False) or r.attribute("town")) for r in rs]
+        rs = await (await self.__world.client.execute("SELECT town, duration, last FROM visited_towns WHERE player=? GROUP BY town ORDER BY duration DESC", (self.name,))).fetchall()
+
+        return [self.__world.client.objects.Activity(r[1], r[2], town=self.__world.get_town(r[0], False) or r[0]) for r in rs]
         
     
     @property 
     async def total_visited_towns(self) -> list[client_pre.objects.Town]:
-        return (await (await self.__world.client.database.connection.execute("SELECT COUNT(*) FROM visited_towns WHERE player=?", (self.name,))).fetchone())[0]
+        return (await (await self.__world.client.execute("SELECT COUNT(*) FROM visited_towns WHERE player=?", (self.name,))).fetchone())[0]
     
     @property 
     async def total_mentions(self) -> tuple[int, datetime.datetime]: 
-        r = await (await self.__world.client.database.connection.execute("SELECT amount, last FROM chat_mentions WHERE object_type='player' AND object_name=?", (self.name,))).fetchone()
+        r = await (await self.__world.client.execute("SELECT amount, last FROM chat_mentions WHERE object_type='player' AND object_name=?", (self.name,))).fetchone()
         if r:
             return r
         return 0, None
     
     @property 
     async def total_messages(self) -> tuple[int, datetime.datetime]: 
-        r = await (await self.__world.client.database.connection.execute("SELECT amount, last FROM chat_message_counts WHERE player=?", (self.name,))).fetchone()
+        r = await (await self.__world.client.execute("SELECT amount, last FROM chat_message_counts WHERE player=?", (self.name,))).fetchone()
         if r: 
             return r
         return 0, None
@@ -158,40 +155,27 @@ class Player():
     @property
     async def mention_count(self): return (await self.total_mentions)[0]
     
-    @property 
-    async def exists_in_db(self):
-        return await self.__world.client.players_table.record_exists([db.CreationCondition("name", self.name)])
-    
-    
     async def get_activity_today(self, activity : client_pre.objects.Activity = None):
-        twodays = (await self.__world.client.player_history_table.get_records([db.CreationCondition("player", self.name)], attributes=["duration"], order=db.CreationOrder("duration", db.types.OrderDescending), limit=2))
-        
+        twodays_records = await (await self.__world.client.execute("SELECT duration FROM player_history WHERE player=? ORDER BY duration DESC LIMIT 2", (self.name,))).fetchall()
+
         a = activity
         if not activity:
             a = await self.activity
-        if len(twodays) == 1:
+        if len(twodays_records) == 1:
             return a
-        yesterday = twodays[1]
-        return self.__world.client.objects.Activity(a.total - yesterday.attribute("duration"), last=a.last)
+        yesterday = twodays_records[1]
+        return self.__world.client.objects.Activity(a.total - yesterday[0], last=a.last)
         
     async def set_flag(self, flag_name : str, flag_value):
-        cond = [db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", self.name)]
-        val = ["player", self.name, flag_name, flag_value]
+        await self.__world.client.funcs.set_flag(self.__world.client, "player", self.name, flag_name, flag_value)
 
-        if setup.flags["player"][flag_name].get("unique"):
-            await self.__world.client.flags_table.delete_records([db.CreationCondition("object_type", "player"), db.CreationCondition("name", flag_name), db.CreationCondition("value", flag_value)])
-       
-        a = await self.__world.client.flags_table.add_record_if_not_exists(val, cond)
-        if not a:
-            await self.__world.client.flags_table.update_record(cond, *val)
-    
     @property
     async def flags(self) -> dict:
-        rs = await self.__world.client.flags_table.get_records([db.CreationCondition("object_type", "player"), db.CreationCondition("object_name", self.name)], ["name", "value"])
+        rs = await (await self.__world.client.execute("SELECT name, value FROM flags WHERE object_type='player' AND object_name=?", (self.name,))).fetchall()
         d = {}
         for r in rs:
-            if r.attribute("value"):
-                d[r.attribute("name")] = r.attribute("value")
+            if r[1]:
+                d[r[0]] = r[1]
         return d
 
     def update(self, data : dict):
@@ -209,6 +193,10 @@ class Player():
     @property 
     def donator(self):
         return True if self.nickname and (self.name != self.nickname and "color:#ffffff" not in self.nickname and "color:#ff5555" not in self.nickname) else False
+    
+    @property 
+    def pvp(self):
+        return True if self.nickname and "color:#ff5555" in self.nickname else False
     
     @property 
     def nickname_no_tags(self):

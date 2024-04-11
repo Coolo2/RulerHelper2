@@ -8,8 +8,6 @@ import client
 
 import setup as s
 
-import db
-
 from funcs import autocompletes
 
 class AcceptView(discord.ui.View):

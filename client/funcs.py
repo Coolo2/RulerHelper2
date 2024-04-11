@@ -1,6 +1,12 @@
 
+from __future__ import annotations
+import typing
+if typing.TYPE_CHECKING:
+    import client as client_pre
+
 import datetime
 import discord
+
 
 def _total(arr : list, attr : str):
     t = 0
@@ -28,10 +34,15 @@ def generate_time(time):
     return f"{day}{hour}{minutes}".lstrip()
 
 def top_rankings_to_text(rankings : dict, object_name : str, notable_only = True) -> str:
-    notable_statistics = f"\n- {discord.utils.escape_markdown(object_name)} is:"
+    
+    notable_statistics = f""
     for (leaderboard), (value, ranking, notable) in rankings.items():
         if notable: notable_statistics += f"\n - **#{ranking}** on the **{leaderboard.replace('_', ' ')}** ranking"
-    if not notable_only or notable_statistics == "": notable_statistics = "None"
+    
+    if not notable_only or notable_statistics == "": 
+        notable_statistics = "None"
+    else:
+        notable_statistics = f"\n- {discord.utils.escape_markdown(object_name)} is:" + notable_statistics
 
     return notable_statistics
 
@@ -42,3 +53,12 @@ def validate_datetime(date_text, format):
         return True
     except ValueError:
         return False
+
+async def set_flag(client : client_pre.Client, object_type : str, object_name : str, flag_name : str, flag_value):
+    import setup as s
+    # Updates a flag in the database for this object
+    
+    if s.flags["player"][flag_name].get("unique"):
+        await client.execute("DELETE FROM flags WHERE object_type=? AND name=? AND value=?", (object_type, flag_name, flag_value))
+    
+    await client.execute("REPLACE INTO flags VALUES (?, ?, ?, ?)", (object_type, object_name, flag_name, flag_value))

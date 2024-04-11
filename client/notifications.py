@@ -7,8 +7,6 @@ import discord
 from shapely import Point 
 
 import setup as s
-import db 
-from db import wrapper
 
 from client import funcs
 
@@ -19,14 +17,14 @@ class NotificationChannel():
         self.nation_name : str = None
         self.ignore_if_resident :bool = None
     
-    def from_record(client : client_pre.Client, record : wrapper.Record):
+    def from_record(client : client_pre.Client, record : tuple):
         nc = NotificationChannel()
 
-        nc.notification_type = record.attribute("notification_type")
-        nc.channel = client.bot.get_channel(int(record.attribute("channel_id")))
-        nc.nation_name = record.attribute("object_name")
+        nc.notification_type = record[1]
+        nc.channel = client.bot.get_channel(int(record[0]))
+        nc.nation_name = record[2]
 
-        ignore_if_resident = record.attribute("ignore_if_resident")
+        ignore_if_resident = record[3]
         nc.ignore_if_resident = True if str(ignore_if_resident) == "1" else False
 
         return nc
@@ -37,51 +35,32 @@ class Notifications():
 
         self._players_ignore : dict[str, dict[str, int]] = {}# "town":{"player":[0, msg]}
 
-    async def add_notification_channel(self, channel : discord.TextChannel, notification_type : str, nation_name : str, ignore_if_resident : bool):
-        await self.client.notifications_table.add_record(
-            [
-                notification_type,
-                channel.guild.id,
-                channel.id,
-                nation_name,
-                int(ignore_if_resident)
-            ]
-        )
-    
-    async def update_notifications_channel(self, channel : discord.TextChannel, notification_type : str, nation_name : str, ignore_if_resident : bool):
-        await self.client.notifications_table.update_record(
-            [db.CreationCondition("channel_id", channel.id), db.CreationCondition("notification_type", notification_type)],
-            *[
-                notification_type,
-                channel.guild.id,
-                channel.id,
-                nation_name,
-                int(ignore_if_resident)
-            ]
-        )
-    
-    async def does_notification_channel_exist(self, channel : discord.TextChannel, notification_type : str):
-        return await self.client.notifications_table.record_exists(*[db.CreationCondition("channel_id", channel.id), db.CreationCondition("notification_type", notification_type)])
+    async def set_notification_config(self, channel : discord.TextChannel, notification_type : str, nation_name : str, ignore_if_resident : bool):
+        await self.client.execute("REPLACE INTO notifications VALUES (?, ?, ?, ?, ?)", (
+            notification_type,channel.guild.id, channel.id,nation_name, int(ignore_if_resident)
+        ))
 
-    async def delete_notifications_channel(self, channel : discord.TextChannel = None, notification_type : str = None):
-        c = []
+    async def delete_notifications_channel(self, channel : discord.TextChannel, notification_type : str = None):
+        statement = "DELETE FROM notifications WHERE channel_id=?"
+        bindings = [channel.id]
         if notification_type:
-            c.append(db.CreationCondition("notification_type", notification_type))
-        if channel:
-            c.append(db.CreationCondition("channel_id", channel.id))
-        return await self.client.notifications_table.delete_records(*c)
+            bindings.append(notification_type)
+            statement += " AND notification_type=?"
+        await self.client.execute(statement, bindings)
 
     
     async def get_notification_channels(self, channel : discord.TextChannel = None, notification_type : str = None):
-        c = []
-        if notification_type:
-            c.append(db.CreationCondition("notification_type", notification_type))
+        statement = "SELECT channel_id, notification_type, object_name, ignore_if_resident FROM notifications"
+        bindings = []
+
         if channel:
-            c.append(db.CreationCondition("channel_id", channel.id))
+            statement += " WHERE channel_id=?"
+            bindings.append(channel.id)
+        if notification_type:
+            statement += " AND notification_type=?"
+            bindings.append(notification_type)
         
-        notification_channels_records = await self.client.notifications_table.get_records(
-            conditions=c
-        )
+        notification_channels_records : list[tuple] = await (await self.client.execute(statement, bindings)).fetchall()
         
         notification_channels : list[NotificationChannel] = []
 
