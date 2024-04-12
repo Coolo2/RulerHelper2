@@ -66,8 +66,11 @@ class CacheItem():
 
         These are split by "_+_"
         """
-    
+    import setup as s
     def check_cache(self):
+        if not self.s.CACHE_IMAGES:
+            return self 
+        
         self.checked = True
         cache_files = [file_name for file_name in os.listdir('./cache') if file_name.endswith(".png")]
     
@@ -84,8 +87,9 @@ class CacheItem():
         return self
     
     async def save(self, buf):
-        with open(f"./cache/{self.name}{CACHE_SPLIT_STRING}{self.id}{CACHE_SPLIT_STRING}{self.extra}.png", "wb") as f:
-            f.write(buf.getbuffer())
+        if self.s.CACHE_IMAGES:
+            with open(f"./cache/{self.name}{CACHE_SPLIT_STRING}{self.id}{CACHE_SPLIT_STRING}{self.extra}.png", "wb") as f:
+                f.write(buf.getbuffer())
 
 
 class ImageGenerator():
@@ -236,7 +240,7 @@ class ImageGenerator():
                 plt.scatter(x=points[-1][0] if len(points) > 0 else 0, y=points[-1][1], color=color_i, label=line.name)
             else:
                 plt.plot([p[0] for p in points], [p[1] for p in points], color=color_i, label=line.name, alpha=1 if len(lg.lines) == 1 else 0.75)
-
+        
         gca = plt.gca()
         gca.set_facecolor("#00000000")
 
@@ -559,7 +563,8 @@ class ImageGenerator():
                 primary_dot_size : int = 8, 
                 secondary_dot_size : float = 0.5, 
                 show_background: MapBackground=False, 
-                expand_limits_multiplier : tuple[float] = (1, 1)
+                expand_limits_multiplier : tuple[float] = (1, 1),
+                maintain_aspect_ratio : bool = False
     ):
 
         ax = plt.gca()
@@ -583,6 +588,10 @@ class ImageGenerator():
             self.__plot_map(ax)
         
         x_lim, y_lim = self.__expand_limits(x_lim, y_lim, expand_limits_multiplier)
+
+        if maintain_aspect_ratio:
+            y_lim = self.__calculate_limits(y_lim, x_lim, self.map_height, 0.3)
+            x_lim = self.__calculate_limits(x_lim, y_lim, self.map_width, 2)
 
         ax.set_xlim(x_lim)
         ax.set_ylim(y_lim)

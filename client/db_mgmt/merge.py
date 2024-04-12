@@ -83,7 +83,7 @@ async def merge_objects(c : client_pre.Client, object_type : str, old_object_nam
 
         old_mentions_record = await (await c.execute("SELECT amount, last FROM chat_mentions WHERE object_type='town' AND object_name=?", (old_object_name,))).fetchone()
         if old_mentions_record:
-            await c.execute("REPLACE INTO chat_mentions VALUES ('player', ?, ifnull((select amount from chat_mentions where object_type='town' AND object_name=?), 0)+?, ?)", (obj.name, obj.name, old_mentions_record[0], old_mentions_record[1]))
+            await c.execute("REPLACE INTO chat_mentions VALUES ('town', ?, ifnull((select amount from chat_mentions where object_type='town' AND object_name=?), 0)+?, ?)", (obj.name, obj.name, old_mentions_record[0], old_mentions_record[1]))
         await c.execute("DELETE FROM chat_mentions WHERE object_type='town' AND object_name=?", (old_object_name,))
 
         # Update flag table
@@ -127,7 +127,7 @@ async def merge_objects(c : client_pre.Client, object_type : str, old_object_nam
 
         old_mentions_record = await (await c.execute("SELECT amount, last FROM chat_mentions WHERE object_type='nation' AND object_name=?", (old_object_name,))).fetchone()
         if old_mentions_record:
-            await c.execute("REPLACE INTO chat_mentions VALUES ('player', ?, ifnull((select amount from chat_mentions where object_type='nation' AND object_name=?), 0)+?, ?)", (obj.name, obj.name, old_mentions_record[0], old_mentions_record[1]))
+            await c.execute("REPLACE INTO chat_mentions VALUES ('nation', ?, ifnull((select amount from chat_mentions where object_type='nation' AND object_name=?), 0)+?, ?)", (obj.name, obj.name, old_mentions_record[0], old_mentions_record[1]))
         await c.execute("DELETE FROM chat_mentions WHERE object_type='nation' AND object_name=?", (old_object_name,))
 
         # Update flags: 1. Delete flags if already exist 2. Update old name

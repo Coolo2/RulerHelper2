@@ -93,16 +93,16 @@ class Notifications():
                 for channel in channels:
                     if town.nation and channel.notification_type == "territory_enter" and channel.nation_name == town.nation.name:
                         
-                        residency_nation = player.residency.nation.name_formatted if player.residency and player.residency.nation else "None"
+                        residence_nation = player.residence.nation.name_formatted if player.residence and player.residence.nation else "None"
                         
-                        if channel.ignore_if_resident and player.residency and player.residency.nation == town.nation:
+                        if channel.ignore_if_resident and player.residence and player.residence.nation == town.nation:
                             continue
                             
                         embed = discord.Embed(title=f"Player entered {town.nation.name_formatted} territory", color=s.embed)
                         embed.add_field(name="Player name", value=discord.utils.escape_markdown(player.name))
                         embed.add_field(name="Coordinates", value=f"[{int(player.location.x)}, {int(player.location.y)}, {int(player.location.z)}]({self.client.url}?x={int(player.location.x)}&z={int(player.location.z)}&zoom={s.map_link_zoom})")
                         embed.add_field(name="Town", value=town.name_formatted)
-                        embed.add_field(name="Residency (origin)", value=f"{player.residency.name_formatted} ({residency_nation})" if player.residency else "Unknown")
+                        embed.add_field(name="Residence (origin)", value=f"{player.residence.name_formatted} ({residence_nation})" if player.residence else "None")
                         embed.add_field(name="Time spent", value="This will be edited when they exit")
                         embed.set_thumbnail(url=await player.face_url)
 

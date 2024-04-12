@@ -67,6 +67,8 @@ def generate_command(
         values : list[c.image_generator.Vertex] = []
         i = -1
         for (r_name, value) in (reversed(rs) if reverse else rs):
+            if value == None:
+                continue
             if is_town and (r_name in s.DEFAULT_TOWNS or True in [l in r_name for l in s.DEFAULT_TOWNS_SUBSTRING]):
                 continue
             if is_religion and "Production" in r_name:
@@ -83,10 +85,10 @@ def generate_command(
             val = formatter(parsed)
             
             if total > 0:
-                perc = (attval/total)*100 if type(attval) != datetime.date else (parsed/total)*100
+                perc = (attval/total)*100 if type(attval) not in (datetime.date, datetime.datetime) else (parsed/total)*100
             else:
                 perc = 0
-            perc_str = f" ({perc:,.1f}%)" if type(attval) != datetime.date else ""
+            perc_str = f" ({perc:,.1f}%)" if type(attval)  not in (datetime.date, datetime.datetime)  else ""
             name = str(r_name).replace("_", " ") if not is_player else str(r_name)
             fmt = "**" if r_name in l else "`"
 
@@ -122,7 +124,7 @@ def generate_command(
 
         view = paginator.PaginatorView(embed, log, index=interaction.extras.get("page"))
         view.add_item(commands_view.RefreshButton(c, f"top {o_type}s {attname}", (), 3))
-        view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {o_type.title()} Info...", 2))
+        view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {o_type.title()} Info...", -1))
         
         return await (interaction.response.edit_message(embed=embed, view=view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=view, file=graph))
 
@@ -153,7 +155,7 @@ class Top(commands.Cog):
                 cmd_type_name = command_type['name']
                 name = "followers" if name == "residents" and cmd_type_name == "religion" else name
 
-                command = app_commands.command(name=name, description=f"Top {cmd_type_name}s by {name}")(generate_command(
+                command = app_commands.command(name=name, description=attribute.get("description") or f"Top {cmd_type_name}s by {name}")(generate_command(
                     self, 
                     self.client, 
                     attribute.get("attribute"), 

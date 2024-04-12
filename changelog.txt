@@ -5,10 +5,26 @@
  - Tweaked town spawn dot size 
  - Images are a slightly higher resolution
 - Fixed bug causing 'expand outposts' button to not work
-- New 'nickname' field in /get player
+- New command: /top towns mayor_inactivity which shows towns with one resident close to deletion
+ - Also added a warning in /get town if town is to be deleted (soon)
+- New 'map' button in /get player which displays their (last) location on a map image
+- New 'PVP?' field in /get player
+- Added 'first seen' field to /get player and /get nation which shows when they were first seen in-game.
+- 'get ... info' select menus now show at the top of the button list under embeds
+- Player's in-game nickname now shows in the title of the embed in /get player
 - Refresh times have been vastly optimised, data should be more up-to-date
+- "Activity" field renamed to "Total activity" in /get town and /get nation
+- Changed the emojis in /get world buttons
+- Renamed 'residency' to 'residence' around the bot
+- Town and nation names are now formatted in /compare line graphs
 - Fixed leaderboard ranking notable statistics still having heading if there are none for the object
 - Fixed a bug where objects are forgotten briefly on server restart / bot disconnect
+- Fixed a bug where town count in /get religion and /get culture was one greater than reality
+- Fixed a bug where /compare players images were a weird aspect ratio
+- 'Retry command' button no longer shows for 'Find user'/context menu commands
+- 'Tracking server for...' footer no longer displays minute count
+- Residency now shows as 'none' rather than 'unknown' in notifications if they are not a resident
+- /history town visited_players no longer shows players who visited a previous town of the same name
 newpage
 ## v2.10.1 (Mar 30 2024)
 - New command /distribution nation mayor_bank which shows the mayor's bank for each town 

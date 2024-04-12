@@ -70,7 +70,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 if not attribute.get('no_history') and not attribute.get('qualitative'):
                     total =  total + value
                     history_r = await (await self.client.execute(f"SELECT {history_name}, date FROM town_history WHERE town=? ORDER BY date ASC", (town.name,))).fetchall()
-                    graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r[1], r[0]) for r in history_r], town.name))
+                    graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r[1], r[0]) for r in history_r], town.name_formatted))
             
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name
@@ -155,7 +155,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
                 if not attribute.get('no_history') and not attribute.get('qualitative'):
                     total += value
                     history_r = await (await self.client.execute(f"SELECT {history_name}, date FROM nation_history WHERE nation=? ORDER BY date ASC", (nation.name,))).fetchall()
-                    graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r[1], r[0]) for r in history_r], nation.name))
+                    graph.add_line(self.client.image_generator.Line([self.client.image_generator.Vertex(r[1], r[0]) for r in history_r], nation.name_formatted))
             
             if not attribute.get("qualitative"):
                 y = attribute.get("y") or display_name
@@ -212,7 +212,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
         async def im_map(players : list[client.objects.Player]):
             await self.client.image_generator.init_map()
 
-            await self.client.image_generator.layer_player_locations(players, [], show_background=True, expand_limits_multiplier=(1.4, 0.92+(0.08*len(players))))
+            await self.client.image_generator.layer_player_locations(players, [], show_background=True, expand_limits_multiplier=(1.4, 0.92+(0.08*len(players))), maintain_aspect_ratio=True)
             await self.client.image_generator.layer_spawn_connections(players)
             return await self.client.image_generator.render_plt(s.IMAGE_DPI_DRAWING, None)
         image_generators.append((im_map, (players,)))
@@ -251,7 +251,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
             total_str = f"{total:,}" if type(total) in [int, float] else str(total)
             embed.add_field(name=f"{display_name} {('('+total_str+')') if not attribute.get('no_history') and not attribute.get('qualitative') else ''}", value=desc, inline=attribute.get("inline") or False)
         
-        residencies = [i for i in list(dict.fromkeys([p.residency.name if p.residency else None for p in players])) if i != None]
+        residencies = [i for i in list(dict.fromkeys([p.residence.name if p.residence else None for p in players])) if i != None]
 
         view = paginator.PaginatorView(embed, page_image_generators=image_generators, search=False, skip_buttons=False, temp_img_url="attachment://paginator_image.png" if edit else "attachment://map_waiting.jpg", render_image_after=True, index=interaction.extras.get("page"))
         if len(residencies) > 1: view.add_item(commands_view.CommandButton(self, commands_view.Command("compare towns", "Compare Residencies", parameters=residencies, emoji="🗾", row=2)))

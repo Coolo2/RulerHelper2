@@ -26,6 +26,7 @@ class RawDatabase():
             "mentions INTEGER",
             "outposts INTEGER",
             "visited_players INTEGER",
+            "mayor_inactivity TIMESTAMP",
             "duration INTEGER",
             "last_seen TIMESTAMP"
         ],

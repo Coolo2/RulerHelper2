@@ -15,7 +15,6 @@ import discord
 class Town():
     def __init__(self, world : client_pre.objects.World):
         self.__world = world
-        self.__built = False
         self.__desc = None
 
         self.outpost_spawns : list[Point] = []
@@ -80,8 +79,17 @@ class Town():
     @property 
     async def activity(self) -> client_pre.objects.Activity:
         r = await (await self.__world.client.execute("SELECT duration, last FROM activity WHERE object_type='town' AND object_name=?", (self.name,))).fetchone()
-
+        
         return self.__world.client.objects.Activity.from_record(r)
+    
+    @property 
+    async def deletion_warning(self) -> typing.Union[int, None]:
+        if self.resident_count != 1:
+            return None
+        r : tuple[datetime.datetime] = await (await self.__world.client.execute("SELECT last FROM activity WHERE object_type='player' AND object_name=?", (str(self.mayor),))).fetchone()
+        time_since = (datetime.datetime.now()-r[0])
+        if time_since > datetime.timedelta(days=setup.get_town_deletion_warning_threshold_days):
+            return 45-time_since.days
     
     @property 
     def areas(self):
@@ -111,7 +119,7 @@ class Town():
 
     @property 
     async def visited_players(self) -> list[client_pre.objects.Activity]:
-        rs = await (await self.__world.client.execute("SELECT player, duration, last FROM visited_towns WHERE town=? GROUP BY player ORDER BY duration DESC", (self.name,))).fetchall()
+        rs = await (await self.__world.client.execute("SELECT player, duration, last FROM visited_towns WHERE town=? AND last >= ? GROUP BY player ORDER BY duration DESC", (self.name, self.founded_date))).fetchall()
 
         return [self.__world.client.objects.Activity(r[1], r[2], player=self.__world.get_player(r[0], False) or r[0]) for r in rs]
     
@@ -226,7 +234,6 @@ class Town():
             self.bank = float(groups[11].replace(",", "").strip())
             self.mayor_bank = float(groups[12].replace(",", "").replace("$", "").strip())
             self.public = True if "true" in groups[13] else False
-            #self.peaceful = True if "true" in groups[12] else False
 
             self.residents = []
             for player_name in self._resident_names:
@@ -234,7 +241,8 @@ class Town():
                 if p:
                     if p.name == self.__mayor:
                         p.bank = self.mayor_bank
-                    p.residency = self
+
+                    p.residence = self
                     self.residents.append(p)
 
         self.__desc = desc

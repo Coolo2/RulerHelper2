@@ -35,6 +35,7 @@ DEFAULT_TOWNS_SUBSTRING = ["Quarry", "Trading", "Treasure Ship"]
 DONT_TRACK_TOWNS = ["Sea", "RulerSpawn", "Unclaimed"] # Ignore these towns while tracking.
 
 IMAGE_DPI_GRAPH = 100 # DPI (image quality) for graphs (bar charts, pie charts, line graphs)
+IMAGE_DPI_DRAWING_SMALL = 250 # DPI (image quality) for small maps (eg /get town thumbnail)
 IMAGE_DPI_DRAWING = 600 # DPI (image quality) for drawings (maps)
 
 timeline_colors = ["red", "green", "brown", "orange", "purple", "pink"] # Colours for timelines 
@@ -47,10 +48,13 @@ line_color = "silver"
 map_bordering_town_fill_colour = "#808080"
 map_bordering_town_opacity = 10 # 1-100 opacity for bordering towns on /get town and /get nation maps
 
+get_town_deletion_warning_threshold_days = 15 # Number of days mayor has to have been inactive to show deletion warning in /get twn
+
 earth_svg_path = "earth.svg"
 stretch_earth_bg = (1, 1)
 earth_svg_width = 1844
 show_earth_bg_if_over = 500 # Shows earth background on maps if over this number (blocks) high or wide
+CACHE_IMAGES = False
 
 waiting_bg_path = "map_waiting.jpg"
 resident_prefix_history = "`[R]` "
@@ -112,7 +116,7 @@ compare_attributes = {
         {"attribute":"total_visited_towns", "qualitative":False, "name":"visited towns", "inline":True, "history_attribute":"visited_towns"},
         {"attribute":"location", "qualitative":True, "formatter":lambda x: f"{int(x.x)}, {int(x.y)}, {int(x.z)}", "inline":False},
         {"attribute":"town", "qualitative":True, "inline":True},
-        {"attribute":"residency", "qualitative":True, "inline":True},
+        {"attribute":"residence", "qualitative":True, "inline":True},
         {"attribute":"bank", "qualitative":False, "formatter":lambda x: f"${x:,.2f}" if x else '*Unknown (not mayor)*', "name":None, "y":"Bank ($)", "inline":False},
         {"attribute":"message_count", "qualitative":False, "inline":True, "history_attribute":"messages"},
         {"attribute":"mention_count", "qualitative":False, "inline":True, "history_attribute":"mentions"}
@@ -141,8 +145,8 @@ history_commands = {
     "player":[
             {"attribute":"duration", "qualitative":False, "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":YTickFormatter.TIME, "description":"The player's time online throughout history"},
             {"attribute":"visited_towns", "qualitative":False, "formatter":None, "name":"visited_town_count", "parser":None, "y":"Towns", "description":"Number of towns the player has visited over time"},
-            {"attribute":"likely_town", "name":"residency_town", "qualitative":True, "formatter":None, "parser":lambda x: str(x).replace("_", " "), "start_at":datetime.date(2023, 11, 20), "description":"History of the player's likely town residence"},
-            {"attribute":"likely_nation", "name":"residency_nation", "qualitative":True, "formatter":None, "parser":lambda x: str(x).replace("_", " "), "start_at":datetime.date(2023, 11, 20), "description":"History of the player's likely nation residence"},
+            {"attribute":"likely_town", "name":"residence_town", "qualitative":True, "formatter":None, "parser":lambda x: str(x).replace("_", " "), "start_at":datetime.date(2023, 11, 20), "description":"History of the player's likely town residence"},
+            {"attribute":"likely_nation", "name":"residence_nation", "qualitative":True, "formatter":None, "parser":lambda x: str(x).replace("_", " "), "start_at":datetime.date(2023, 11, 20), "description":"History of the player's likely nation residence"},
             {"attribute":"bank", "qualitative":False, "formatter":lambda x: f"${x:,.2f}", "name":None, "parser":None, "y":"Bank ($)"},
             {"attribute":"messages", "qualitative":False, "formatter":lambda x: f"{x:,}", "parser":None, "y":"Messages", "description":"History of the number of messages a player's sent"},
             {"attribute":"mentions", "qualitative":False, "formatter":lambda x: f"{x:,}", "parser":None, "y":"Mentions", "description":"History of the amount of times a player's mentioned in chat"}
@@ -198,6 +202,7 @@ top_commands = {
         {"attribute":"area", "formatter":lambda x: f"{x:,} plots ({x* 64:,}km²)", "name":None, "parser":None, "y":"Area (plots)"},
         {"attribute":"duration", "formatter":generate_time, "name":"activity", "y":"Time", "y_formatter":YTickFormatter.TIME},
         {"attribute":"founded_date", "formatter":lambda x: f"{x:,} days ({(datetime.date.today()-datetime.timedelta(days=x)).strftime(DATE_STRFTIME)})", "name":"age", "parser":lambda x: (datetime.date.today() - x).days, "y":"Age (days)", "reverse":True, "reverse_notable":True, "not_in_history":True},
+        {"attribute":"mayor_inactivity", "description": "Top towns (with 1 resident) by time the mayor has been inactive", "formatter":lambda x: f"{x:,} days ({(datetime.date.today()-datetime.timedelta(days=x)).strftime(DATE_STRFTIME)})", "parser":lambda x: ((datetime.datetime.now() - (x or datetime.datetime.now())).days), "y":"Time (days)", "reverse":True, "reverse_notable":True, "not_in_history":True},
         {"attribute":"area/resident_count", "qualitative":False, "formatter":lambda x: f"{x:,} plots/resident", "name":"population_density", "parser":None, "y":"Plots per resident", "reverse_notable":True, "reverse":True},
         {"attribute":"visited_players", "qualitative":False, "formatter":None, "name":None, "parser":None, "y":"Players"},
         {"attribute":"mentions", "formatter":lambda x: f"{x:,}", "parser":None},

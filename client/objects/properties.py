@@ -95,15 +95,16 @@ class Activity():
     
     def from_record(record, town : client_pre.objects.Town = None):
         a = Activity()
-        a.total = record[0]
-        a.last = record[1]
+        if record:
+            a.total = record[0]
+            a.last = record[1]
         
         a.town = town
 
         return a
     
-    def str_no_timestamp(self):
-        return funcs.generate_time(self.total)
+    def str_no_timestamp(self, show_minutes=True):
+        return funcs.generate_time(self.total, show_minutes)
 
     def __add__(self, other):
         return Activity(self.total + (other.total if hasattr(other, "total") else other), max(self.last, (other.last if hasattr(other, "last") else datetime.datetime(2000, 1, 1))), self.town)

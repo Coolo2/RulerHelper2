@@ -38,7 +38,8 @@ class ErrorHandling(commands.Cog):
 
             if known or s.PRODUCTION_MODE:
                 view = discord.ui.View()
-                if hasattr(error, "command"):
+                
+                if hasattr(error, "command") and not hasattr(error.command, "type"):
                     view.add_item(commands_view.CommandButton(self, commands_view.Command(error.command.qualified_name, "Retry Command", parameters=list(interaction.namespace.__dict__.values()), emoji="🔃", row=1)))
 
                 try:

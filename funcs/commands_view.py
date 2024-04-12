@@ -8,7 +8,7 @@ from client import Client
 
 def get_command_callback(tree : app_commands.CommandTree, cmd) -> typing.Coroutine:
     if type(cmd) != str:
-        return cmd 
+        return cmd
     
     command = None 
     

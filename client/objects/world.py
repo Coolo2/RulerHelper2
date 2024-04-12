@@ -193,7 +193,7 @@ class World():
     
 
     async def initialise_player_list(self):
-        player_records = await (await self.client.execute("SELECT name, location, armor, health, nickname FROM players")).fetchall()
+        player_records = await (await self.client.execute("SELECT name, location, armor, health, nickname FROM players ORDER BY last DESC")).fetchall()
 
         for (name, location, armor, health, nickname) in player_records:
             p = self.client.objects.Player(self)

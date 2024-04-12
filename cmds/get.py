@@ -9,6 +9,8 @@ from discord.ext import commands
 
 import client
 
+import datetime
+
 class Get(commands.GroupCog, name="get", description="All get commands"):
 
     def __init__(self, bot : commands.Bot, client : client.Client):
@@ -32,7 +34,6 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
     @app_commands.autocomplete(player_name=autocompletes.player_autocomplete)
     async def _player(self, interaction : discord.Interaction, player_name : str):
 
-        response_coro = interaction.response.edit_message if interaction.extras.get("edit") else interaction.response.send_message
 
         player = self.client.world.get_player(player_name, True)
         if not player:
@@ -50,18 +51,22 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         armor = "<:armorfull:1152274423898976289>"*int(player.armor//2) + "<:armorhalf:1152274436179898430>"*int(player.armor%2) + "<:armornone:1152274447445790730>"*int((20-player.armor)//2)
         online = f"🟢  {discord.utils.escape_markdown(player.name)} is **online**" if player.online else f"🔴 {discord.utils.escape_markdown(player.name)} is **offline**"
 
-        embed = discord.Embed(title=f"Player: {discord.utils.escape_markdown(player.name)}", description=f"{online}\n\n{health}\n{armor}", color=s.embed)
+        embed = discord.Embed(title=f"Player: {discord.utils.escape_markdown(player.name)}" + (f" ({player.nickname_no_tags})" if player.nickname_no_tags and player.nickname_no_tags != player.name else ""), description=f"{online}\n\n{health}\n{armor}", color=s.embed)
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         
-        embed.add_field(name="Residency", value=f"{player.residency.name_formatted} {'('+player.residency.nation.name_formatted+')' if player.residency.nation and player.residency != town else ''}" if player.residency else "None")
+        embed.add_field(name="Residence", value=f"{player.residence.name_formatted} {'('+player.residence.nation.name_formatted+')' if player.residence.nation and player.residence != town else ''}" if player.residence else "None")
         embed.add_field(name="Location", value=f"[{int(player.location.x)}, {int(player.location.y)}, {int(player.location.z)}]({self.client.url}?x={int(player.location.x)}&z={int(player.location.z)}&zoom={s.map_link_zoom})")
         embed.add_field(name="Activity", value=str(activity))
         embed.add_field(name="Bank Balance", value=f"${player.bank:,.2f}" if player.bank else "Unknown *(not mayor)*")
         embed.add_field(name="Current Town", value=f"{town.name_formatted} {'('+str(town.nation.name_formatted)+')' if town.nation else ''}" if town else "None")
         embed.add_field(name="Visited Towns", value=f"{visited_towns_total} ({(visited_towns_total/len(self.client.world.towns))*100:.1f}%)")
         embed.add_field(name="Likely Discord", value=str(dc.mention if dc else "Unknown"))
-        embed.add_field(name="Donator?", value="Yes" if player.donator == True else "Unlikely" if player.donator == False else "Unknown")
-        embed.add_field(name="Nickname", value=player.nickname_no_tags if player.nickname_no_tags != player.name else "None")
+        embed.add_field(name="Statuses", value=f"""
+            {"🟩 Donator: Yes" if player.donator == True else "🟥 Donator: Unlikely" if player.donator == False else "⬛ Donator: Unknown"}
+            {"🟩 PVP: On" if player.pvp == True else "🟥 PVP: Off" if player.pvp == False else "⬛ PVP: Unknown"}
+        """)
+        embed.add_field(name="First Seen", value=f"{(await player.first_seen_in_history).strftime(s.DATE_STRFTIME)} (tracking started: {(await self.client.tracking_started).strftime(s.DATE_STRFTIME)})")
+
         embed.add_field(name="Notable Statistics", value=notable_statistics, inline=False)
         embed.add_field(name="Sent messages", value=f"{total_messages:,}" + (f" <t:{int(last_message.timestamp())}:R>" if total_messages != 0 else ""))
         embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
@@ -78,23 +83,51 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
                 for item in view.children:
                     if item.label == "Full Skin":
                         item.disabled = True 
+                    else:
+                        item.disabled = False
                 
                 interaction.message.embeds[0].set_image(url=await player.body_url)
                 
-                await interaction.response.edit_message(view=view, embed=interaction.message.embeds[0])
+                await interaction.response.edit_message(view=view, embed=interaction.message.embeds[0], attachments=[])
             return full_skin_callback
         button.callback = full_skin(player, c_view)
         c_view.add_item(button)
 
         if town:
             c_view.add_command(commands_view.Command("get town", "Town Info", (town.name,), button_style=discord.ButtonStyle.primary, emoji="ℹ️"))
-        if player.residency and player.residency != town:
-            c_view.add_command(commands_view.Command("get town", "Residency Info", (player.residency.name,), button_style=discord.ButtonStyle.primary, emoji="ℹ️"))
+        if player.residence and player.residence != town:
+            c_view.add_command(commands_view.Command("get town", "Residence Info", (player.residence.name,), button_style=discord.ButtonStyle.primary, emoji="ℹ️"))
+
+        
+        button = discord.ui.Button(label="Show Map", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
+        def outposts_button(player, towns, view : discord.ui.View):
+            async def outposts_button_callback(interaction : discord.Interaction):
+                for item in view.children:
+                    if hasattr(item, "label") and item.label == "Show Map":
+                        item.disabled = True 
+                    else:
+                        item.disabled = False
+                
+                await self.client.image_generator.init_map()
+                await self.client.image_generator.layer_player_locations([player], [], show_background=True, expand_limits_multiplier=(4, 4), maintain_aspect_ratio=True)
+                file = discord.File(await self.client.image_generator.render_plt(s.IMAGE_DPI_DRAWING_SMALL, None), "player_map.png")
+
+                interaction.message.embeds[0].set_image(url="attachment://player_map.png")
+                
+                await interaction.response.edit_message(view=view, attachments=[file], embed=interaction.message.embeds[0])
+            return outposts_button_callback
+        
+        button.callback = outposts_button(player, self.client.world.towns, c_view)
+        c_view.add_item(button)
+
         c_view.add_command(commands_view.Command("history player activity", "Activity History", (player.name,), button_style=discord.ButtonStyle.secondary, emoji="⏳", row=2))
         if visited_towns_total > 0:
             c_view.add_command(commands_view.Command("history player visited_towns", "Visited Towns", (player.name,), button_style=discord.ButtonStyle.secondary, emoji="📖", row=2))
 
-        return await response_coro(embed=embed, view=c_view)
+        if interaction.extras.get("edit"):
+            return await interaction.response.edit_message(embed=embed, view=c_view, attachments=[])
+        else:
+            return await interaction.response.send_message(embed=embed, view=c_view)
 
     @app_commands.command(name="town", description="Get information about a town")
     @app_commands.autocomplete(town_name=autocompletes.town_autocomplete)
@@ -117,7 +150,14 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         notable_statistics = town.notable_statistics
         notable_statistics_str = "- " + "\n- ".join(notable_statistics) if len(notable_statistics) > 0 else ""
 
-        embed = discord.Embed(title=f"Town: {town.name_formatted}", description=town.geography_description, color=s.embed)
+        deletion_warning = await town.deletion_warning
+        deletion_warning_str = f"‼️ *Town is to be deleted in {deletion_warning} day{'' if deletion_warning == 1 else 's'} due to inactivity unless the mayor comes online or the town is deleted due to bankruptcy beforehand!*" if deletion_warning else ""
+
+        embed = discord.Embed(title=f"Town: {town.name_formatted}", description=f"""
+            {town.geography_description}
+            
+            {deletion_warning_str}
+        """, color=s.embed)
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
 
         embed.add_field(name="Mayor", value=discord.utils.escape_markdown(str(town.mayor)))
@@ -129,7 +169,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Area", value=f"{area:,} plots ({area * 64:,}km²)")
         embed.add_field(name="Daily Tax", value=str(town.resident_tax))
         embed.add_field(name="Spawnblock", value=f"[{int(town.spawn.x)}, {int(town.spawn.z)}]({self.client.url}?x={int(town.spawn.x)}&z={int(town.spawn.z)}&zoom={s.map_link_zoom})")
-        embed.add_field(name="Activity", value=str(await town.activity))
+        embed.add_field(name="Total activity", value=str(await town.activity))
         embed.add_field(name="Visited Players", value=f"{visited_players_total} ({(visited_players_total/len(self.client.world.players))*100:.1f}%)")
         embed.add_field(name="Outposts", value=str(len(town.outpost_spawns)))
         embed.add_field(name="Public", value="Yes" if town.public else "No")
@@ -138,7 +178,6 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         embed.add_field(name=f"Residents ({town.resident_count})", value="`" + ("`, `".join(town._resident_names) + "`") if len(town.residents) > 0 else "None", inline=False) 
         embed.add_field(name=f"Bordering Towns ({len(borders)})", value="`" + ("`, `".join(t.name_formatted for t in borders) + "`") if len(borders) > 0 else "None", inline=False) 
-        #embed.add_field(name="Peaceful", value="Yes" if town.peaceful else "No")
         embed.add_field(name="Notable Statistics", value=notable_statistics_str + notable_rankings_str, inline=False)
 
         embed.set_footer(text=await self.client.tracking_footer)
@@ -187,11 +226,11 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             cmds.append(commands_view.Command("get player", player.name, (player.name,), emoji=None))
             i += 1
         if len(cmds) > 0:
-            c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Resident Info...", 3))
+            c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Resident Info...", -1))
 
         c = self.client.image_generator.town_cache_item(f"Town+{town.name}", [town]).check_cache()
-        dpi = await self.client.image_generator.generate_area_map([town], True, False, self.client.image_generator.MapBackground.OFF, False, c, borders, False)
-        file = discord.File(await self.client.image_generator.render_plt(dpi, c), "town_map.png")
+        await self.client.image_generator.generate_area_map([town], True, False, self.client.image_generator.MapBackground.OFF, False, c, borders, False)
+        file = discord.File(await self.client.image_generator.render_plt(s.IMAGE_DPI_DRAWING_SMALL, c), "town_map.png")
         embed.set_thumbnail(url="attachment://town_map.png")
 
         return await interaction.response.edit_message(embed=embed, attachments=[file], view=c_view) if edit else await interaction.response.send_message(embed=embed, file=file, view=c_view)
@@ -206,6 +245,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         if not nation:
             raise client.errors.MildError("Couldn't find nation")
+        
+        d = datetime.datetime.now()
 
         towns = list(sorted(nation.towns, key=lambda t: t.resident_count, reverse=True))
         capital = nation.capital
@@ -237,11 +278,12 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Residents", value=f"{total_residents:,}")
         embed.add_field(name="Area", value=f"{area:,} plots ({area*64:,}km²)")
         embed.add_field(name="Population Density", value=f"{int(nation.total_area/total_residents):,} plots/resident")
-        embed.add_field(name="Activity", value=str(await nation.activity))
+        embed.add_field(name="Total activity", value=str(await nation.activity))
         embed.add_field(name="Total Outposts", value=f"{total_outposts:,}")
         embed.add_field(name="Town Value", value=f"${nation.total_value:,.2f}")
         embed.add_field(name="Previous names", value=", ".join(previous_names) if len(previous_names) > 0 else "None")
         embed.add_field(name="Discord", value=flags.get("server") or "None set.")
+        embed.add_field(name="First Seen", value=f"{(await nation.first_seen_in_history).strftime(s.DATE_STRFTIME)} (tracking started: {(await self.client.tracking_started).strftime(s.DATE_STRFTIME)})")
         embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
 
         embed.add_field(name=f"Borders ({len(borders[0])})", value="`" + ("`, `".join(n.name_formatted for n in borders[0]) + "`") if len(borders[1]) > 0 else "None", inline=False if len(borders[1]) > 0 else True) 
@@ -316,24 +358,21 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         for i, town in enumerate([capital]+towns):
             if i >= 25: break 
             cmds.append(commands_view.Command("get town", town.name_formatted, (town.name,), emoji=None))
-        c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", 3))
+        c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", -1))
 
         c = self.client.image_generator.town_cache_item(f"Nation+{nation.name}", nation.towns).check_cache()
-        if not c.valid and not edit:
-            embed.set_image(url="attachment://map_waiting.jpg")
+        embed.set_image(url="attachment://map_waiting.jpg")
+        if not edit:
             await interaction.response.send_message(embed=embed, view=c_view, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"))
-        elif not c.valid:
+        else:
             embed.set_image(url="attachment://nation_map.png")
             await interaction.response.edit_message(embed=embed, view=c_view)
+        
         dpi = await self.client.image_generator.generate_area_map(nation.towns, True, False, self.client.image_generator.MapBackground.AUTO, False, c, nation.borders[1])
         file = discord.File(await self.client.image_generator.render_plt(dpi, c), "nation_map.png")
         embed.set_image(url="attachment://nation_map.png")
-        if c.valid and not edit:
-            await interaction.response.send_message(embed=embed, view=c_view, file=file)
-        elif c.valid:
-            await interaction.response.edit_message(embed=embed, view=c_view, attachments=[file])
-        else:
-            await interaction.edit_original_response(embed=embed, view=c_view, attachments=[file])
+
+        await interaction.edit_original_response(embed=embed, view=c_view, attachments=[file])
 
     @app_commands.command(name="culture", description="Get information about a culture")
     @app_commands.autocomplete(culture_name=autocompletes.culture_autocomplete)
@@ -360,7 +399,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Town Value", value=f"${culture.total_value:,.2f}")
         embed.add_field(name="Population Density", value=f"{int(culture.total_area/total_residents):,} plots/resident")
         embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
-        embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in towns)) + "`", inline=False)
+        embed.add_field(name=f"Towns ({len(towns)})", value="`" + ("`, `".join(t.name_formatted for t in towns)) + "`", inline=False)
         embed.add_field(name="Nation Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in nation_make_up.items()][:5]) if len(nation_make_up) > 0 else 'None')
 
         c_view = commands_view.CommandsView(self)
@@ -370,26 +409,23 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         for i, town in enumerate(towns):
             if i >= 25: break 
             cmds.append(commands_view.Command("get town", town.name_formatted, (town.name,), emoji=None))
-        c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", 3))
+        c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", -1))
         c_view.add_command(commands_view.Command("history culture towns", "Town History", (culture.name,), button_style=discord.ButtonStyle.secondary, emoji="🗾", row=2))
         c_view.add_command(commands_view.Command("history culture residents", "Resident History", (culture.name,), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
         
         c = self.client.image_generator.town_cache_item(f"Culture+{culture.name}", culture.towns).check_cache()
-        if not c.valid and not edit:
-            embed.set_image(url="attachment://map_waiting.jpg")
+        embed.set_image(url="attachment://map_waiting.jpg")
+        if not edit:
             await interaction.response.send_message(embed=embed, view=c_view, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"))
-        elif not c.valid:
+        else:
             embed.set_image(url="attachment://culture_map.png")
             await interaction.response.edit_message(embed=embed, view=c_view)
-        dpi = await self.client.image_generator.generate_area_map(culture.towns, False, True, self.client.image_generator.MapBackground.AUTO, False, c)
+        
+        dpi = await self.client.image_generator.generate_area_map(culture.towns, True, False, self.client.image_generator.MapBackground.AUTO, False, c)
         file = discord.File(await self.client.image_generator.render_plt(dpi, c), "culture_map.png")
         embed.set_image(url="attachment://culture_map.png")
-        if c.valid and not edit:
-            await interaction.response.send_message(embed=embed, view=c_view, file=file)
-        elif c.valid:
-            await interaction.response.edit_message(embed=embed, view=c_view, attachments=[file])
-        else:
-            await interaction.edit_original_response(embed=embed, view=c_view, attachments=[file])
+
+        await interaction.edit_original_response(embed=embed, view=c_view, attachments=[file])
     
     @app_commands.command(name="religion", description="Get information about a religion")
     @app_commands.autocomplete(religion_name=autocompletes.religion_autocomplete)
@@ -416,7 +452,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Town Value", value=f"${religion.total_value:,.2f}")
         embed.add_field(name="Population Density", value=f"{int(religion.total_area/total_residents):,} plots/resident")
         embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
-        embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in towns)) + "`", inline=False)
+        embed.add_field(name=f"Towns ({len(towns)})", value="`" + ("`, `".join(t.name_formatted for t in towns)) + "`", inline=False)
         embed.add_field(name="Nation Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in nation_make_up.items()][:5]) if len(nation_make_up) > 0 else 'None')
 
         c_view = commands_view.CommandsView(self)
@@ -426,26 +462,23 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         for i, town in enumerate(towns):
             if i >= 25: break 
             cmds.append(commands_view.Command("get town", town.name_formatted, (town.name,), emoji=None))
-        c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", 3))
+        c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", -1))
         c_view.add_command(commands_view.Command("history religion towns", "Town History", (religion.name,), button_style=discord.ButtonStyle.secondary, emoji="🗾", row=2))
         c_view.add_command(commands_view.Command("history religion followers", "Follower History", (religion.name,), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
         
         c = self.client.image_generator.town_cache_item(f"Religion+{religion.name}", religion.towns).check_cache()
-        if not c.valid and not edit:
-            embed.set_image(url="attachment://map_waiting.jpg")
+        embed.set_image(url="attachment://map_waiting.jpg")
+        if not edit:
             await interaction.response.send_message(embed=embed, view=c_view, file=discord.File(s.waiting_bg_path, "map_waiting.jpg"))
-        elif not c.valid:
+        else:
             embed.set_image(url="attachment://religion_map.png")
             await interaction.response.edit_message(embed=embed, view=c_view)
-        dpi = await self.client.image_generator.generate_area_map(religion.towns, False, True, self.client.image_generator.MapBackground.AUTO, False, c)
+        
+        dpi = await self.client.image_generator.generate_area_map(religion.towns, True, False, self.client.image_generator.MapBackground.AUTO, False, c)
         file = discord.File(await self.client.image_generator.render_plt(dpi, c), "religion_map.png")
         embed.set_image(url="attachment://religion_map.png")
-        if c.valid and not edit:
-            await interaction.response.send_message(embed=embed, view=c_view, file=file)
-        elif c.valid:
-            await interaction.response.edit_message(embed=embed, view=c_view, attachments=[file])
-        else:
-            await interaction.edit_original_response(embed=embed, view=c_view, attachments=[file])
+
+        await interaction.edit_original_response(embed=embed, view=c_view, attachments=[file])
     
     @app_commands.command(name="world", description="Get information about the world as a whole")
     async def _world(self, interaction : discord.Interaction):
@@ -461,7 +494,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed = discord.Embed(title="RulerCraft Earth", description=f"[View Map]({self.client.url})", color=s.embed)
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         
-        embed.add_field(name="Towns", value=str(len(world.towns)))
+        embed.add_field(name="Towns", value=str(len(towns)))
         embed.add_field(name="Nations", value=str(len(world.nations)))
         embed.add_field(name="Cultures", value=str(len(world.cultures)))
         embed.add_field(name="Religions", value=str(len(world.religions)))
@@ -477,13 +510,13 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         c_view = commands_view.CommandsView(self)
         c_view.add_item(commands_view.RefreshButton(self.client, "get world", [], 2))
-        c_view.add_command(commands_view.Command("history global towns", "Town History", (), button_style=discord.ButtonStyle.secondary, emoji="🗾", row=2))
+        c_view.add_command(commands_view.Command("history global towns", "Town History", (), button_style=discord.ButtonStyle.secondary, emoji="🏛️", row=2))
         c_view.add_command(commands_view.Command("history global residents", "Resident History", (), button_style=discord.ButtonStyle.secondary, emoji="👤", row=2))
-        c_view.add_command(commands_view.Command("history global nations", "Nation History", (), button_style=discord.ButtonStyle.secondary, emoji="👑", row=2))
+        c_view.add_command(commands_view.Command("history global nations", "Nation History", (), button_style=discord.ButtonStyle.secondary, emoji="🗾", row=2))
         c_view.add_command(commands_view.Command("history global town_value", "Town Value History", (), button_style=discord.ButtonStyle.primary, emoji="💵", row=3))
         c_view.add_command(commands_view.Command("history global mayor_value", "Mayor Value History", (), button_style=discord.ButtonStyle.primary, emoji="💵", row=3))
 
-        c = self.client.image_generator.town_cache_item(f"Global", world.towns).check_cache()
+        c = self.client.image_generator.town_cache_item(f"Global", towns).check_cache()
         
         if not c.valid and not edit:
             embed.set_image(url="attachment://map_waiting.jpg")
@@ -493,7 +526,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             await interaction.response.edit_message(embed=embed, view=c_view)
         
         embed.set_image(url="attachment://earth_map.png")
-        dpi = await self.client.image_generator.generate_area_map(world.towns, False, True, self.client.image_generator.MapBackground.ON, True, c)
+        dpi = await self.client.image_generator.generate_area_map(towns, False, True, self.client.image_generator.MapBackground.ON, True, c)
         file = discord.File(await self.client.image_generator.render_plt(dpi, c), "earth_map.png")
 
         if edit or not c.valid:
@@ -525,7 +558,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         view = paginator.PaginatorView(embed, log, skip_buttons=False, index=interaction.extras.get("page"))
         view.add_item(commands_view.RefreshButton(self.client, "get online", [], 0))
         if len(cmds) > 0:
-            view.add_item(commands_view.CommandSelect(self, list(reversed(cmds))[:25], "Get Player Info...", 2))
+            view.add_item(commands_view.CommandSelect(self, list(reversed(cmds))[:25], "Get Player Info...", -1))
 
         button = discord.ui.Button(label="Show offline players", emoji="🧍", row=1, style=discord.ButtonStyle.primary)
         def off_players(world : client.objects.World, view : discord.ui.View, embed : discord.Embed):

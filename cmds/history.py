@@ -28,6 +28,7 @@ def generate_command(
             start_at : datetime.date = None
 ):
     async def cmd_uni(interaction : discord.Interaction, town : str = None, player : str = None, nation : str = None, culture : str = None, religion : str = None):
+        
 
         edit = interaction.extras.get("edit")
         conditions = []
@@ -114,6 +115,7 @@ def generate_command(
         if not qualitative:
             lg = c.image_generator.LineGraph(c.image_generator.XTickFormatter.DATE, y_formatter)
             lg.add_line(c.image_generator.Line([c.image_generator.Vertex(r[0], r[1]) for r in rs]))
+            
             await c.image_generator.plot_linegraph(
                 lg, f"{name} {attnameformat} history", "Date", y or "Value"
             )
@@ -302,7 +304,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
                 prefix = s.resident_prefix_history
             if obj.town and type(obj.town) != str:
                 towns.append(obj.town)
-                if str(o.residency) == str(obj.town):
+                if str(o.residence) == str(obj.town):
                     prefix = s.resident_prefix_history
             
             if datetime.datetime.now() - obj.last <= datetime.timedelta(seconds=c.refresh_period["map"]+5):
@@ -337,7 +339,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
 
             view = paginator.PaginatorView(embed, log, skip_buttons=True, index=interaction.extras.get("page"))
             if len(cmds) > 0:
-                view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {opp.title()} Info...", 2))
+                view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {opp.title()} Info...", -1))
             
             if player:
                 button = discord.ui.Button(label="Map", emoji="🗺️", row=1)

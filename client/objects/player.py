@@ -24,7 +24,7 @@ class Player():
         self.health : int = None
         self.online = False
         self.nickname : str = None
-        self.residency : client_pre.objects.Town = None
+        self.residence : client_pre.objects.Town = None
         self.bank : float = None
 
         self.search_boost = 0
@@ -130,7 +130,11 @@ class Player():
         rs = await (await self.__world.client.execute("SELECT town, duration, last FROM visited_towns WHERE player=? GROUP BY town ORDER BY duration DESC", (self.name,))).fetchall()
 
         return [self.__world.client.objects.Activity(r[1], r[2], town=self.__world.get_town(r[0], False) or r[0]) for r in rs]
-        
+    
+    @property 
+    async def first_seen_in_history(self) -> datetime.date:
+        r = await (await self.__world.client.execute("SELECT date FROM player_history WHERE player=? ORDER BY date ASC LIMIT 1", (self.name,))).fetchone()
+        return r[0]
     
     @property 
     async def total_visited_towns(self) -> list[client_pre.objects.Town]:
@@ -192,11 +196,11 @@ class Player():
 
     @property 
     def donator(self):
-        return True if self.nickname and (self.name != self.nickname and "color:#ffffff" not in self.nickname and "color:#ff5555" not in self.nickname) else False
+        return True if self.nickname and (self.name != self.nickname and "color:#ffffff" not in self.nickname and "color:#ff5555" not in self.nickname) else False if self.nickname else None
     
     @property 
     def pvp(self):
-        return True if self.nickname and "color:#ff5555" in self.nickname else False
+        return True if self.nickname and "color:#ff5555" in self.nickname else False if self.nickname else None
     
     @property 
     def nickname_no_tags(self):

@@ -14,7 +14,7 @@ def _total(arr : list, attr : str):
         t += getattr(o, attr) or 0
     return t
 
-def generate_time(time):
+def generate_time(time, show_minutes=True):
     timeSeconds = time
     day = timeSeconds // (24 * 3600)
     timeSeconds = timeSeconds % (24 * 3600)
@@ -31,7 +31,7 @@ def generate_time(time):
     if day == "" and hour == "" and minutes == "":
         return f"{round(seconds)}s"
     
-    return f"{day}{hour}{minutes}".lstrip()
+    return f"{day}{hour}{minutes if show_minutes else ''}".lstrip()
 
 def top_rankings_to_text(rankings : dict, object_name : str, notable_only = True) -> str:
     

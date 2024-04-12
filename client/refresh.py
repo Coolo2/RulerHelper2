@@ -163,7 +163,8 @@ async def update_tracking(world : client_pre.objects.World):
     activity_statement = SQLStatement("""REPLACE INTO activity VALUES (?, ?, ifnull((select duration from activity where object_type=? AND object_name=?), 0)+?, ?)""")
 
     town_statement = SQLStatement("""REPLACE INTO towns VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT amount FROM chat_mentions WHERE object_type = 'town' AND object_name = ?), ?, 
-                (SELECT COUNT(*) FROM visited_towns WHERE town = ?), (SELECT duration FROM activity WHERE object_type = 'town' AND object_name = ?), ?)""")
+                (SELECT COUNT(*) FROM visited_towns WHERE town = ?), 
+                (CASE WHEN ifnull((select resident_count from towns where name=?), 0) == 1 THEN (SELECT last FROM activity WHERE object_type='player' AND object_name=?) END),(SELECT duration FROM activity WHERE object_type = 'town' AND object_name = ?), ?)""")
     
     town_day_history_statement = SQLStatement("""REPLACE INTO town_day_history VALUES(?, ?, ?, ?, ?, ?,
                 (SELECT duration FROM activity WHERE object_type = 'town' AND object_name = ?), (SELECT COUNT(*) FROM visited_towns WHERE town = ?))""")
@@ -181,7 +182,7 @@ async def update_tracking(world : client_pre.objects.World):
 
             # Add to towns table
             town_statement.add_binding_set((town.name, str(town.nation), str(town.religion), str(town.culture), str(town.mayor), town.resident_count, town.founded_date, 
-                town.resident_tax.for_record(), town.bank, town.mayor_bank, int(town.public), int(town.peaceful), town.area, town.name, len(town.outposts), town.name, town.name, town.last_updated)
+                town.resident_tax.for_record(), town.bank, town.mayor_bank, int(town.public), int(town.peaceful), town.area, town.name, len(town.outposts), town.name, town.name, str(town.mayor), town.name, town.last_updated)
             )
         
             # Add town history
@@ -322,8 +323,8 @@ async def short_refresh_tracking_update(world : client_pre.objects.World, player
         activity_statement.add_binding_set((p.name, p.name, world.client.refresh_period["players"], datetime.datetime.now()))
         
         # Add player history
-        player_history_statement.add_binding_set((p.name, datetime.date.today(), p.name, p.name, p.residency.name if p.residency else None,
-            p.residency.nation.name if p.residency and p.residency.nation else None, p.bank, p.name, p.name))
+        player_history_statement.add_binding_set((p.name, datetime.date.today(), p.name, p.name, p.residence.name if p.residence else None,
+            p.residence.nation.name if p.residence and p.residence.nation else None, p.bank, p.name, p.name))
         
         player_day_history_statement.add_binding_set((p.name, time_rounded, p.name, p.bank, p.name))
         

@@ -136,7 +136,7 @@ class Request(commands.GroupCog, name="request", description="Request something 
 
         await interaction.response.send_message(f"Request sent! Please wait for it to be reviewed... You'll get a DM if approved")
     
-# Fix None for likely_residency
+# Fix None for likely_residence
 # Make view respond
 
 class Mod(commands.Cog):
@@ -153,7 +153,7 @@ class Mod(commands.Cog):
             flags.append(f)
 
     @app_commands.default_permissions(administrator=True)
-    @mod.command(name="set_flag", description="Set the likely residency for a user.")
+    @mod.command(name="set_flag", description="Set the likely residence for a user.")
     @app_commands.choices(object_type=[app_commands.Choice(name=c, value=c) for c in s.flags], flag_name=[app_commands.Choice(name=c, value=c) for c in flags])
     async def _set_flag(self, interaction : discord.Interaction, object_type : str, object_name : str, flag_name : str, flag_value : str = None):
 
@@ -194,10 +194,12 @@ class Mod(commands.Cog):
         if interaction.user.id not in s.mods:
             raise client.errors.MildError("You are not a Bot Moderator!")
         
+        await interaction.response.defer()
+        
         await self.client.merge_objects(object_type, old_object_name, new_object_name)
 
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             embed=discord.Embed(
                 title=f"Successfully updated",
                 description=f"Successfully updated old {object_type} name from {old_object_name} into {new_object_name}.",

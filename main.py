@@ -7,6 +7,7 @@ import traceback
 import dotenv 
 import datetime 
 import math
+import aiohttp
 
 dotenv.load_dotenv()
 
@@ -48,7 +49,10 @@ async def _short_refresh():
                     await bot.get_channel(s.alert_channel).send(f"Notifications refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
         except Exception as e:
             print(e)
-            await bot.get_channel(s.alert_channel).send(f"Short refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
+            if type(e) not in (aiohttp.ClientOSError, TimeoutError):
+                await bot.get_channel(s.alert_channel).send(f"Short refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
+            else:
+                await bot.get_channel(s.alert_channel).send("Short Refresh TimeoutError")
     
     refresh_time = datetime.datetime.now()-d
     c.refresh_period["players"] = math.ceil((refresh_time.total_seconds()+1) / 10) * 10
@@ -84,7 +88,10 @@ async def _refresh():
             
     except Exception as e:
         print(e)
-        await bot.get_channel(s.alert_channel).send(f"Refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
+        if type(e) not in (aiohttp.ClientOSError, TimeoutError):
+            await bot.get_channel(s.alert_channel).send(f"Refresh error: \n```{e}``` {discord.utils.escape_markdown(traceback.format_exc())}"[:2000])
+        else:
+            await bot.get_channel(s.alert_channel).send("Refresh TimeoutError")
 
     
     if s.debug_mode: print("Refreshed", refresh_time)

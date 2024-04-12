@@ -49,17 +49,22 @@ class Client():
         
     @property 
     async def tracking_footer(self):
-        return f"Tracked: game for {(await self.world.total_tracked).str_no_timestamp()}, chat for {(await self.world.total_tracked_chat).str_no_timestamp()}"
+        return f"Tracked: game for {(await self.world.total_tracked).str_no_timestamp(False)}, chat for {(await self.world.total_tracked_chat).str_no_timestamp(False)}"
     
     @property 
     async def db_version(self) -> int:
 
         val = await (await self.execute("SELECT value FROM global WHERE name='db_version'")).fetchone()
         return val[0] if val else 0
+    
+    @property 
+    async def tracking_started(self) -> datetime.date:
+        r = await (await self.execute("SELECT date FROM town_history ORDER BY date ASC LIMIT 1")).fetchone()
+        return r[0]
 
     async def create_session(self):
         if not self.session:
-            self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5))
+            self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10))
 
     async def fetch_world(self):
 
@@ -75,7 +80,6 @@ class Client():
 
     async def fetch_short(self):
         
-        # Mentions
         await self.create_session()
 
         r = await self.session.get(f"{s.refresh_map_url}/up/world/RulerEarth/{self.dynmap_update_timestamp+1}")

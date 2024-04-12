@@ -144,6 +144,11 @@ class Nation(Object):
         return [borders_nations, borders_towns]
     
     @property 
+    async def first_seen_in_history(self) -> datetime.date:
+        r = await (await self.world.client.execute("SELECT date FROM nation_history WHERE nation=? ORDER BY date ASC LIMIT 1", (self.name,))).fetchone()
+        return r[0]
+    
+    @property 
     async def top_rankings(self) -> dict[str, list[int, int]]:
         rankings = {}
         for command in setup.top_commands["nation"]:

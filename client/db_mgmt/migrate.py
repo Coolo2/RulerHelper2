@@ -49,7 +49,8 @@ async def upgrade_db(c : client_pre.Client):
             Migration("visited_towns", ["player STRING","town STRING","duration INTEGER","last TIMESTAMP","PRIMARY KEY(player, town)"], ["player", "town", "duration", "last"]),
             Migration("player_day_history", ["player STRING","time TIMESTAMP","duration INTEGER","bank REAL","visited_towns INTEGER","PRIMARY KEY(player, time)"], ["player", "time", "duration", "bank", "visited_towns"]),
             Migration("flags", ["object_type STRING","object_name STRING","name STRING","value","PRIMARY KEY(object_type, object_name, name)"], ["object_type", "object_name", "name", "value"]),
-            Migration("notifications", ["notification_type STRING","guild_id INTEGER","channel_id INTEGER","object_name STRING","ignore_if_resident INTEGER","PRIMARY KEY(notification_type, channel_id, object_name)"], ["notification_type", "guild_id", "channel_id", "object_name", "ignore_if_resident"])
+            Migration("notifications", ["notification_type STRING","guild_id INTEGER","channel_id INTEGER","object_name STRING","ignore_if_resident INTEGER","PRIMARY KEY(notification_type, channel_id, object_name)"], ["notification_type", "guild_id", "channel_id", "object_name", "ignore_if_resident"]),
+            Migration("towns", ["name STRING PRIMARY KEY","nation STRING","religion STRING","culture STRING","mayor STRING","resident_count INTEGER","founded_date DATE","resident_tax REAL","bank REAL","mayor_bank REAL","public INTEGER","peaceful INTEGER","area INTEGER","mentions INTEGER","outposts INTEGER","visited_players INTEGER","mayor_inactivity TIMESTAMP","duration INTEGER","last_seen TIMESTAMP"], ["name", "nation", "religion", "culture", "mayor", "resident_count", "founded_date", "resident_tax", "bank", "mayor_bank", "public", "peaceful", "area", "mentions", "outposts", "visited_players", "duration", "last_seen"])
         ]
     }
 
