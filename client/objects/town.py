@@ -104,18 +104,27 @@ class Town():
         cs = []
 
         for polygon in self.locations.geoms:
-            if polygon.contains(Point(self.spawn.x, self.spawn.z)):
+            if polygon.contains(self.spawn_xz):
 
-                for continent_name, continent_polygon in self.__world.client.continents.items():
+                for continent_name, continent_polygon in self.__world.client.continents.continents.items():
                     
                     if continent_polygon.intersects(polygon):
-                        cs.append(continent_name.replace("_", " ").title())
+                        cs.append(continent_name)
         return cs
     
     @property 
+    def spawn_xz(self):
+        return Point(self.spawn.x, self.spawn.z)
+    
+    @property 
     def geography_description(self) -> str:
-        continents = self.continents
-        return f"{self.name_formatted} is a town in {'/'.join(continents) if len(continents) else 'no continent'}."
+        continent_names = []
+
+        for continent_name in self.continents:
+            cont_centre = self.__world.client.continents.centres[continent_name]
+            continent_names.append(self.__world.client.funcs.location_description(self.spawn_xz, cont_centre) + " " + continent_name)
+
+        return f"{self.name_formatted} is a town in {'/'.join(cn.replace('_', ' ').title() for cn in continent_names) if len(continent_names) else 'no continent'}"
 
     @property 
     async def visited_players(self) -> list[client_pre.objects.Activity]:

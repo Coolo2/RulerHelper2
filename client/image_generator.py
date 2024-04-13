@@ -128,9 +128,12 @@ class ImageGenerator():
             return f"<Vertex {self.x} {self.y}>"
         
     class Line():
-        def __init__(self, points : list[ImageGenerator.Vertex], name : str = None, remove_none = True):
+        def __init__(self, points : list[ImageGenerator.Vertex], name : str = None, remove_none = True, add_point_before = False):
             self.raw_points = [p for p in points if p.y != None] if remove_none else points
             self.name = name
+            self.__add_point_before = add_point_before
+
+            self.__point_x_keys : set = {str(p.x) for p in points}
         
         @property 
         def min_max_x(self):
@@ -147,6 +150,14 @@ class ImageGenerator():
             if len(sorted_points) > 0 and type(sorted_points[-1].x) == datetime.date:
                 if sorted_points[-1].x < datetime.date.today():
                     self.raw_points.append(ImageGenerator.Vertex(datetime.date.today(), sorted_points[-1].y))
+                
+            if self.__add_point_before:
+                previous_point = None
+                for point in self.sorted_points:
+                    sub_1 = point.x - datetime.timedelta(days=1) if type(point.x) == datetime.date else point.x - datetime.timedelta(minutes=1) if type(point.x) == datetime.datetime else point.x-1
+                    if str(sub_1) not in self.__point_x_keys and previous_point:
+                        self.raw_points.append(ImageGenerator.Vertex(sub_1, previous_point.y))
+                    previous_point = point
 
             return self.sorted_points
         

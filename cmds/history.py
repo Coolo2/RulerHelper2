@@ -10,6 +10,7 @@ from discord.ext import commands
 import client
 
 import datetime
+import typing
 
 def generate_command(
             c : client.Client, 
@@ -27,20 +28,53 @@ def generate_command(
             y_formatter = None,
             start_at : datetime.date = None
 ):
-    async def cmd_uni(interaction : discord.Interaction, town : str = None, player : str = None, nation : str = None, culture : str = None, religion : str = None):
+    async def cmd_uni(
+                interaction : discord.Interaction, 
+                before : str = None,
+                after : str = None,
+                town : str = None, 
+                player : str = None, 
+                nation : str = None, 
+                culture : str = None, 
+                religion : str = None
+    ):
         
-
+        before_date, after_date = None, None
         edit = interaction.extras.get("edit")
         conditions = []
         bindings = []
 
-        o_type = "town" if town else "player" if player else "nation" if nation else "culture" if culture else "religion" if religion else "global"
-        table_name = "town_history" if town else "player_history" if player else "nation_history" if nation else "object_history" if culture or religion else "global_history"
-        name_attribute = "town" if town else "player" if player else "nation" if nation else "object" if culture or religion else None
-
+        if before:
+            try:
+                before_date = datetime.datetime.strptime(before, s.DATE_STRFTIME).date()
+            except ValueError:
+                raise c.errors.MildError("Not a valid 'before' date")
+            
+        if after:
+            try:
+                after_date = datetime.datetime.strptime(after, s.DATE_STRFTIME).date()
+            except ValueError:
+                raise c.errors.MildError("Not a valid 'after' date")
+        
+        # Swap before and after if in wrong order
+        if before_date and after_date and after_date > before_date:
+            after_date_copy = after_date
+            after_date = before_date
+            before_date = after_date_copy 
+        
         if start_at: 
             conditions.append("date >= ?")
             bindings.append(start_at)
+        if after: 
+            conditions.append("date >= ?")
+            bindings.append(after_date)
+        if before: 
+            conditions.append("date <= ?")
+            bindings.append(before_date)
+
+        o_type = "town" if town else "player" if player else "nation" if nation else "culture" if culture else "religion" if religion else "global"
+        table_name = "town_history" if town else "player_history" if player else "nation_history" if nation else "object_history" if culture or religion else "global_history"
+        name_attribute = "town" if town else "player" if player else "nation" if nation else "object" if culture or religion else None
 
         if town:
             o = c.world.get_town(town, True)
@@ -114,7 +148,7 @@ def generate_command(
         
         if not qualitative:
             lg = c.image_generator.LineGraph(c.image_generator.XTickFormatter.DATE, y_formatter)
-            lg.add_line(c.image_generator.Line([c.image_generator.Vertex(r[0], r[1]) for r in rs]))
+            lg.add_line(c.image_generator.Line([c.image_generator.Vertex(r[0], r[1]) for r in rs], add_point_before=True))
             
             await c.image_generator.plot_linegraph(
                 lg, f"{name} {attnameformat} history", "Date", y or "Value"
@@ -139,28 +173,28 @@ def generate_command(
 
         view = paginator.PaginatorView(embed, log, index=interaction.extras.get("page"))
         
-        view.add_item(commands_view.RefreshButton(c, f"history {o_type} {attname}", [o.name] if o else [], row=0 if len(view.children) < 5 else 1))
+        view.add_item(commands_view.RefreshButton(c, f"history {o_type} {attname}", ((o.name,) if o else ()) + (before, after), row=0 if len(view.children) < 5 else 1))
         
         return await (interaction.response.edit_message(embed=embed, view=view, attachments=[graph]) if edit else interaction.response.send_message(embed=embed, view=view, file=graph))
 
     if is_town:
-        async def cmd(interaction : discord.Interaction, town : str):
-            await cmd_uni(interaction, town=town)
+        async def cmd(interaction : discord.Interaction, town : str, before : str = None, after : str = None):
+            await cmd_uni(interaction, town=town, before=before, after=after)
     elif is_player:
-        async def cmd(interaction : discord.Interaction, player : str):
-            await cmd_uni(interaction, player=player)
+        async def cmd(interaction : discord.Interaction, player : str, before : str = None, after : str = None):
+            await cmd_uni(interaction, player=player, before=before, after=after)
     elif is_nation:
-        async def cmd(interaction : discord.Interaction, nation : str):
-            await cmd_uni(interaction, nation=nation)
+        async def cmd(interaction : discord.Interaction, nation : str, before : str = None, after : str = None):
+            await cmd_uni(interaction, nation=nation, before=before, after=after)
     elif is_culture:
-        async def cmd(interaction : discord.Interaction, culture : str):
-            await cmd_uni(interaction, culture=culture)
+        async def cmd(interaction : discord.Interaction, culture : str, before : str = None, after : str = None):
+            await cmd_uni(interaction, culture=culture, before=before, after=after)
     elif is_religion:
-        async def cmd(interaction : discord.Interaction, religion : str):
-            await cmd_uni(interaction, religion=religion)
+        async def cmd(interaction : discord.Interaction, religion : str, before : str = None, after : str = None):
+            await cmd_uni(interaction, religion=religion, before=before, after=after)
     else:
-        async def cmd(interaction : discord.Interaction):
-            await cmd_uni(interaction)
+        async def cmd(interaction : discord.Interaction, before : str = None, after : str = None):
+            await cmd_uni(interaction, before=before, after=after)
     return cmd
 
 
@@ -266,31 +300,36 @@ def generate_command_today(
             await cmd_uni(interaction)
     return cmd
 
-def generate_visited_command(cog, c : client.Client, is_town=False, is_player=False):
-    async def cmd_uni(interaction : discord.Interaction, town : str = None, player : str = None):
+def generate_visited_command(cog, c : client.Client, table_type : typing.Literal["town", "nation"], is_town=False, is_player=False, is_nation=False):
+    async def cmd_uni(interaction : discord.Interaction, town : str = None, player : str = None, nation : str = None):
+        
+        # table_type is either 'town' or 'nation'
 
         edit = interaction.extras.get("edit")
 
         objects : list[client.objects.Activity] = []
-        if town:
-            o = c.world.get_town(town, True)
+        if town or nation:
+            if town:
+                o = c.world.get_town(town, True)
+            elif nation:
+                o = c.world.get_nation(nation, True)
             if not o: raise client.errors.MildError("Nothing found!")
             objects = await o.visited_players
-            total = (await (await c.execute("SELECT SUM(duration) FROM visited_towns WHERE town=?", (o.name,))).fetchone())[0]
+            total = (await (await c.execute(f"SELECT SUM(duration) FROM visited_{table_type}s WHERE {table_type}=?", (o.name,))).fetchone())[0]
             l = [p.name for p in c.world.players]
         elif player:
             o = c.world.get_player(player, True)
             if not o: raise client.errors.MildError("Nothing found!")
-            objects = await o.visited_towns
-            total = (await (await c.execute("SELECT SUM(duration) FROM visited_towns WHERE player=?", (o.name,))).fetchone())[0]
-            l = [t.name for t in c.world.towns]
+            objects = (await o.visited_towns) if table_type == "town" else (await o.visited_nations)
+            total = (await (await c.execute(f"SELECT SUM(duration) FROM visited_{table_type}s WHERE player=?", (o.name,))).fetchone())[0]
+            l = [t.name for t in c.world.towns] if table_type == "town" else ([n.name for n in c.world.nations])
 
         log = ""
         values : list[c.image_generator.Vertex] = []
         towns = []
         for i, obj in enumerate(objects):
-            is_known = True if type(obj.town) != str and type(obj.player) != str else False
-            name = str(obj.town or obj.player)
+            is_known = True if type(obj.town) != str and type(obj.player) != str and type(obj.nation) != str else False
+            name = str(obj.town or obj.player or obj.nation)
 
             if not is_known and s.history_skip_if_object_unknown:
                 continue
@@ -300,12 +339,13 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             prefix = ""
             fmt = ""
             
-            if obj.player and str(obj.player) in o._resident_names:
-                prefix = s.resident_prefix_history
-            if obj.town and type(obj.town) != str:
-                towns.append(obj.town)
-                if str(o.residence) == str(obj.town):
+            if table_type == "town":
+                if obj.player and str(obj.player) in o._resident_names:
                     prefix = s.resident_prefix_history
+                if obj.town and type(obj.town) != str:
+                    towns.append(obj.town)
+                    if str(o.residence) == str(obj.town):
+                        prefix = s.resident_prefix_history
             
             if datetime.datetime.now() - obj.last <= datetime.timedelta(seconds=c.refresh_period["map"]+5):
                 fmt = "**"
@@ -315,9 +355,9 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             log = log + f"{i+1}. {prefix}{format}{discord.utils.escape_markdown(name) if is_known else name}{format}: {str(obj)} ({perc:,.1f}%)\n"
             values.append(c.image_generator.Vertex(name, obj.total))
 
-        opp = "player" if town else "town"
+        opp = "player" if town or nation else "town" if table_type == "town" and player else "nation"
         
-        embed = discord.Embed(title=f"{discord.utils.escape_markdown(str(o))} visited history ({len(objects)})", color=s.embed)
+        embed = discord.Embed(title=f"{discord.utils.escape_markdown(str(o))} visited {opp} history ({len(objects)})", color=s.embed)
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         embed.set_footer(text=await c.tracking_footer)
 
@@ -341,7 +381,7 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
             if len(cmds) > 0:
                 view.add_item(commands_view.CommandSelect(cog, cmds, f"Get {opp.title()} Info...", -1))
             
-            if player:
+            if player and table_type == "town":
                 button = discord.ui.Button(label="Map", emoji="🗺️", row=1)
                 def map_button(towns : list[client.objects.Town], view : discord.ui.View):
                     async def map_button_callback(interaction : discord.Interaction):
@@ -360,8 +400,11 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
                 view.add_item(button)
         else:
             view = discord.ui.View()
-            embed.description = "No one has visited."
-        view.add_item(commands_view.RefreshButton(c, f"history {'town' if town else 'player'} visited_{opp}s", (o.name,), row=1))
+            embed.description = f"No visited {opp}s."
+        view.add_item(commands_view.RefreshButton(c, f"history {'town' if town else 'player' if player else 'nation'} visited_{opp}s", (o.name,), row=1))
+
+        if table_type == "nation":
+            embed.set_footer(text=f"Tracking nation visited players for {(await c.world.total_tracked_nation_visited).str_no_timestamp()}")
         
         await (interaction.response.edit_message(embed=embed, view=view, attachments=files) if edit else interaction.response.send_message(embed=embed, view=view, files=files))
 
@@ -371,6 +414,9 @@ def generate_visited_command(cog, c : client.Client, is_town=False, is_player=Fa
     elif is_player:
         async def cmd(interaction : discord.Interaction, player : str):
             await cmd_uni(interaction, player=player)
+    elif is_nation:
+        async def cmd(interaction : discord.Interaction, nation : str):
+            await cmd_uni(interaction, nation=nation)
 
     return cmd
 
@@ -388,6 +434,7 @@ class History(commands.Cog):
 
         town = app_commands.Group(name="town", description="Get history for a town's attributes", parent=history)
         player = app_commands.Group(name="player", description="Get history for a player's attributes", parent=history)
+        nation = app_commands.Group(name="nation", description="Get history for a nation's attributes", parent=history)
         
 
         command_types = [
@@ -397,7 +444,7 @@ class History(commands.Cog):
                 "group_today":app_commands.Group(name="town", description="Get history for a town's attributes today", parent=today), "parameters":[{"name":"town", "autocomplete":autocompletes.town_autocomplete}]},
             {"name":"player", "group":player, 
                 "group_today":app_commands.Group(name="player", description="Get history for a player's attributes today", parent=today), "parameters":[{"name":"player", "autocomplete":autocompletes.player_autocomplete}]},
-            {"name":"nation", "group":app_commands.Group(name="nation", description="Get history for a nation's attributes", parent=history), 
+            {"name":"nation", "group":nation, 
                 "group_today":app_commands.Group(name="nation", description="Get history for a nation's attributes today", parent=today), "parameters":[{"name":"nation", "autocomplete":autocompletes.nation_autocomplete}]},
             {"name":"culture", "group":app_commands.Group(name="culture", description="Get history for a culture's attributes", parent=history), "parameters":[{"name":"culture", "autocomplete":autocompletes.culture_autocomplete}], "attributes":s.history_commands["object"]},
             {"name":"religion", "group":app_commands.Group(name="religion", description="Get history for a religion's attributes", parent=history), "parameters":[{"name":"religion", "autocomplete":autocompletes.religion_autocomplete}], "attributes":s.history_commands["object"]},
@@ -424,6 +471,8 @@ class History(commands.Cog):
                         if parameter.get("autocomplete"):
                             command.autocomplete(parameter["name"])(parameter["autocomplete"])
                     command_type["group"].add_command(command)
+                    command.autocomplete("after")(autocompletes.history_date_autocomplete_wrapper("object" if cmd_type_name in ["culture", "religion"] else cmd_type_name))
+                    command.autocomplete("before")(autocompletes.history_date_autocomplete_wrapper("object" if cmd_type_name in ["culture", "religion"] else cmd_type_name))
 
                 if command_type.get("group_today") and name in s.history_today_commands[command_type["name"]]:
                     command_day = app_commands.command(name=name, description=attribute.get("description") or f"Today's history for {cmd_type_name} {name}")(generate_command_today(
@@ -439,9 +488,9 @@ class History(commands.Cog):
                             command_day.autocomplete(parameter["name"])(parameter["autocomplete"] if parameter["autocomplete"] != autocompletes.player_autocomplete else autocompletes.players_today_autocomplete)
                     command_type["group_today"].add_command(command_day)
         
-        cmds = [["player", "town", player, autocompletes.player_autocomplete], ["town", "player", town, autocompletes.town_autocomplete]]
+        cmds = [["player", "town", player, autocompletes.player_autocomplete, "town"], ["player", "nation", player, autocompletes.player_autocomplete, "nation"], ["town", "player", town, autocompletes.town_autocomplete, "town"], ["nation", "player", nation, autocompletes.nation_autocomplete, "nation"]]
         for cmd in cmds:
-            command = app_commands.command(name=f"visited_{cmd[1]}s", description=f"History for {cmd[0]}'s visited {cmd[1]}s")(generate_visited_command(self, self.client, is_player=cmd[0] == "player", is_town=cmd[0] == "town"))
+            command = app_commands.command(name=f"visited_{cmd[1]}s", description=f"History for {cmd[0]}'s visited {cmd[1]}s")(generate_visited_command(self, self.client, cmd[4], is_player=cmd[0] == "player", is_town=cmd[0] == "town", is_nation=cmd[0] == "nation"))
             command.autocomplete(cmd[0])(cmd[3])
             cmd[2].add_command(command)
 

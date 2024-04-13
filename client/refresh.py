@@ -27,17 +27,13 @@ class SQLStatement():
 
         # Slightly slower (0.4s) to not use executemany, however doens't block. 
         for binding in self.bindings:
+            await asyncio.sleep(0.001)
             await connection.execute(self.statement, binding)
 
 
 async def main_refresh(world : client_pre.objects.World, map_data : StreamReader):
-    
-
     await update_town_list(world, map_data)
-
     await update_tracking(world)
-    
-    
     
 
 async def update_town_list(world : client_pre.objects.World, map_data):
@@ -108,6 +104,7 @@ async def update_tracking(world : client_pre.objects.World):
 
     update_global_statement.add_binding_set(('total_tracked', 'total_tracked', world.client.refresh_period["map"]))
     update_global_statement.add_binding_set(('total_tracked_chat', 'total_tracked_chat', world.client.refresh_period["map"]))
+    update_global_statement.add_binding_set(('total_tracked_nation_visited', 'total_tracked_nation_visited', world.client.refresh_period["map"]))
 
     
     await cursor.execute("""REPLACE INTO global_history VALUES (?, ?, ?, ?, ?, ?, ?, ?, 
@@ -205,9 +202,10 @@ async def update_tracking(world : client_pre.objects.World):
     # -------- Nation Tracking ---------
 
     nation_history_statement = SQLStatement("""REPLACE INTO nation_history VALUES (?, ?, ?, ?, ?, ?, ?, ?, (SELECT duration FROM activity WHERE object_type = 'nation' AND object_name = ?), 
-                ?, (SELECT amount FROM chat_mentions WHERE object_type = 'nation' AND object_name = ?))""")
+                (SELECT COUNT(*) FROM visited_nations WHERE nation = ?), ?, (SELECT amount FROM chat_mentions WHERE object_type = 'nation' AND object_name = ?))""")
     
-    nation_day_history_statement = SQLStatement("""REPLACE INTO nation_day_history VALUES (?, ?, ?, ?, ?, ?, (SELECT duration FROM activity WHERE object_type = 'nation' AND object_name = ?))""")
+    nation_day_history_statement = SQLStatement("""REPLACE INTO nation_day_history VALUES (?, ?, ?, ?, ?, 
+                (SELECT COUNT(*) FROM visited_nations WHERE nation = ?), ?, (SELECT duration FROM activity WHERE object_type = 'nation' AND object_name = ?))""")
 
     for nation in world.nations:
         # Add nation activity
@@ -220,9 +218,9 @@ async def update_tracking(world : client_pre.objects.World):
 
         try:
             
-            nation_history_statement.add_binding_set((nation.name, datetime.date.today(), len(nation.towns), nation.total_value, nation.total_residents, str(nation.capital), str(nation.capital.mayor), nation.total_area, nation.name, nation.name, nation.name))
+            nation_history_statement.add_binding_set((nation.name, datetime.date.today(), len(nation.towns), nation.total_value, nation.total_residents, str(nation.capital), str(nation.capital.mayor), nation.total_area, nation.name, nation.name, nation.name, nation.name))
             if n.minute == 29 or n.minute == 59:
-                nation_day_history_statement.add_binding_set((nation.name, time_rounded, len(nation.towns), nation.total_value, nation.total_residents, nation.total_area, nation.name))
+                nation_day_history_statement.add_binding_set((nation.name, time_rounded, len(nation.towns), nation.total_value, nation.total_residents, nation.name, nation.total_area, nation.name))
         except Exception as e:
             # Nation needs to be removed! Should be removed on next pass from Client.cull_db()
             await world.client.bot.get_channel(s.alert_channel).send(f"{nation.name} Nation Tracking Update Error! `{e}`"[:2000])
@@ -295,18 +293,19 @@ async def short_refresh_tracking_update(world : client_pre.objects.World, player
     towns_with_players : dict[str, list[client_pre.objects.Player]] = {}
 
     activity_statement = SQLStatement("""REPLACE INTO activity VALUES ('player', ?, ifnull((select duration from activity where object_type='player' AND object_name=?), 0)+?, ?)""")
-    players_statement = SQLStatement("""REPLACE INTO players VALUES (?, ?, ?, ?, ?, (SELECT COUNT(*) FROM visited_towns WHERE player = ?), ?, ?, 
+    players_statement = SQLStatement("""REPLACE INTO players VALUES (?, ?, ?, ?, ?, (SELECT COUNT(*) FROM visited_towns WHERE player = ?), (SELECT COUNT(*) FROM visited_nations WHERE player = ?),?, ?, 
                 (SELECT amount FROM chat_message_counts WHERE player = ?), (SELECT amount FROM chat_mentions WHERE object_type = 'player' AND object_name = ?), 
                 (select duration from activity where object_type='player' AND object_name=?), ?)""")
 
     player_history_statement = SQLStatement("""REPLACE INTO player_history VALUES (?, ?, (select duration from activity where object_type='player' AND object_name=?), 
-                (SELECT COUNT(*) FROM visited_towns WHERE player = ?), ?, ?, ?,
+                (SELECT COUNT(*) FROM visited_towns WHERE player = ?), (SELECT COUNT(*) FROM visited_nations WHERE player = ?), ?, ?, ?,
                 (SELECT amount FROM chat_message_counts WHERE player = ?), (SELECT amount FROM chat_mentions WHERE object_type = 'player' AND object_name = ?))""")
     
     player_day_history_statement = SQLStatement("""REPLACE INTO player_day_history VALUES (?, ?, (select duration from activity where object_type='player' AND object_name=?), 
-                ?, (SELECT COUNT(*) FROM visited_towns WHERE player = ?))""")
+                ?, (SELECT COUNT(*) FROM visited_towns WHERE player = ?), (SELECT COUNT(*) FROM visited_nations WHERE player = ?)) """)
     
     visited_towns_statement = SQLStatement("""REPLACE INTO visited_towns VALUES (?, ?, ifnull((select duration from visited_towns where player=?), 0)+?, ?)""")
+    visited_nations_statement = SQLStatement("""REPLACE INTO visited_nations VALUES (?, ?, ifnull((select duration from visited_nations where player=?), 0)+?, ?)""")
 
     for player_data in players:
         await asyncio.sleep(0.001) # Allow "parallel" processing
@@ -323,10 +322,10 @@ async def short_refresh_tracking_update(world : client_pre.objects.World, player
         activity_statement.add_binding_set((p.name, p.name, world.client.refresh_period["players"], datetime.datetime.now()))
         
         # Add player history
-        player_history_statement.add_binding_set((p.name, datetime.date.today(), p.name, p.name, p.residence.name if p.residence else None,
+        player_history_statement.add_binding_set((p.name, datetime.date.today(), p.name, p.name, p.name, p.residence.name if p.residence else None,
             p.residence.nation.name if p.residence and p.residence.nation else None, p.bank, p.name, p.name))
         
-        player_day_history_statement.add_binding_set((p.name, time_rounded, p.name, p.bank, p.name))
+        player_day_history_statement.add_binding_set((p.name, time_rounded, p.name, p.bank, p.name, p.name))
         
         # Add to visited town table
         town = p.town
@@ -336,12 +335,14 @@ async def short_refresh_tracking_update(world : client_pre.objects.World, player
             towns_with_players[town.name].append(p)
 
             visited_towns_statement.add_binding_set((p.name, town.name, p.name, world.client.refresh_period["players"], datetime.datetime.now()))
+            if town.nation:
+                visited_nations_statement.add_binding_set((p.name, town.nation.name, p.name, world.client.refresh_period["players"], datetime.datetime.now()))
 
         # Add to players table
-        players_statement.add_binding_set((p.name, ",".join([str(p.location.x), str(p.location.y), str(p.location.z)]), p.town.name if p.town else None, p.armor, p.health, p.name, p.nickname,p.bank, p.name, p.name, p.name, datetime.datetime.now()))
+        players_statement.add_binding_set((p.name, ",".join([str(p.location.x), str(p.location.y), str(p.location.z)]), p.town.name if p.town else None, p.armor, p.health, p.name, p.name, p.nickname,p.bank, p.name, p.name, p.name, datetime.datetime.now()))
 
     # Execute statements
-    for statement in [activity_statement, players_statement, player_history_statement, player_day_history_statement, visited_towns_statement]:
+    for statement in [activity_statement, players_statement, player_history_statement, player_day_history_statement, visited_towns_statement, visited_nations_statement]:
         await statement.execute(world.client.database.connection)
     
     for player in world.players:

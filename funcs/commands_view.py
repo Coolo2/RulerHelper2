@@ -79,6 +79,7 @@ class CommandsView(discord.ui.View):
 
 class RefreshButton(discord.ui.Button):
     def __init__(self, client : Client, command_name : str, command_params : tuple, row : int = 1):
+        command_params = [c or "" for c in command_params]
         self._custom_id = f"refresh_{command_name}+{'_&_'.join(command_params)}"
 
         if len(self._custom_id) > 100:

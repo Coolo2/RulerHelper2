@@ -34,7 +34,6 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
     @app_commands.autocomplete(player_name=autocompletes.player_autocomplete)
     async def _player(self, interaction : discord.Interaction, player_name : str):
 
-
         player = self.client.world.get_player(player_name, True)
         if not player:
             raise client.errors.MildError("Player not found")
@@ -42,10 +41,12 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         town = player.town 
         visited_towns_total = await player.total_visited_towns
+        visited_nations_total = await player.total_visited_nations
         dc = await player.discord
         notable_statistics = client.funcs.top_rankings_to_text(await player.top_rankings, player.name)
         total_mentions, last_mention = await player.total_mentions
         total_messages, last_message = await player.total_messages
+        first_seen, tracking_started = await player.first_seen_in_history, await self.client.tracking_started
 
         health = "<:heartfull:1152274373923844196>"*int(player.health//2) + "<:hearthalf:1152274386364145715>"*int(player.health%2) + "<:heartnone:1152275125199179867>"*int((20-player.health)//2)
         armor = "<:armorfull:1152274423898976289>"*int(player.armor//2) + "<:armorhalf:1152274436179898430>"*int(player.armor%2) + "<:armornone:1152274447445790730>"*int((20-player.armor)//2)
@@ -59,13 +60,13 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Activity", value=str(activity))
         embed.add_field(name="Bank Balance", value=f"${player.bank:,.2f}" if player.bank else "Unknown *(not mayor)*")
         embed.add_field(name="Current Town", value=f"{town.name_formatted} {'('+str(town.nation.name_formatted)+')' if town.nation else ''}" if town else "None")
-        embed.add_field(name="Visited Towns", value=f"{visited_towns_total} ({(visited_towns_total/len(self.client.world.towns))*100:.1f}%)")
+        embed.add_field(name="Visited:", value=f"Towns: {visited_towns_total} ({(visited_towns_total/len(self.client.world.towns))*100:.1f}%)\nNations: {visited_nations_total} ({(visited_nations_total/len(self.client.world.nations))*100:.1f}%)")
         embed.add_field(name="Likely Discord", value=str(dc.mention if dc else "Unknown"))
         embed.add_field(name="Statuses", value=f"""
             {"🟩 Donator: Yes" if player.donator == True else "🟥 Donator: Unlikely" if player.donator == False else "⬛ Donator: Unknown"}
             {"🟩 PVP: On" if player.pvp == True else "🟥 PVP: Off" if player.pvp == False else "⬛ PVP: Unknown"}
         """)
-        embed.add_field(name="First Seen", value=f"{(await player.first_seen_in_history).strftime(s.DATE_STRFTIME)} (tracking started: {(await self.client.tracking_started).strftime(s.DATE_STRFTIME)})")
+        embed.add_field(name="First Seen", value=f"{(first_seen).strftime(s.DATE_STRFTIME)}" +  (f" (tracking started: {tracking_started.strftime(s.DATE_STRFTIME)})" if first_seen-tracking_started<datetime.timedelta(days=30) else ""))
 
         embed.add_field(name="Notable Statistics", value=notable_statistics, inline=False)
         embed.add_field(name="Sent messages", value=f"{total_messages:,}" + (f" <t:{int(last_message.timestamp())}:R>" if total_messages != 0 else ""))
@@ -97,6 +98,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             c_view.add_command(commands_view.Command("get town", "Town Info", (town.name,), button_style=discord.ButtonStyle.primary, emoji="ℹ️"))
         if player.residence and player.residence != town:
             c_view.add_command(commands_view.Command("get town", "Residence Info", (player.residence.name,), button_style=discord.ButtonStyle.primary, emoji="ℹ️"))
+        if visited_nations_total > 0:
+            c_view.add_command(commands_view.Command("history player visited_nations", "Visited Nations", (player.name,), button_style=discord.ButtonStyle.secondary, emoji="📖"))
 
         
         button = discord.ui.Button(label="Show Map", emoji="🗺️", row=2, style=discord.ButtonStyle.primary)
@@ -151,19 +154,17 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         notable_statistics_str = "- " + "\n- ".join(notable_statistics) if len(notable_statistics) > 0 else ""
 
         deletion_warning = await town.deletion_warning
-        deletion_warning_str = f"‼️ *Town is to be deleted in {deletion_warning} day{'' if deletion_warning == 1 else 's'} due to inactivity unless the mayor comes online or the town is deleted due to bankruptcy beforehand!*" if deletion_warning else ""
+        deletion_warning_str = f"\n\n‼️ *Town is to be deleted in {deletion_warning} day{'' if deletion_warning == 1 else 's'} due to inactivity unless the mayor comes online (or the town is deleted due to bankruptcy beforehand)!*" if deletion_warning else ""
 
-        embed = discord.Embed(title=f"Town: {town.name_formatted}", description=f"""
-            {town.geography_description}
-            
-            {deletion_warning_str}
-        """, color=s.embed)
+        capital_desc_str = f" and is the capital of {town.nation.name}" if town.nation and town.nation.capital == town else ""
+
+        embed = discord.Embed(title=f"Town: {town.name_formatted}", description=f"""{town.geography_description}. It is ruled by {str(town.mayor)}{capital_desc_str}.{deletion_warning_str}""", color=s.embed)
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
 
         embed.add_field(name="Mayor", value=discord.utils.escape_markdown(str(town.mayor)))
         embed.add_field(name="Bank", value=f"${town.bank:,.2f}")
         embed.add_field(name="Founded", value=town.founded_date.strftime(s.DATE_STRFTIME))
-        embed.add_field(name="Nation", value=town.nation.name_formatted if town.nation else "None")
+        embed.add_field(name="Nation", value=(town.nation.name_formatted + (" (capital)" if town.nation.capital == town else "")) if town.nation else "None")
         embed.add_field(name="Culture", value=str(town.culture))
         embed.add_field(name="Religion", value=str(town.religion))
         embed.add_field(name="Area", value=f"{area:,} plots ({area * 64:,}km²)")
@@ -245,8 +246,6 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         if not nation:
             raise client.errors.MildError("Couldn't find nation")
-        
-        d = datetime.datetime.now()
 
         towns = list(sorted(nation.towns, key=lambda t: t.resident_count, reverse=True))
         capital = nation.capital
@@ -257,6 +256,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         previous_names = await nation.previous_names
         total_mentions, last_mention = await nation.total_mentions
         total_outposts = nation.total_outposts
+        total_visited = await nation.total_visited_players
+        first_seen, tracking_started = await nation.first_seen_in_history, await self.client.tracking_started
         
         borders = nation.borders
 
@@ -281,11 +282,13 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Total activity", value=str(await nation.activity))
         embed.add_field(name="Total Outposts", value=f"{total_outposts:,}")
         embed.add_field(name="Town Value", value=f"${nation.total_value:,.2f}")
-        embed.add_field(name="Previous names", value=", ".join(previous_names) if len(previous_names) > 0 else "None")
+        embed.add_field(name="Visited Players", value=f"{total_visited} ({(total_visited/len(self.client.world.players))*100:.1f}%)")
+        
         embed.add_field(name="Discord", value=flags.get("server") or "None set.")
-        embed.add_field(name="First Seen", value=f"{(await nation.first_seen_in_history).strftime(s.DATE_STRFTIME)} (tracking started: {(await self.client.tracking_started).strftime(s.DATE_STRFTIME)})")
+        embed.add_field(name="First Seen", value=f"{(first_seen).strftime(s.DATE_STRFTIME)}" +  (f" (nation existed before tracking started)" if first_seen==tracking_started else ""))
         embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
 
+        embed.add_field(name="Previous names", value=", ".join(previous_names) if len(previous_names) > 0 else "None", inline=False)
         embed.add_field(name=f"Borders ({len(borders[0])})", value="`" + ("`, `".join(n.name_formatted for n in borders[0]) + "`") if len(borders[1]) > 0 else "None", inline=False if len(borders[1]) > 0 else True) 
         embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in [capital]+towns)) + "`", inline=False)
         embed.add_field(name="Culture Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in culture_make_up.items()][:5]) if len(culture_make_up) > 0 else 'None')
@@ -349,6 +352,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             c_view.add_command(commands_view.Command("get player", "Leader Info", (leader.name,), button_style=discord.ButtonStyle.primary, emoji="👑", row=1))
         c_view.add_command(commands_view.Command("history nation residents", "Resident History", (nation.name,), emoji="🧑", row=1))
         c_view.add_command(commands_view.Command("history nation towns", "Town History", (nation.name,), emoji="🗾", row=1))
+        if total_visited > 0:
+            c_view.add_command(commands_view.Command("history nation visited_players", "Visited Players", (nation.name,), button_style=discord.ButtonStyle.secondary, emoji="📖", row=1))
 
         if len(towns)+1 > 1:
             c_view.add_command(commands_view.Command("distribution nation residents", "Res. distribution", (nation.name,), emoji="🧑", row=2))

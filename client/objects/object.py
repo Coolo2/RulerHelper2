@@ -147,11 +147,23 @@ class Nation(Object):
     async def first_seen_in_history(self) -> datetime.date:
         r = await (await self.world.client.execute("SELECT date FROM nation_history WHERE nation=? ORDER BY date ASC LIMIT 1", (self.name,))).fetchone()
         return r[0]
-    
+
+    @property 
+    async def visited_players(self) -> list[client_pre.objects.Activity]:
+        rs = await (await self.world.client.execute("SELECT player, duration, last FROM visited_nations WHERE nation=? GROUP BY player ORDER BY duration DESC", (self.name,))).fetchall()
+
+        return [self.world.client.objects.Activity(r[1], r[2], player=self.world.get_player(r[0], False) or r[0]) for r in rs]
+
+    @property 
+    async def total_visited_players(self) -> int:
+        r = await (await self.world.client.execute("SELECT COUNT(*) FROM visited_nations WHERE nation=?", (self.name,))).fetchone()
+        return r[0]
+
     @property 
     async def top_rankings(self) -> dict[str, list[int, int]]:
         rankings = {}
         for command in setup.top_commands["nation"]:
+            if command.get("notable") == False: continue
 
             r1 = await (await self.world.client.execute(f"""SELECT {command['attribute']} FROM objects WHERE type='nation' AND name=?""", (self.name,))).fetchone()
             if r1 and r1 != (None,):

@@ -1,7 +1,6 @@
 
 import aiohttp
-from client import errors, image_generator, notifications, objects, funcs, refresh, database
-from client.continents import continents
+from client import errors, image_generator, notifications, objects, funcs, refresh, database, continents 
 
 import datetime
 from client.db_mgmt import cull, merge, migrate

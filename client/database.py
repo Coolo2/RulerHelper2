@@ -98,6 +98,7 @@ class RawDatabase():
             "date DATE",
             "duration INTEGER",
             "visited_towns INTEGER",
+            "visited_nations INTEGER",
             "likely_town STRING",
             "likely_nation STRING",
             "bank REAL",
@@ -111,6 +112,7 @@ class RawDatabase():
             "duration INTEGER",
             "bank REAL",
             "visited_towns INTEGER",
+            "visited_nations INTEGER",
             "PRIMARY KEY(player, time)"
         ],
         "nation_history":[
@@ -123,6 +125,7 @@ class RawDatabase():
             "leader STRING",
             "area INTEGER",
             "duration INTEGER",
+            "visited_players INTEGER",
             "current_name STRING",
             "mentions INTEGER",
             "PRIMARY KEY(nation, date)"
@@ -133,6 +136,7 @@ class RawDatabase():
             "towns INTEGER",
             "town_balance REAL",
             "residents INTEGER",
+            "visited_players INTEGER",
             "area INTEGER",
             "duration INTEGER",
             "PRIMARY KEY(nation, time)"
@@ -206,7 +210,14 @@ class RawDatabase():
             "amount INTEGER",
             "last TIMESTAMP",
             "PRIMARY KEY(object_type, object_name)"
-        ]
+        ],
+        "visited_nations":[
+            "player STRING",
+            "nation STRING",
+            "duration INTEGER",
+            "last TIMESTAMP",
+            "PRIMARY KEY(player, nation)"
+        ],
     }
 
     def __init__(self, client, path : str):

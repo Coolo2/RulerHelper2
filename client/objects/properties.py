@@ -86,12 +86,13 @@ class Area():
 
 
 class Activity():
-    def __init__(self, total : int = 0, last : datetime.datetime = datetime.datetime.now(), town : client_pre.objects.Town|str = None, player : client_pre.objects.Player|str = None):
+    def __init__(self, total : int = 0, last : datetime.datetime = datetime.datetime.now(), town : client_pre.objects.Town|str = None, player : client_pre.objects.Player|str = None, nation : client_pre.objects.Nation|str = None):
         self.total = total 
         self.last = last
 
         self.town = town
         self.player = player
+        self.nation = nation
     
     def from_record(record, town : client_pre.objects.Town = None):
         a = Activity()

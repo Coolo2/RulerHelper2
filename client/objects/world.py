@@ -157,6 +157,13 @@ class World():
             return self.client.objects.Activity(r[0])
     
     @property 
+    async def total_tracked_nation_visited(self) -> client_pre.objects.Activity:
+        r = await (await self.client.execute("SELECT value FROM global WHERE name='total_tracked_nation_visited'")).fetchone()
+
+        if r:
+            return self.client.objects.Activity(r[0])
+    
+    @property 
     async def total_messages(self) -> int: 
         return (await (await self.client.execute("SELECT SUM(amount) FROM chat_message_counts")).fetchone())[0]
     

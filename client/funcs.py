@@ -6,13 +6,30 @@ if typing.TYPE_CHECKING:
 
 import datetime
 import discord
-
+from shapely import Point
 
 def _total(arr : list, attr : str):
     t = 0
     for o in arr:
         t += getattr(o, attr) or 0
     return t
+
+def location_description(point : Point, centre : Point):
+    from setup import town_continent_description_compass_distance_threshold
+    returnstr = ""
+
+    if centre.y > point.y+town_continent_description_compass_distance_threshold:
+        returnstr += "north"
+    elif centre.y < point.y-town_continent_description_compass_distance_threshold:
+        returnstr += "south"
+
+    if centre.x < point.x-town_continent_description_compass_distance_threshold:
+        returnstr += " east"
+    elif centre.x > point.x+town_continent_description_compass_distance_threshold:
+        returnstr += " west"
+    
+    return returnstr.strip()
+
 
 def generate_time(time, show_minutes=True):
     timeSeconds = time

@@ -1,5 +1,14 @@
 
-from shapely import Polygon
+from shapely import Polygon, Point
+
+centres : dict[str, Point] = {
+    "europe":Point(2500, -10000),
+    "asia":Point(18000, -8000),
+    "africa":Point(4500, -1000),
+    "north_america":Point(-21000, -7300),
+    "south_america":Point(-12000, 2500),
+    "oceania":Point(27600, 4300)
+}
 
 continents : dict[str, Polygon] = {
     "europe":Polygon(

@@ -27,6 +27,7 @@ class Events(commands.Cog):
 
                 if custom_id.startswith("refresh"):
                     command_string = custom_id.replace("refresh_", "")
+
                     interaction.extras["edit"] = True
 
                     if len(interaction.message.embeds) > 0:
@@ -52,13 +53,14 @@ class Events(commands.Cog):
                 
                 command_name, parameters = command_string.split("+") 
                 parameters : list[str] = parameters.split("_&_")
-                if "" in parameters:
-                    parameters.remove("")
-                
-                
-                    
+                for i in range(len(parameters)):
+                    if parameters[i] == "":
+                        parameters[i] = None
+                if len(parameters) == 1 and parameters[0] == None:
+                    parameters = []
                 
                 callback = commands_view.get_command_callback(self.bot.tree, command_name)
+                
                 await commands_view.execute_callback_with_interaction(callback, self, interaction, parameters)
         
         except Exception as e:

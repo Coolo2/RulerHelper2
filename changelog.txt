@@ -1,26 +1,38 @@
-# v2.11 (~)
+# v2.11.0 (~)
 - Huge backend changes (to map image generation), meaning: 
  - Maps will no longer look blurry when zoomed in and have smooth edges 
  - Map images generate around 5x faster 
  - Tweaked town spawn dot size 
  - Images are a slightly higher resolution
-- Fixed bug causing 'expand outposts' button to not work
+- Nation visited player tracking starts on this update 
+ - New commands /history nation visited_players and /history player visited_nations 
+ - Additional new commands: /history nation visited_player_count, /history player visited_nation_count (includes /history_today commands)
+ - New 'visited nation count' field in /compare players
+ - New 'visited players'/'visited nations' buttons in /get nation and /get player respectively
 - New command: /top towns mayor_inactivity which shows towns with one resident close to deletion
  - Also added a warning in /get town if town is to be deleted (soon)
 - New 'map' button in /get player which displays their (last) location on a map image
-- New 'PVP?' field in /get player
+- New 'Statuses' field in /get player which shows donator and PVP status
+- 'Nation' field in /get town now shows if the town is a capital. This also displays in the embed description
 - Added 'first seen' field to /get player and /get nation which shows when they were first seen in-game.
 - 'get ... info' select menus now show at the top of the button list under embeds
-- Player's in-game nickname now shows in the title of the embed in /get player
+- /history now has arguments before and after which allow you to select what date range the graph shows
+- /get player line graphs now don't have a gradual slope if they don't play for multiple days
+- Players' in-game nickname now shows in the title of the embed in /get player
+- Town's location (east/west/north/south) in a continent now shows in /get town description
 - Refresh times have been vastly optimised, data should be more up-to-date
 - "Activity" field renamed to "Total activity" in /get town and /get nation
 - Changed the emojis in /get world buttons
 - Renamed 'residency' to 'residence' around the bot
+- Renamed /history player residence_town and residence_nation to town_residence and nation_residence
 - Town and nation names are now formatted in /compare line graphs
+- Fixed an issue where refreshing may cease after reconnect
+- Fixed bug causing 'expand outposts' button to not work
 - Fixed leaderboard ranking notable statistics still having heading if there are none for the object
 - Fixed a bug where objects are forgotten briefly on server restart / bot disconnect
 - Fixed a bug where town count in /get religion and /get culture was one greater than reality
 - Fixed a bug where /compare players images were a weird aspect ratio
+- Fixed a bug where /top commands didn't show any error when an on=... date was chosen with a date earlier than when tracking began for that attribute
 - 'Retry command' button no longer shows for 'Find user'/context menu commands
 - 'Tracking server for...' footer no longer displays minute count
 - Residency now shows as 'none' rather than 'unknown' in notifications if they are not a resident

@@ -132,6 +132,12 @@ class Player():
         return [self.__world.client.objects.Activity(r[1], r[2], town=self.__world.get_town(r[0], False) or r[0]) for r in rs]
     
     @property 
+    async def visited_nations(self) -> list[client_pre.objects.Activity]:
+        rs = await (await self.__world.client.execute("SELECT nation, duration, last FROM visited_nations WHERE player=? GROUP BY nation ORDER BY duration DESC", (self.name,))).fetchall()
+
+        return [self.__world.client.objects.Activity(r[1], r[2], nation=self.__world.get_nation(r[0], False) or r[0]) for r in rs]
+    
+    @property 
     async def first_seen_in_history(self) -> datetime.date:
         r = await (await self.__world.client.execute("SELECT date FROM player_history WHERE player=? ORDER BY date ASC LIMIT 1", (self.name,))).fetchone()
         return r[0]
@@ -139,6 +145,9 @@ class Player():
     @property 
     async def total_visited_towns(self) -> list[client_pre.objects.Town]:
         return (await (await self.__world.client.execute("SELECT COUNT(*) FROM visited_towns WHERE player=?", (self.name,))).fetchone())[0]
+    @property 
+    async def total_visited_nations(self) -> list[client_pre.objects.Town]:
+        return (await (await self.__world.client.execute("SELECT COUNT(*) FROM visited_nations WHERE player=?", (self.name,))).fetchone())[0]
     
     @property 
     async def total_mentions(self) -> tuple[int, datetime.datetime]: 

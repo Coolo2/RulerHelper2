@@ -26,11 +26,14 @@ c.bot = bot
 @bot.event 
 async def on_ready():
     print(bot.user.name, "online")
-
-    _short_refresh.start()
-
     for guild in bot.guilds:
         print(guild.name, guild.owner)
+
+@bot.event
+async def on_connect():
+    print("Connected")
+    if not _short_refresh.is_running():
+        _short_refresh.start()
 
 @tasks.loop(seconds=c.refresh_period["players"])
 async def _short_refresh():

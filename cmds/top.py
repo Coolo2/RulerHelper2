@@ -32,7 +32,10 @@ def generate_command(
 
         edit = interaction.extras.get("edit")
 
-        on_date = datetime.datetime.strptime(on, s.DATE_STRFTIME).date() if on and not not_in_history else datetime.date.today()
+        try:
+            on_date = datetime.datetime.strptime(on, s.DATE_STRFTIME).date() if on and not not_in_history else datetime.date.today()
+        except ValueError:
+            raise c.errors.MildError("Not a valid date")
 
         if is_town:
             if not_in_history:
@@ -96,6 +99,9 @@ def generate_command(
 
             values.append(c.image_generator.Vertex(name, parsed))
         
+        if len(values) == 0:
+            raise c.errors.MildError("No data found" + (" on this date" if on else ""))
+        
         title = f"Top {o_type}s by {attnameformat} " + (f"on {on} " if on else "") + f"({i:,})"
 
         await c.image_generator.plot_barchart(
@@ -116,9 +122,11 @@ def generate_command(
                 cmds.append(commands_view.Command(f"get {o_type}", f"{i+1}. {object.x}", (object.x,), emoji=None))
         
         if attribute in ["duration"]:
-            embed.set_footer(text=f" Tracking for {(await interaction.client.client.world.total_tracked).str_no_timestamp()}")
+            embed.set_footer(text=f" Tracking for {(await c.world.total_tracked).str_no_timestamp()}")
         elif attribute in ["messages", "mentions"]:
-            embed.set_footer(text=f" Tracking chat for {(await interaction.client.client.world.total_tracked_chat).str_no_timestamp()}")
+            embed.set_footer(text=f" Tracking chat for {(await c.world.total_tracked_chat).str_no_timestamp()}")
+        if (attribute == "visited_players" and is_nation) or (attribute == "visited_nations"):
+            embed.set_footer(text=f"Tracking nation visited players for {(await c.world.total_tracked_nation_visited).str_no_timestamp()}")
         if attribute == "bank" and is_player:
             embed.set_footer(text="Bank balance is only known for town mayors")
 
