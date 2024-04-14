@@ -52,7 +52,10 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         armor = "<:armorfull:1152274423898976289>"*int(player.armor//2) + "<:armorhalf:1152274436179898430>"*int(player.armor%2) + "<:armornone:1152274447445790730>"*int((20-player.armor)//2)
         online = f"🟢  {discord.utils.escape_markdown(player.name)} is **online**" if player.online else f"🔴 {discord.utils.escape_markdown(player.name)} is **offline**"
 
-        embed = discord.Embed(title=f"Player: {discord.utils.escape_markdown(player.name)}" + (f" ({player.nickname_no_tags})" if player.nickname_no_tags and player.nickname_no_tags != player.name else ""), description=f"{online}\n\n{health}\n{armor}", color=s.embed)
+        days_inactivity = (datetime.date.today()-activity.last.date()).days
+        deletion_warning = f"\n‼️ *{player.name} is to be forgotten from Towny in {45 - days_inactivity} day{'' if days_inactivity == 44 else 's'} if they do not come online*\n" if days_inactivity >= 25 and not (days_inactivity>45 and player.is_mayor) else ""
+
+        embed = discord.Embed(title=f"Player: {discord.utils.escape_markdown(player.name)}" + (f" ({player.nickname_no_tags})" if player.nickname_no_tags and player.nickname_no_tags != player.name else ""), description=f"{online}\n{deletion_warning}\n{health}\n{armor}", color=s.embed)
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
         
         embed.add_field(name="Residence", value=f"{player.residence.name_formatted} {'('+player.residence.nation.name_formatted+')' if player.residence.nation and player.residence != town else ''}" if player.residence else "None")
@@ -62,17 +65,14 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Current Town", value=f"{town.name_formatted} {'('+str(town.nation.name_formatted)+')' if town.nation else ''}" if town else "None")
         embed.add_field(name="Visited:", value=f"Towns: {visited_towns_total} ({(visited_towns_total/len(self.client.world.towns))*100:.1f}%)\nNations: {visited_nations_total} ({(visited_nations_total/len(self.client.world.nations))*100:.1f}%)")
         embed.add_field(name="Likely Discord", value=str(dc.mention if dc else "Unknown"))
-        embed.add_field(name="Statuses", value=f"""
-            {"🟩 Donator: Yes" if player.donator == True else "🟥 Donator: Unlikely" if player.donator == False else "⬛ Donator: Unknown"}
-            {"🟩 PVP: On" if player.pvp == True else "🟥 PVP: Off" if player.pvp == False else "⬛ PVP: Unknown"}
-        """)
+        embed.add_field(name="Statuses", value=f"""{"🟩 Donator: Yes" if player.donator == True else "🟥 Donator: Unlikely" if player.donator == False else "⬛ Donator: Unknown"}\n{"🟩 PVP: On" if player.pvp == True else "🟥 PVP: Off" if player.pvp == False else "⬛ PVP: Unknown"}""")
         embed.add_field(name="First Seen", value=f"{(first_seen).strftime(s.DATE_STRFTIME)}" +  (f" (tracking started: {tracking_started.strftime(s.DATE_STRFTIME)})" if first_seen-tracking_started<datetime.timedelta(days=30) else ""))
 
         embed.add_field(name="Notable Statistics", value=notable_statistics, inline=False)
         embed.add_field(name="Sent messages", value=f"{total_messages:,}" + (f" <t:{int(last_message.timestamp())}:R>" if total_messages != 0 else ""))
         embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
 
-        embed.set_footer(text=await self.client.tracking_footer)
+        embed.set_footer(text=await self.client.tracking_footer + f", nation visitors for {(await self.client.world.total_tracked_nation_visited).str_no_timestamp(False)}")
         embed.set_thumbnail(url=await player.face_url)
 
         c_view = commands_view.CommandsView(self)
@@ -148,17 +148,23 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         visited_players_total = await town.total_visited_players
         previous_names = await town.previous_names
         total_mentions, last_mention = await town.total_mentions
+        bank_change_today = await town.bank_change_today
 
         notable_rankings_str = client.funcs.top_rankings_to_text(await town.top_rankings, town.name_formatted)
         notable_statistics = town.notable_statistics
         notable_statistics_str = "- " + "\n- ".join(notable_statistics) if len(notable_statistics) > 0 else ""
 
+        bankruptcy_warning = ""
+        if bank_change_today < 0 and town.bank < 0:
+            bankupctcy_days_prediction = int((-80-town.bank)/bank_change_today)
+            bankruptcy_warning = f"\n\n‼️ *Town is bankrupt! It is due to be deleted in {bankupctcy_days_prediction} day{'' if bankupctcy_days_prediction == 1 else 's'} unless someone pays into the bank!*"
+
         deletion_warning = await town.deletion_warning
-        deletion_warning_str = f"\n\n‼️ *Town is to be deleted in {deletion_warning} day{'' if deletion_warning == 1 else 's'} due to inactivity unless the mayor comes online (or the town is deleted due to bankruptcy beforehand)!*" if deletion_warning else ""
+        deletion_warning_str = f"\n\n‼️ *Town is to be deleted in {deletion_warning} day{'' if deletion_warning == 1 else 's'} due to inactivity unless the mayor comes online (or the town is deleted due to bankruptcy beforehand)!*" if deletion_warning != None else ""
 
         capital_desc_str = f" and is the capital of {town.nation.name}" if town.nation and town.nation.capital == town else ""
 
-        embed = discord.Embed(title=f"Town: {town.name_formatted}", description=f"""{town.geography_description}. It is ruled by {str(town.mayor)}{capital_desc_str}.{deletion_warning_str}""", color=s.embed)
+        embed = discord.Embed(title=f"Town: {town.name_formatted}", description=f"""{town.geography_description}. It is ruled by {str(town.mayor)}{capital_desc_str}.{deletion_warning_str}{bankruptcy_warning}""", color=s.embed)
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
 
         embed.add_field(name="Mayor", value=discord.utils.escape_markdown(str(town.mayor)))
@@ -295,7 +301,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Religion Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in religion_make_up.items()][:5]) if len(religion_make_up) > 0 else 'None')
         embed.add_field(name="Notable Statistics", value=notable_statistics_str + notable_rankings_str, inline=False)
 
-        embed.set_footer(text=await self.client.tracking_footer)
+        embed.set_footer(text=await self.client.tracking_footer + f", nation visitors for {(await self.client.world.total_tracked_nation_visited).str_no_timestamp(False)}")
 
         c_view = commands_view.CommandsView(self)
         c_view.add_item(commands_view.RefreshButton(self.client, "get nation", (nation.name,)))

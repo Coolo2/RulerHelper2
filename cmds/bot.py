@@ -39,6 +39,29 @@ class Get(commands.GroupCog, name="bot", description="Commands relating to the b
 
         await send(embed=embed, view=view)
     
+    @app_commands.command(name="help", description="Get a list of commands for the bot")
+    async def _help(self, interaction : discord.Interaction):
+
+        desc = ""
+        for command in self.bot.tree.walk_commands():
+            if not command.parent:
+                desc += f"# /{command.qualified_name}"
+
+                if type(command) == app_commands.Group:
+                    for sub_command in command.commands:
+                        desc += f"\n- /{sub_command.qualified_name}" + (f" - {sub_command.description}" if sub_command.description else "")
+
+                        if type(sub_command) == app_commands.Group:
+                            for sub_sub_command in sub_command.commands:
+                                desc += f"\n - /{sub_sub_command.qualified_name}"
+                desc += "newpage"
+
+        embed = discord.Embed(title="Bot command list", color=s.embed)
+        view = paginator.PaginatorView(embed, desc, "newpage", 1, search=False)
+
+        await interaction.response.send_message(embed=view.embed, view=view)
+
+    
     @app_commands.command(name="changelog", description="Get a changelog of recent versions")
     async def _changelog(self, interaction : discord.Interaction):
         

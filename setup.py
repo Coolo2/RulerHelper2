@@ -48,6 +48,8 @@ line_color = "silver"
 map_bordering_town_fill_colour = "#808080"
 map_bordering_town_opacity = 10 # 1-100 opacity for bordering towns on /get town and /get nation maps
 
+face_size = 64
+
 town_continent_description_compass_distance_threshold = 2500 # number of blocks east/west/south/north to show in /get town continent description
 get_town_deletion_warning_threshold_days = 15 # Number of days mayor has to have been inactive to show deletion warning in /get twn
 

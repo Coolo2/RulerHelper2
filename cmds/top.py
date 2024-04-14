@@ -44,18 +44,18 @@ def generate_command(
             else:
                 rs = await (await c.execute(f"SELECT town, {attribute} FROM town_history WHERE date=? ORDER BY {attribute} DESC", (on_date,))).fetchall()
                 total = (await (await c.execute(f"SELECT SUM({attribute}) FROM town_history WHERE date=?", (on_date,))).fetchone())[0]
-            l = [t.name for t in c.world.towns]
+            l = {t.name for t in c.world.towns}
         elif is_player:
             rs = await (await c.execute(f"SELECT player, MAX({attribute}) FROM player_history WHERE date <= ? GROUP BY player ORDER BY {attribute} DESC", (on_date,))).fetchall()
             total = 0
             for r in rs: 
                 total += (r[1] if type(r[1]) != str else None) or 0
-            l = [p.name for p in c.world.players]
+            l = {p.name for p in c.world.players}
         else: # is nation
             rs = await (await c.execute(f"SELECT nation, {attribute} FROM nation_history WHERE date=? ORDER BY {attribute} DESC", (on_date,))).fetchall()
             total = (await (await c.execute(f"SELECT SUM({attribute}) FROM nation_history WHERE date=?", (on_date,))).fetchone())[0]
 
-            l = [n.name for n in c.world.nations]
+            l = {n.name for n in c.world.nations}
 
         o_type = "nation" if is_nation else "town" if is_town else "player" if is_player else "culture" if is_culture else "religion"
         attnameformat = attname.replace('_', ' ')
@@ -64,7 +64,7 @@ def generate_command(
             rs = await (await c.execute(f"SELECT object, {attribute} FROM object_history WHERE date=? ORDER BY {attribute} DESC", (on_date,))).fetchall()
             total = (await (await c.execute(f"SELECT SUM({attribute}) FROM object_history WHERE date=?", (on_date,))).fetchone())[0]
 
-            l = [o.name for o in c.world._objects[o_type + "s"]]
+            l = {o.name for o in c.world._objects[o_type + "s"]}
 
         log = ""
         values : list[c.image_generator.Vertex] = []

@@ -61,10 +61,13 @@ class Player():
             await self.__fetch_skin_identifier()
         return self.__skin_identifier
 
+    @property 
+    def is_mayor(self):
+        return True if self.residence and self.residence.mayor == self else False
 
     @property 
     async def face_url(self):
-        return f"https://mc-heads.net/avatar/{await self.skin_identifier}/48" 
+        return f"https://mc-heads.net/avatar/{await self.skin_identifier}/{setup.face_size}" 
     
     @property 
     async def body_url(self):

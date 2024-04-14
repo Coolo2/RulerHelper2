@@ -1,6 +1,7 @@
 
 import aiosqlite 
 import sqlite3 
+import setup as s
 
 class RawDatabase():
 
@@ -238,7 +239,7 @@ class RawDatabase():
         await self.connect()
         self.client.add_execute()
 
-        await self.connection.execute("PRAGMA auto_vacuum = FULL")
+        
 
         await self.connection.execute('PRAGMA journal_mode = WAL')
         await self.connection.execute('PRAGMA synchronous = 1')
@@ -253,3 +254,8 @@ class RawDatabase():
 
         if update_coro:
             await update_coro
+        
+        await self.connection.execute("commit")
+        if s.debug_mode: print("Defragmentating DB")
+        await self.connection.execute("VACUUM")
+        if s.debug_mode: print("Defragmentating complete")

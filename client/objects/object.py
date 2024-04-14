@@ -229,6 +229,9 @@ class Nation(Object):
     async def previous_names(self) -> list[str]:
         rs = await (await self.world.client.execute("SELECT current_name FROM nation_history WHERE nation=? AND current_name != ? GROUP BY current_name ORDER BY date DESC", (self.name, self.name))).fetchall()
         return [r[0] for r in rs]
+    
+    def __str__(self):
+        return self.name_formatted
 
 class Culture(Object):
     def __init__(self, world, name : str):
@@ -271,3 +274,5 @@ class Religion(Object):
                 d[town.nation.name_formatted] += town.resident_count
         d = dict(sorted(d.items(), key=lambda x: x[1], reverse=True))
         return d
+    
+    

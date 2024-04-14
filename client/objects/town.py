@@ -215,6 +215,16 @@ class Town():
     def population_density(self):
         return int(self.area/self.resident_count)
     
+    @property
+    async def bank_change_today(self) -> float:
+        yesterday_record = await (await self.__world.client.execute("SELECT bank FROM town_history WHERE town=? AND date=?", (self.name, datetime.date.today()-datetime.timedelta(days=1)))).fetchone()
+
+        yesterday_bank = 0.0
+        if yesterday_record:
+            yesterday_bank = yesterday_record[0]
+
+        return self.bank-yesterday_bank
+    
     async def parse_desc(self, desc : str):
         if not desc:
             return

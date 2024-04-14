@@ -316,13 +316,13 @@ def generate_visited_command(cog, c : client.Client, table_type : typing.Literal
             if not o: raise client.errors.MildError("Nothing found!")
             objects = await o.visited_players
             total = (await (await c.execute(f"SELECT SUM(duration) FROM visited_{table_type}s WHERE {table_type}=?", (o.name,))).fetchone())[0]
-            l = [p.name for p in c.world.players]
+            l = {p.name for p in c.world.players}
         elif player:
             o = c.world.get_player(player, True)
             if not o: raise client.errors.MildError("Nothing found!")
             objects = (await o.visited_towns) if table_type == "town" else (await o.visited_nations)
             total = (await (await c.execute(f"SELECT SUM(duration) FROM visited_{table_type}s WHERE player=?", (o.name,))).fetchone())[0]
-            l = [t.name for t in c.world.towns] if table_type == "town" else ([n.name for n in c.world.nations])
+            l = {t.name for t in c.world.towns} if table_type == "town" else ([n.name for n in c.world.nations])
 
         log = ""
         values : list[c.image_generator.Vertex] = []

@@ -10,11 +10,12 @@
  - New 'visited nation count' field in /compare players
  - New 'visited players'/'visited nations' buttons in /get nation and /get player respectively
 - New command: /top towns mayor_inactivity which shows towns with one resident close to deletion
- - Also added a warning in /get town if town is to be deleted (soon)
+ - Also added a warning in /get town and /get player if town/player is to be deleted (soon) due to inactivity or bankruptcy
 - New 'map' button in /get player which displays their (last) location on a map image
 - New 'Statuses' field in /get player which shows donator and PVP status
 - 'Nation' field in /get town now shows if the town is a capital. This also displays in the embed description
 - Added 'first seen' field to /get player and /get nation which shows when they were first seen in-game.
+- Added new /bot help command which lists available commands
 - 'get ... info' select menus now show at the top of the button list under embeds
 - /history now has arguments before and after which allow you to select what date range the graph shows
 - /get player line graphs now don't have a gradual slope if they don't play for multiple days
@@ -25,18 +26,22 @@
 - Changed the emojis in /get world buttons
 - Renamed 'residency' to 'residence' around the bot
 - Renamed /history player residence_town and residence_nation to town_residence and nation_residence
+- Increased face size in /get player and notifications
 - Town and nation names are now formatted in /compare line graphs
-- Fixed an issue where refreshing may cease after reconnect
-- Fixed bug causing 'expand outposts' button to not work
-- Fixed leaderboard ranking notable statistics still having heading if there are none for the object
-- Fixed a bug where objects are forgotten briefly on server restart / bot disconnect
-- Fixed a bug where town count in /get religion and /get culture was one greater than reality
-- Fixed a bug where /compare players images were a weird aspect ratio
-- Fixed a bug where /top commands didn't show any error when an on=... date was chosen with a date earlier than when tracking began for that attribute
-- 'Retry command' button no longer shows for 'Find user'/context menu commands
+- Town mayors are no longer culled from the datbase if not seen on earth for 45 days
+- Slight performance improvements to /top and /history
 - 'Tracking server for...' footer no longer displays minute count
 - Residency now shows as 'none' rather than 'unknown' in notifications if they are not a resident
-- /history town visited_players no longer shows players who visited a previous town of the same name
+- Fixed various bugs where:
+ - refreshing may cease after reconnect
+ - 'expand outposts' button in /get town may not work
+ - Fixed leaderboard ranking notable statistics still having heading if there are none for the object
+ - objects are forgotten briefly on server restart / bot disconnect
+ - town count in /get religion and /get culture was one greater than reality
+ - /compare players images were a weird aspect ratio
+ - /top commands didn't show any error when an on=... date was chosen with a date earlier than when tracking began for that attribute
+ - /history town visited_players unintentionally showed players who visited a previous town of the same name
+ - 'Retry command' showed for 'Find user'/context menu commands
 newpage
 ## v2.10.1 (Mar 30 2024)
 - New command /distribution nation mayor_bank which shows the mayor's bank for each town 

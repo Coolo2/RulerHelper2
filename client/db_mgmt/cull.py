@@ -21,7 +21,7 @@ async def cull_db(c : client_pre.Client):
         await c.execute(f"DELETE FROM {day_history_type}_day_history WHERE time < ?", (datetime.datetime.now()-datetime.timedelta(days=1),))
 
     # Delete players that are no longer in the towny database (after 45d)
-    await c.execute("DELETE FROM players WHERE last < ?", (datetime.datetime.now()-s.cull_players_from,))
+    await c.execute("DELETE FROM players WHERE last < ? AND name NOT in (SELECT mayor FROM towns)", (datetime.datetime.now()-s.cull_players_from,))
 
     # Delete towns that aren't on the map anymore (haven't been seen for cull_objects_after)
     await c.execute("DELETE FROM towns WHERE last_seen < ?", (datetime.datetime.now()-s.cull_objects_after,))
