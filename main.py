@@ -27,11 +27,17 @@ c.bot = bot
 async def on_ready():
     print(bot.user.name, "online")
     for guild in bot.guilds:
-        print(guild.name, guild.owner)
+        if s.debug_mode: print(guild.name, guild.owner)
 
 @bot.event
 async def on_connect():
-    print("Connected")
+    if s.debug_mode: print("Connected")
+    if not _short_refresh.is_running():
+        _short_refresh.start()
+
+@bot.event
+async def on_resumed():
+    if s.debug_mode: print("Resumed")
     if not _short_refresh.is_running():
         _short_refresh.start()
 

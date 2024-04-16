@@ -247,10 +247,6 @@ class RawDatabase():
 
         for table_name, attributes in self.tables.items():
             await self.connection.execute(f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(attributes)})")
-        
-
-
-
 
         if update_coro:
             await update_coro

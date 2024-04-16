@@ -28,7 +28,10 @@ class SQLStatement():
         # Slightly slower (0.4s) to not use executemany, however doens't block. 
         for binding in self.bindings:
             await asyncio.sleep(0.001)
-            await connection.execute(self.statement, binding)
+            try:
+                await connection.execute(self.statement, binding)
+            except sqlite3.IntegrityError as e:
+                print("INtegrityError:", str(e))
 
 
 async def main_refresh(world : client_pre.objects.World, map_data : StreamReader):
@@ -304,8 +307,8 @@ async def short_refresh_tracking_update(world : client_pre.objects.World, player
     player_day_history_statement = SQLStatement("""REPLACE INTO player_day_history VALUES (?, ?, (select duration from activity where object_type='player' AND object_name=?), 
                 ?, (SELECT COUNT(*) FROM visited_towns WHERE player = ?), (SELECT COUNT(*) FROM visited_nations WHERE player = ?)) """)
     
-    visited_towns_statement = SQLStatement("""REPLACE INTO visited_towns VALUES (?, ?, ifnull((select duration from visited_towns where player=?), 0)+?, ?)""")
-    visited_nations_statement = SQLStatement("""REPLACE INTO visited_nations VALUES (?, ?, ifnull((select duration from visited_nations where player=?), 0)+?, ?)""")
+    visited_towns_statement = SQLStatement("""REPLACE INTO visited_towns VALUES (?, ?, ifnull((select duration from visited_towns WHERE player=? AND town=?), 0)+?, ?)""")
+    visited_nations_statement = SQLStatement("""REPLACE INTO visited_nations VALUES (?, ?, ifnull((select duration from visited_nations WHERE player=? AND nation=?), 0)+?, ?)""")
 
     for player_data in players:
         await asyncio.sleep(0.001) # Allow "parallel" processing
@@ -316,6 +319,7 @@ async def short_refresh_tracking_update(world : client_pre.objects.World, player
         if not p:
             p = world.client.objects.Player(world)
             world.set_player(player_data["account"], p)
+            p.search_boost=-1 # Send player to bottom of autocomplete list as they're new
         p.update(player_data)
 
         # Add to activity table
@@ -334,9 +338,9 @@ async def short_refresh_tracking_update(world : client_pre.objects.World, player
                 towns_with_players[town.name] = []
             towns_with_players[town.name].append(p)
 
-            visited_towns_statement.add_binding_set((p.name, town.name, p.name, world.client.refresh_period["players"], datetime.datetime.now()))
+            visited_towns_statement.add_binding_set((p.name, town.name, p.name, town.name, world.client.refresh_period["players"], datetime.datetime.now()))
             if town.nation:
-                visited_nations_statement.add_binding_set((p.name, town.nation.name, p.name, world.client.refresh_period["players"], datetime.datetime.now()))
+                visited_nations_statement.add_binding_set((p.name, town.nation.name, p.name, town.nation.name, world.client.refresh_period["players"], datetime.datetime.now()))
 
         # Add to players table
         players_statement.add_binding_set((p.name, ",".join([str(p.location.x), str(p.location.y), str(p.location.z)]), p.town.name if p.town else None, p.armor, p.health, p.name, p.name, p.nickname,p.bank, p.name, p.name, p.name, datetime.datetime.now()))

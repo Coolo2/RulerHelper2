@@ -464,7 +464,7 @@ class History(commands.Cog):
                         attribute.get("formatter") or str, attribute.get("parser"), 
                         is_town=cmd_type_name == "town", is_nation = cmd_type_name == "nation", is_player=cmd_type_name == "player", is_culture=cmd_type_name == "culture", is_religion=cmd_type_name == "religion",
                         attname=name, 
-                        y=attribute.get("y"), y_formatter=attribute.get("y_formatter"),
+                        y=attribute.get("y"), y_formatter=attribute.get("y_formatter") or attribute.get("formatter"),
                         start_at=attribute.get("start_at"),
                     ))
                     for parameter in command_type["parameters"]:
@@ -481,7 +481,7 @@ class History(commands.Cog):
                         attribute.get("formatter") or str, attribute.get("parser"), 
                         is_town=cmd_type_name == "town", is_nation = cmd_type_name == "nation", is_player=cmd_type_name == "player",
                         attname=name, 
-                        y=attribute.get("y"), y_formatter=attribute.get("y_formatter")
+                        y=attribute.get("y"), y_formatter=attribute.get("y_formatter") or attribute.get("formatter")
                     ))
                     for parameter in command_type["parameters"]:
                         if parameter.get("autocomplete"):

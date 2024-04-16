@@ -1,4 +1,4 @@
-# v2.11.0 (~)
+# v2.11.0 (Apr 16 2024)
 - Huge backend changes (to map image generation), meaning: 
  - Maps will no longer look blurry when zoomed in and have smooth edges 
  - Map images generate around 5x faster 
@@ -33,6 +33,7 @@
 - 'Tracking server for...' footer no longer displays minute count
 - Residency now shows as 'none' rather than 'unknown' in notifications if they are not a resident
 - Fixed various bugs where:
+ - Line graphs' y-axes didn't format correctly
  - refreshing may cease after reconnect
  - 'expand outposts' button in /get town may not work
  - Fixed leaderboard ranking notable statistics still having heading if there are none for the object

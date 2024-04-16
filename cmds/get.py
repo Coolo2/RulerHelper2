@@ -156,7 +156,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         bankruptcy_warning = ""
         if bank_change_today < 0 and town.bank < 0:
-            bankupctcy_days_prediction = int((-80-town.bank)/bank_change_today)
+            bankupctcy_days_prediction = client.image_generator.math.ceil((-80-town.bank)/bank_change_today)
             bankruptcy_warning = f"\n\n‼️ *Town is bankrupt! It is due to be deleted in {bankupctcy_days_prediction} day{'' if bankupctcy_days_prediction == 1 else 's'} unless someone pays into the bank!*"
 
         deletion_warning = await town.deletion_warning
@@ -343,7 +343,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
                 c = self.client.image_generator.town_cache_item(f"NationClaimRadius+{nation.name}", nation.towns).check_cache()
                 dpi = await self.client.image_generator.generate_area_map(nation.towns, True, True, self.client.image_generator.MapBackground.ON, True, c, self.client.world.towns)
                 if not c.valid:
-                    await self.client.image_generator.layer_claim_circle([capital.spawn.x, capital.spawn.z], 12430)
+                    await self.client.image_generator.layer_claim_circle([capital.spawn.x, capital.spawn.z], 12480)
                 file = discord.File(await self.client.image_generator.render_plt(dpi, c), "nation_map_claim.png")
 
                 interaction.message.embeds[0].set_thumbnail(url=None)

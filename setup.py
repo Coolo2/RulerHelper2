@@ -55,7 +55,7 @@ get_town_deletion_warning_threshold_days = 15 # Number of days mayor has to have
 
 earth_svg_path = "earth.svg"
 stretch_earth_bg = (1, 1)
-earth_svg_width = 1844
+earth_svg_width = 1843.2
 show_earth_bg_if_over = 500 # Shows earth background on maps if over this number (blocks) high or wide
 CACHE_IMAGES = False
 

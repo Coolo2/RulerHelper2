@@ -204,6 +204,7 @@ class ImageGenerator():
             return [self.__x_tick_formatter(self.min_max_x[0].x, t) for t in ticks]
         
         def format_y(self, ticks : list[plt.Text]):
+            print(self.__y_tick_formatter(10000))
             return [str(self.__y_tick_formatter(t)) for t in ticks]
         
         def calculate_x_gap(self):
@@ -368,7 +369,7 @@ class ImageGenerator():
 
     def __load_map(self):
         
-        tree = etree.parse("earth.svg")
+        tree = etree.parse(self.s.earth_svg_path)
         root = tree.getroot()
 
         ax = plt.gca()
@@ -378,8 +379,8 @@ class ImageGenerator():
 
         polys = []
         for path in path_elems:
-
-            if (not path.attrib.get("fill") or path.attrib["fill"] != "#000000") and path.get('d') and "cls-1" not in str(path.get("class")) and "010101" not in str(path.attrib.get("style")):
+            
+            if (not path.attrib.get("fill") or path.attrib["fill"] != "#000000") and path.get('d') and "cls-1" in str(path.get("class")) and "010101" not in str(path.attrib.get("style")):
                 path_parsed = parse_path(path.attrib['d'])
                 coords = path_parsed.to_polygons()
                 if coords:

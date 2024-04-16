@@ -11,7 +11,7 @@ renderer/
 test.py
 sqlite3.exe
 pypy/
-
+*.ai
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
