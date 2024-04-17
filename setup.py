@@ -13,7 +13,7 @@ Setup file!
 
 """
 
-version = "2.11.0" # Version number displayed on bot status etc 
+version = "2.11.1" # Version number displayed on bot status etc 
 
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
 debug_mode = True # Prints debug stuff in console
@@ -48,7 +48,7 @@ line_color = "silver"
 map_bordering_town_fill_colour = "#808080"
 map_bordering_town_opacity = 10 # 1-100 opacity for bordering towns on /get town and /get nation maps
 
-face_size = 64
+face_size = 56
 
 town_continent_description_compass_distance_threshold = 2500 # number of blocks east/west/south/north to show in /get town continent description
 get_town_deletion_warning_threshold_days = 15 # Number of days mayor has to have been inactive to show deletion warning in /get twn

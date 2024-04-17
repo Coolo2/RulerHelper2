@@ -173,7 +173,7 @@ class Top(commands.Cog):
                     attname=name, 
                     y=attribute.get("y"), 
                     reverse=attribute.get("reverse"), 
-                    y_formatter=attribute.get("y_formatter"), 
+                    y_formatter=attribute.get("y_formatter") or attribute.get("formatter"), 
                     not_in_history=attribute.get("not_in_history")
                 ))
                 command.autocomplete("on")(autocompletes.history_date_autocomplete_wrapper("object" if cmd_type_name in ["culture", "religion"] else cmd_type_name))

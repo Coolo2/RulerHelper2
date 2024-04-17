@@ -204,7 +204,6 @@ class ImageGenerator():
             return [self.__x_tick_formatter(self.min_max_x[0].x, t) for t in ticks]
         
         def format_y(self, ticks : list[plt.Text]):
-            print(self.__y_tick_formatter(10000))
             return [str(self.__y_tick_formatter(t)) for t in ticks]
         
         def calculate_x_gap(self):
@@ -377,23 +376,40 @@ class ImageGenerator():
 
         path_elems = root.findall('.//{http://www.w3.org/2000/svg}path')
 
-        polys = []
+        polys = [[], []]
+        i = 0
         for path in path_elems:
             
-            if (not path.attrib.get("fill") or path.attrib["fill"] != "#000000") and path.get('d') and "cls-1" in str(path.get("class")) and "010101" not in str(path.attrib.get("style")):
-                path_parsed = parse_path(path.attrib['d'])
-                coords = path_parsed.to_polygons()
-                if coords:
+            if path.get('d'):
+                if "cls-1" in str(path.get("class")) or "#fff" in str(path.get("style")):
+                    # Foreground
+                    path_parsed = parse_path(path.attrib['d'])
+                    coords = path_parsed.to_polygons()
+                    if coords:
 
-                    coords[0] = coords[0]*(self.map_width/self.s.earth_svg_width)*2  
-                    coords[0] = coords[0] - (self.map_width*self.s.stretch_earth_bg[0], self.map_height*self.s.stretch_earth_bg[1])
-                    polys.append(MPolygon(coords[0]))
-        
+                        coords[0] = coords[0]*(self.map_width/self.s.earth_svg_width)*2  
+                        coords[0] = coords[0] - (self.map_width*self.s.stretch_earth_bg[0], self.map_height*self.s.stretch_earth_bg[1])
+                        polys[0].append(MPolygon(coords[0]))
+                else:
+                    # background
+                    if i == 0:
+                        continue
+
+                    path_parsed = parse_path(path.attrib['d'])
+                    coords = path_parsed.to_polygons()
+                    if coords:
+
+                        coords[0] = coords[0]*(self.map_width/self.s.earth_svg_width)*2  
+                        coords[0] = coords[0] - (self.map_width*self.s.stretch_earth_bg[0], self.map_height*self.s.stretch_earth_bg[1])
+                        polys[1].append(MPolygon(coords[0]))
+                
+                i += 1
         return polys
     
     def __plot_map(self, ax):
         ax.set_facecolor("#1c1c1c")
-        ax.add_collection(MPatchCollection(self.__map_polys, facecolor="#292929", zorder=-1))
+        ax.add_collection(MPatchCollection(self.__map_polys[0], facecolor="#292929", zorder=-2))
+        ax.add_collection(MPatchCollection(self.__map_polys[1], facecolor="#1c1c1c", zorder=-1))
 
     def town_cache_item(self, name : str, towns : list[client_pre.objects.Town]):
         total_vertex_count = total_area = 0

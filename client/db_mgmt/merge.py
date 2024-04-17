@@ -109,7 +109,7 @@ async def merge_objects(c : client_pre.Client, object_type : str, old_object_nam
         # If duplicate exists, merge data
         visited_records_old = await (await c.execute("SELECT player, town, duration FROM visited_towns WHERE town=?", (old_object_name,))).fetchall()
         for (player, town, duration) in visited_records_old:
-            rec = await (await c.execute("SELECT 1 FROM visited_towns WHERE town=? AND player=?", (obj.name, town))).fetchone()
+            rec = await (await c.execute("SELECT 1 FROM visited_towns WHERE town=? AND player=?", (obj.name, player))).fetchone()
             if not rec:
                 await c.execute("UPDATE visited_towns SET town=? WHERE player=? AND town=?", (obj.name, player, town))
             else:

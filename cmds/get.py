@@ -63,7 +63,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Activity", value=str(activity))
         embed.add_field(name="Bank Balance", value=f"${player.bank:,.2f}" if player.bank else "Unknown *(not mayor)*")
         embed.add_field(name="Current Town", value=f"{town.name_formatted} {'('+str(town.nation.name_formatted)+')' if town.nation else ''}" if town else "None")
-        embed.add_field(name="Visited:", value=f"Towns: {visited_towns_total} ({(visited_towns_total/len(self.client.world.towns))*100:.1f}%)\nNations: {visited_nations_total} ({(visited_nations_total/len(self.client.world.nations))*100:.1f}%)")
+        embed.add_field(name="Visited:", value=f"Towns: {visited_towns_total}\nNations: {visited_nations_total}")
         embed.add_field(name="Likely Discord", value=str(dc.mention if dc else "Unknown"))
         embed.add_field(name="Statuses", value=f"""{"🟩 Donator: Yes" if player.donator == True else "🟥 Donator: Unlikely" if player.donator == False else "⬛ Donator: Unknown"}\n{"🟩 PVP: On" if player.pvp == True else "🟥 PVP: Off" if player.pvp == False else "⬛ PVP: Unknown"}""")
         embed.add_field(name="First Seen", value=f"{(first_seen).strftime(s.DATE_STRFTIME)}" +  (f" (tracking started: {tracking_started.strftime(s.DATE_STRFTIME)})" if first_seen-tracking_started<datetime.timedelta(days=30) else ""))
@@ -162,7 +162,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         deletion_warning = await town.deletion_warning
         deletion_warning_str = f"\n\n‼️ *Town is to be deleted in {deletion_warning} day{'' if deletion_warning == 1 else 's'} due to inactivity unless the mayor comes online (or the town is deleted due to bankruptcy beforehand)!*" if deletion_warning != None else ""
 
-        capital_desc_str = f" and is the capital of {town.nation.name}" if town.nation and town.nation.capital == town else ""
+        capital_desc_str = f" and is the capital of {town.nation.name_formatted}" if town.nation and town.nation.capital == town else ""
 
         embed = discord.Embed(title=f"Town: {town.name_formatted}", description=f"""{town.geography_description}. It is ruled by {str(town.mayor)}{capital_desc_str}.{deletion_warning_str}{bankruptcy_warning}""", color=s.embed)
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
@@ -177,7 +177,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Daily Tax", value=str(town.resident_tax))
         embed.add_field(name="Spawnblock", value=f"[{int(town.spawn.x)}, {int(town.spawn.z)}]({self.client.url}?x={int(town.spawn.x)}&z={int(town.spawn.z)}&zoom={s.map_link_zoom})")
         embed.add_field(name="Total activity", value=str(await town.activity))
-        embed.add_field(name="Visited Players", value=f"{visited_players_total} ({(visited_players_total/len(self.client.world.players))*100:.1f}%)")
+        embed.add_field(name="Visited Players", value=f"{visited_players_total}")
         embed.add_field(name="Outposts", value=str(len(town.outpost_spawns)))
         embed.add_field(name="Public", value="Yes" if town.public else "No")
         embed.add_field(name="Previous names", value=", ".join(previous_names) if len(previous_names) > 0 else "None")
@@ -288,7 +288,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Total activity", value=str(await nation.activity))
         embed.add_field(name="Total Outposts", value=f"{total_outposts:,}")
         embed.add_field(name="Town Value", value=f"${nation.total_value:,.2f}")
-        embed.add_field(name="Visited Players", value=f"{total_visited} ({(total_visited/len(self.client.world.players))*100:.1f}%)")
+        embed.add_field(name="Visited Players", value=f"{total_visited}")
         
         embed.add_field(name="Discord", value=flags.get("server") or "None set.")
         embed.add_field(name="First Seen", value=f"{(first_seen).strftime(s.DATE_STRFTIME)}" +  (f" (nation existed before tracking started)" if first_seen==tracking_started else ""))

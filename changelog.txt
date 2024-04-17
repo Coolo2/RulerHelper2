@@ -1,3 +1,10 @@
+### v2.11.1 (Apr 17 2024)
+- Replaced 'tracking time' field with 'version' and added changelog button to /bot info
+- Nation name in /get town description is now formatted (to remove underscores)
+- Fixes to the new map image
+- Fixed y axis formatting in /top
+- Slightly decreased face size agian in /get player and notifications
+- Removed percentages from /get commands (eg percentage after visited player count)
 # v2.11.0 (Apr 16 2024)
 - Huge backend changes (to map image generation), meaning: 
  - Maps will no longer look blurry when zoomed in and have smooth edges 
