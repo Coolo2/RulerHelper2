@@ -28,10 +28,10 @@ class Get(commands.GroupCog, name="bot", description="Commands relating to the b
 
         embed.add_field(name="Version", value=f"v{s.version}")
         embed.add_field(name="Servers", value=str(len(self.bot.guilds)))
-        embed.add_field(name="Database size", value=f"{self.client.world.database_size}MB")
-        embed.add_field(name="Linked discord accounts", value=str(len(await self.client.world.linked_discords)))
-        embed.add_field(name="Last refresh", value="\n".join(f"{k.title()}: <t:{round(t.timestamp())}:R>" for k, t in self.client.last_refreshed.items()))
-        embed.add_field(name="Current refresh time", value="\n".join(f"{k.title()}: {round(t)}s" for k, t in self.client.refresh_period.items()))
+        embed.add_field(name="Database Size", value=f"{self.client.world.database_size}MB")
+        embed.add_field(name="Linked Discord Accounts", value=str(len(await self.client.world.linked_discords)))
+        embed.add_field(name="Last Refresh", value="\n".join(f"{k.title()}: <t:{round(t.timestamp())}:R>" for k, t in self.client.last_refreshed.items()))
+        embed.add_field(name="Current Refresh Time", value="\n".join(f"{k.title()}: {round(t)}s" for k, t in self.client.refresh_period.items()))
 
         embed.set_footer(text=await self.client.tracking_footer + f", nation visitors for {(await self.client.world.total_tracked_nation_visited).str_no_timestamp(False)}")
 

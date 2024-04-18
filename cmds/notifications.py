@@ -65,7 +65,7 @@ class Notifications(commands.GroupCog, name="notifications", description="Setup 
                     await channel.send("> Notifications have been enabled in this channel. See config with `/notifications config view`")
                     return await interaction.response.send_message(embed=discord.Embed(title="Enabled", description="Enabled notifications there!", color=s.embedSuccess))  
                 except:
-                    return await interaction.response.send_message(embed=discord.Embed(title="Partially enabled", description="Enabled in this channel, however I don't seem to have access to send messages. Please give me access to send messages there!", color=s.embedSuccess)) 
+                    return await interaction.response.send_message(embed=discord.Embed(title="Partially Enabled", description="Enabled in this channel, however I don't seem to have access to send messages. Please give me access to send messages there!", color=s.embedSuccess)) 
             else:
                 raise client.errors.MildError("Notifications aren't set up here...")
     

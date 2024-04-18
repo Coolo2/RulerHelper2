@@ -181,7 +181,7 @@ async def update_tracking(world : client_pre.objects.World):
                 activity_statement.add_binding_set(("town",town.name,"town",town.name,world.client.refresh_period["map"]*len(players_in_town), datetime.datetime.now()))
 
             # Add to towns table
-            town_statement.add_binding_set((town.name, str(town.nation), str(town.religion), str(town.culture), str(town.mayor), town.resident_count, town.founded_date, 
+            town_statement.add_binding_set((town.name, town.nation.name if town.nation else None, str(town.religion), str(town.culture), str(town.mayor), town.resident_count, town.founded_date, 
                 town.resident_tax.for_record(), town.bank, town.mayor_bank, int(town.public), int(town.peaceful), town.area, town.name, len(town.outposts), town.name, town.name, str(town.mayor), town.name, town.last_updated)
             )
         

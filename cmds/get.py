@@ -63,14 +63,14 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Activity", value=str(activity))
         embed.add_field(name="Bank Balance", value=f"${player.bank:,.2f}" if player.bank else "Unknown *(not mayor)*")
         embed.add_field(name="Current Town", value=f"{town.name_formatted} {'('+str(town.nation.name_formatted)+')' if town.nation else ''}" if town else "None")
-        embed.add_field(name="Visited:", value=f"Towns: {visited_towns_total}\nNations: {visited_nations_total}")
+        embed.add_field(name="Visited", value=f"Towns: {visited_towns_total}\nNations: {visited_nations_total}")
         embed.add_field(name="Likely Discord", value=str(dc.mention if dc else "Unknown"))
         embed.add_field(name="Statuses", value=f"""{"🟩 Donator: Yes" if player.donator == True else "🟥 Donator: Unlikely" if player.donator == False else "⬛ Donator: Unknown"}\n{"🟩 PVP: On" if player.pvp == True else "🟥 PVP: Off" if player.pvp == False else "⬛ PVP: Unknown"}""")
         embed.add_field(name="First Seen", value=f"{(first_seen).strftime(s.DATE_STRFTIME)}" +  (f" (tracking started: {tracking_started.strftime(s.DATE_STRFTIME)})" if first_seen-tracking_started<datetime.timedelta(days=30) else ""))
 
         embed.add_field(name="Notable Statistics", value=notable_statistics, inline=False)
-        embed.add_field(name="Sent messages", value=f"{total_messages:,}" + (f" <t:{int(last_message.timestamp())}:R>" if total_messages != 0 else ""))
-        embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
+        embed.add_field(name="Sent Messages", value=f"{total_messages:,}" + (f" <t:{int(last_message.timestamp())}:R>" if total_messages != 0 else ""))
+        embed.add_field(name="Total Mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
 
         embed.set_footer(text=await self.client.tracking_footer + f", nation visitors for {(await self.client.world.total_tracked_nation_visited).str_no_timestamp(False)}")
         embed.set_thumbnail(url=await player.face_url)
@@ -180,8 +180,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Visited Players", value=f"{visited_players_total}")
         embed.add_field(name="Outposts", value=str(len(town.outpost_spawns)))
         embed.add_field(name="Public", value="Yes" if town.public else "No")
-        embed.add_field(name="Previous names", value=", ".join(previous_names) if len(previous_names) > 0 else "None")
-        embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
+        embed.add_field(name="Previous Names", value=", ".join(previous_names) if len(previous_names) > 0 else "None")
+        embed.add_field(name="Total Mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
 
         embed.add_field(name=f"Residents ({town.resident_count})", value="`" + ("`, `".join(town._resident_names) + "`") if len(town.residents) > 0 else "None", inline=False) 
         embed.add_field(name=f"Bordering Towns ({len(borders)})", value="`" + ("`, `".join(t.name_formatted for t in borders) + "`") if len(borders) > 0 else "None", inline=False) 
@@ -292,9 +292,9 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         
         embed.add_field(name="Discord", value=flags.get("server") or "None set.")
         embed.add_field(name="First Seen", value=f"{(first_seen).strftime(s.DATE_STRFTIME)}" +  (f" (nation existed before tracking started)" if first_seen==tracking_started else ""))
-        embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
+        embed.add_field(name="Total Mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
 
-        embed.add_field(name="Previous names", value=", ".join(previous_names) if len(previous_names) > 0 else "None", inline=False)
+        embed.add_field(name="Previous Names", value=", ".join(previous_names) if len(previous_names) > 0 else "None", inline=False)
         embed.add_field(name=f"Borders ({len(borders[0])})", value="`" + ("`, `".join(n.name_formatted for n in borders[0]) + "`") if len(borders[1]) > 0 else "None", inline=False if len(borders[1]) > 0 else True) 
         embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in [capital]+towns)) + "`", inline=False)
         embed.add_field(name="Culture Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in culture_make_up.items()][:5]) if len(culture_make_up) > 0 else 'None')
@@ -362,8 +362,8 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             c_view.add_command(commands_view.Command("history nation visited_players", "Visited Players", (nation.name,), button_style=discord.ButtonStyle.secondary, emoji="📖", row=1))
 
         if len(towns)+1 > 1:
-            c_view.add_command(commands_view.Command("distribution nation residents", "Res. distribution", (nation.name,), emoji="🧑", row=2))
-            c_view.add_command(commands_view.Command("distribution nation town_bank", "Balance distr.", (nation.name,), emoji="💵", row=2))
+            c_view.add_command(commands_view.Command("distribution nation residents", "Res. Distribution", (nation.name,), emoji="🧑", row=2))
+            c_view.add_command(commands_view.Command("distribution nation town_bank", "Balance Distr.", (nation.name,), emoji="💵", row=2))
 
         cmds = []
         for i, town in enumerate([capital]+towns):
@@ -409,7 +409,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Area", value=f"{area:,} plots ({area*64:,}km²)")
         embed.add_field(name="Town Value", value=f"${culture.total_value:,.2f}")
         embed.add_field(name="Population Density", value=f"{int(culture.total_area/total_residents):,} plots/resident")
-        embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
+        embed.add_field(name="Total Mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
         embed.add_field(name=f"Towns ({len(towns)})", value="`" + ("`, `".join(t.name_formatted for t in towns)) + "`", inline=False)
         embed.add_field(name="Nation Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in nation_make_up.items()][:5]) if len(nation_make_up) > 0 else 'None')
 
@@ -462,7 +462,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Area", value=f"{area:,} plots ({area*64:,}km²)")
         embed.add_field(name="Town Value", value=f"${religion.total_value:,.2f}")
         embed.add_field(name="Population Density", value=f"{int(religion.total_area/total_residents):,} plots/resident")
-        embed.add_field(name="Total mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
+        embed.add_field(name="Total Mentions", value=f"{total_mentions:,}" + (f" <t:{int(last_mention.timestamp())}:R>" if total_mentions != 0 else ""))
         embed.add_field(name=f"Towns ({len(towns)})", value="`" + ("`, `".join(t.name_formatted for t in towns)) + "`", inline=False)
         embed.add_field(name="Nation Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in nation_make_up.items()][:5]) if len(nation_make_up) > 0 else 'None')
 
@@ -513,9 +513,9 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         embed.add_field(name="Mayor Bank Value", value=f"${world.total_mayor_value:,.2f}")
         embed.add_field(name="Claimed Area", value=f"{area:,} plots ({area*64:,}km²)")
         embed.add_field(name="Total Residents", value=f"{world.total_residents:,} ({len(world.players):,} known)")
-        embed.add_field(name="Total player activity", value=total_activity.str_no_timestamp())
-        embed.add_field(name="Average online players", value=f"{total_activity.total/total_tracked.total:,.2f}")
-        embed.add_field(name="Total sent messages", value=f"{await world.total_messages:,}")
+        embed.add_field(name="Total Player Activity", value=total_activity.str_no_timestamp())
+        embed.add_field(name="Average Online Players", value=f"{total_activity.total/total_tracked.total:,.2f}")
+        embed.add_field(name="Total Sent Messages", value=f"{await world.total_messages:,}")
 
         embed.set_footer(text=await self.client.tracking_footer)
 
@@ -571,11 +571,11 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         if len(cmds) > 0:
             view.add_item(commands_view.CommandSelect(self, list(reversed(cmds))[:25], "Get Player Info...", -1))
 
-        button = discord.ui.Button(label="Show offline players", emoji="🧍", row=1, style=discord.ButtonStyle.primary)
+        button = discord.ui.Button(label="Show Offline Players", emoji="🧍", row=1, style=discord.ButtonStyle.primary)
         def off_players(world : client.objects.World, view : discord.ui.View, embed : discord.Embed):
             async def off_players_callback(interaction : discord.Interaction):
                 for item in view.children:
-                    if hasattr(item, "label") and item.label == "Show offline players":
+                    if hasattr(item, "label") and item.label == "Show Offline Players":
                         item.disabled = True 
                 
                 await interaction.response.defer()
@@ -592,7 +592,6 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             return off_players_callback
         button.callback = off_players(self.client.world, view, embed)
         view.add_item(button)
-
 
         c = self.client.image_generator.town_cache_item(f"Global", self.client.world.towns).check_cache()
         
@@ -613,7 +612,6 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         
         await interaction.edit_original_response(embed=embed, view=view, attachments=[file])
-
 
 
 async def setup(bot : commands.Bot):

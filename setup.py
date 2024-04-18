@@ -13,7 +13,7 @@ Setup file!
 
 """
 
-version = "2.11.1" # Version number displayed on bot status etc 
+version = "2.11.2" # Version number displayed on bot status etc 
 
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
 debug_mode = True # Prints debug stuff in console

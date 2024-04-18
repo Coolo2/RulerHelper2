@@ -37,7 +37,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
             towns.append(town)
         
         embed = discord.Embed(
-            title="Comparison between: ", 
+            title="Comparison Between: ", 
             description="\n".join(f"### {s.compare_emojis[i]} - {t.name_formatted}" for i, t in enumerate(towns)),
             color=s.embed
         )
@@ -123,7 +123,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
             capitals.append(nation.capital)
         
         embed = discord.Embed(
-            title="Comparison between: ", 
+            title="Comparison Between: ", 
             description="\n".join(f"### {s.compare_emojis[i]} - {n.name_formatted}" for i, n in enumerate(nations)),
             color=s.embed
         )
@@ -203,7 +203,7 @@ class Compare(commands.GroupCog, name="compare", description="Compare two (or mo
             players.append(player)
         
         embed = discord.Embed(
-            title="Comparison between: ", 
+            title="Comparison Between: ", 
             description="\n".join(f"### {s.compare_emojis[i]} - {p.name}" for i, p in enumerate(players)),
             color=s.embed
         )

@@ -1,3 +1,6 @@
+### 2.11.2 (Apr 18 2024)
+- Fixed /distribution nation ... for nations with underscores in their name
+- Fixed letter casing around titles and button labels
 ### v2.11.1 (Apr 17 2024)
 - Replaced 'tracking time' field with 'version' and added changelog button to /bot info
 - Nation name in /get town description is now formatted (to remove underscores)
