@@ -255,7 +255,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         towns = list(sorted(nation.towns, key=lambda t: t.resident_count, reverse=True))
         capital = nation.capital
-        leader = capital.mayor
+        leader = capital.mayor if capital else None
         flags = await nation.flags
         total_residents = nation.total_residents
         area = nation.total_area
@@ -264,10 +264,13 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         total_outposts = nation.total_outposts
         total_visited = await nation.total_visited_players
         first_seen, tracking_started = await nation.first_seen_in_history, await self.client.tracking_started
+
+        spawn_town = capital or towns[0]
         
         borders = nation.borders
-
-        towns.remove(capital)
+        
+        if capital:
+            towns.remove(capital)
 
         notable_rankings_str = client.funcs.top_rankings_to_text(await nation.top_rankings, nation.name_formatted)
         notable_statistics = nation.notable_statistics
@@ -276,12 +279,12 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
         religion_make_up = nation.religion_make_up
         culture_make_up = nation.culture_make_up
 
-        embed = discord.Embed(title=f"Nation: {nation.name_formatted}", description=f"[Visit on map]({self.client.url}?x={int(nation.capital.spawn.x)}&z={int(nation.capital.spawn.z)}&zoom={s.map_link_zoom})", color=s.embed)
+        embed = discord.Embed(title=f"Nation: {nation.name_formatted}", description=f"[Visit on map]({self.client.url}?x={int(spawn_town.spawn.x)}&z={int(spawn_town.spawn.z)}&zoom={s.map_link_zoom})", color=s.embed)
         if interaction.extras.get("author"): embed._author = interaction.extras.get("author")
-        embed.set_thumbnail(url=self.client.url + "/" + nation.capital.flag_url)
+        embed.set_thumbnail(url=self.client.url + "/" + spawn_town.flag_url)
         
-        embed.add_field(name="Leader", value=discord.utils.escape_markdown(str(leader)))
-        embed.add_field(name="Capital", value=str(capital))
+        embed.add_field(name="Leader", value=discord.utils.escape_markdown(str(leader)) if leader else "Unknown")
+        embed.add_field(name="Capital", value=str(capital) if capital else "Unknown")
         embed.add_field(name="Residents", value=f"{total_residents:,}")
         embed.add_field(name="Area", value=f"{area:,} plots ({area*64:,}km²)")
         embed.add_field(name="Population Density", value=f"{int(nation.total_area/total_residents):,} plots/resident")
@@ -296,7 +299,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
 
         embed.add_field(name="Previous Names", value=", ".join(previous_names) if len(previous_names) > 0 else "None", inline=False)
         embed.add_field(name=f"Borders ({len(borders[0])})", value="`" + ("`, `".join(n.name_formatted for n in borders[0]) + "`") if len(borders[1]) > 0 else "None", inline=False if len(borders[1]) > 0 else True) 
-        embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in [capital]+towns)) + "`", inline=False)
+        embed.add_field(name=f"Towns ({len(towns)+1})", value="`" + ("`, `".join(t.name_formatted for t in ([capital] if capital else [])+towns)) + "`", inline=False)
         embed.add_field(name="Culture Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in culture_make_up.items()][:5]) if len(culture_make_up) > 0 else 'None')
         embed.add_field(name="Religion Make Up", value="- " + "\n- ".join([f"{name}: {(residents/total_residents)*100:,.2f}%" for name, residents in religion_make_up.items()][:5]) if len(religion_make_up) > 0 else 'None')
         embed.add_field(name="Notable Statistics", value=notable_statistics_str + notable_rankings_str, inline=False)
@@ -351,10 +354,11 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
                 
                 await interaction.followup.edit_message(view=view, attachments=[file], embed=interaction.message.embeds[0], message_id=interaction.message.id)
             return claims_button_callback
-        button.callback = claims_button(nation, c_view, nation.capital)
-        c_view.add_item(button)
+        button.callback = claims_button(nation, c_view, capital)
+        if capital:
+            c_view.add_item(button)
 
-        if type(leader) != str:
+        if leader and type(leader) != str:
             c_view.add_command(commands_view.Command("get player", "Leader Info", (leader.name,), button_style=discord.ButtonStyle.primary, emoji="👑", row=1))
         c_view.add_command(commands_view.Command("history nation residents", "Resident History", (nation.name,), emoji="🧑", row=1))
         c_view.add_command(commands_view.Command("history nation towns", "Town History", (nation.name,), emoji="🗾", row=1))
@@ -366,7 +370,7 @@ class Get(commands.GroupCog, name="get", description="All get commands"):
             c_view.add_command(commands_view.Command("distribution nation town_bank", "Balance Distr.", (nation.name,), emoji="💵", row=2))
 
         cmds = []
-        for i, town in enumerate([capital]+towns):
+        for i, town in enumerate(([capital] if capital else [])+towns):
             if i >= 25: break 
             cmds.append(commands_view.Command("get town", town.name_formatted, (town.name,), emoji=None))
         c_view.add_item(commands_view.CommandSelect(self, cmds, "Get Town Info...", -1))

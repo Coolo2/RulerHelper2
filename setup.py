@@ -13,7 +13,7 @@ Setup file!
 
 """
 
-version = "2.11.2" # Version number displayed on bot status etc 
+version = "2.11.3" # Version number displayed on bot status etc 
 
 PRODUCTION_MODE = False # Enables error handling and stuff. Set to False during testing, True during release
 debug_mode = True # Prints debug stuff in console
@@ -54,7 +54,7 @@ town_continent_description_compass_distance_threshold = 2500 # number of blocks 
 get_town_deletion_warning_threshold_days = 15 # Number of days mayor has to have been inactive to show deletion warning in /get twn
 
 earth_svg_path = "earth.svg"
-stretch_earth_bg = (1, 1)
+stretch_earth_bg = (1.0015, 1)
 earth_svg_width = 1843.2
 show_earth_bg_if_over = 500 # Shows earth background on maps if over this number (blocks) high or wide
 CACHE_IMAGES = False

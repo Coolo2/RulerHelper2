@@ -1,3 +1,7 @@
+### 2.11.3 (Apr 29 2024)
+- Bot now functions if map icons are broken
+- Fixed map background being offset slightly 
+- Minor backend changes
 ### 2.11.2 (Apr 18 2024)
 - Fixed /distribution nation ... for nations with underscores in their name
 - Fixed letter casing around titles and button labels

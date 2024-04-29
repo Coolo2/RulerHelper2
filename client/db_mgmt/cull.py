@@ -66,9 +66,9 @@ async def cull_db(c : client_pre.Client):
             
     for nation in c.world.nations.copy():
         
-        if not nation.capital:
+        if len(nation.towns) == 0:
 
-            nation_info_record = await (await c.execute("SELECT towns, residents, area, capital FROM nation_history WHERE nation=? ORDER BY date DESC", (nation.name,))).fetchone()
+            nation_info_record = await (await c.execute("SELECT towns, residents, area, capital FROM nation_history WHERE nation=? AND capital IS NOT NULL ORDER BY date DESC LIMIT 1", (nation.name,))).fetchone()
             if not nation_info_record:
                 nation_info_record = await (await c.execute("SELECT towns, residents, area FROM objects WHERE type='nation' AND name=?", (nation.name,))).fetchone()
             c.world._remove_nation(nation.name)

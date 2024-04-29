@@ -58,7 +58,8 @@ async def upgrade_db(c : client_pre.Client):
     if s.MIGRATE_DB:
 
         current_db_version = await c.db_version
-        if (await c.world.total_tracked).total > 0:
+        tracked = await c.world.total_tracked
+        if tracked and (tracked).total > 0:
             for version, migrations in version_migrations.items():
                 if not current_db_version or int(version) > current_db_version:
                     for migration in migrations:

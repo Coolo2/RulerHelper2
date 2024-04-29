@@ -38,6 +38,7 @@ class RawDatabase():
             "armor INTEGER",
             "health INTEGER",
             "visited_towns INTEGER",
+            "visited_nations INTEGER",
             "nickname STRING",
             "bank REAL",
             "messages INTEGER",

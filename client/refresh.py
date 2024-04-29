@@ -220,8 +220,7 @@ async def update_tracking(world : client_pre.objects.World):
             activity_statement.add_binding_set(("nation",nation.name,"nation",nation.name,world.client.refresh_period["map"]*players_in_nation, datetime.datetime.now()))
 
         try:
-            
-            nation_history_statement.add_binding_set((nation.name, datetime.date.today(), len(nation.towns), nation.total_value, nation.total_residents, str(nation.capital), str(nation.capital.mayor), nation.total_area, nation.name, nation.name, nation.name, nation.name))
+            nation_history_statement.add_binding_set((nation.name, datetime.date.today(), len(nation.towns), nation.total_value, nation.total_residents, str(nation.capital) if nation.capital else None, str(nation.capital.mayor) if nation.capital else None, nation.total_area, nation.name, nation.name, nation.name, nation.name))
             if n.minute == 29 or n.minute == 59:
                 nation_day_history_statement.add_binding_set((nation.name, time_rounded, len(nation.towns), nation.total_value, nation.total_residents, nation.name, nation.total_area, nation.name))
         except Exception as e:
